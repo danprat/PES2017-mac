@@ -190,6 +190,11 @@ void android::perf::ApplyMemoryDefaults()
     std::snprintf(text, sizeof text, "%u", textureMB);
     setenv("MW2_TEXTURE_BUDGET_MB", text, 0);
 
+    // The 3D scene at three quarters of 720p each way (960x540), stretched back
+    // by the present: the match is GPU-bound on a Snapdragon 865 (98% busy at
+    // its top clock), and this is 44% fewer pixels for every full-frame pass.
+    setenv("MW2_SCENE_SCALE", "0.75", 0);
+
     // The upload arena is committed up front, so it is 512 MB of resident
     // memory on a device that does not have it to spare.
     const uint32_t arenaMB = totalMB >= 8000 ? 384u : totalMB >= 6000 ? 256u : 192u;

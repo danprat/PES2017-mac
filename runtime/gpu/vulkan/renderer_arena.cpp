@@ -8,13 +8,28 @@
 #include <algorithm>
 #include <bit>
 #include <cstring>
+#include <cstdio>
+#ifdef MW2_ANDROID
+#include "../../android/android.h"
+#endif
 #include <vector>
 
 #ifdef MW2_HAVE_VULKAN
 
 namespace vk::renderer::detail
 {
-    constexpr bool kServeVertexShadow = false;
+    // The vertex shadow (gpu::watch::Serve): unchanged vertex pages read from a
+    // GPU-visible copy instead of copied for every draw. Off: with it on, the
+    // match's players drew only their shadows and the kit compositions came out
+    // wrong -- their vertex data is rewritten in ways the page watch misses.
+    // files/vertex_shadow turns it on, for testing.
+    const bool kServeVertexShadow = [] {
+#ifdef MW2_ANDROID
+        if (FILE* f = std::fopen((android::GetPaths().external + "/vertex_shadow").c_str(), "r"))
+        { std::fclose(f); return true; }
+#endif
+        return false;
+    }();
     // A draw's constants, vertex data and indices are copied here and addressed by
     // offset, and it is reset when the frame is submitted.
     uint32_t Allocate(uint32_t bytes, ArenaKind kind)
@@ -276,12 +291,29 @@ namespace vk::renderer::detail
                     g.arenaReused[kArenaVertices] += words * 4;
                 else
                 {
-                    // Never the union with what was cached: draws reaching into a
-                    // shared heap from both ends would ratchet it out to the whole
-                    // buffer, and every later miss would copy all of it.
-                    const uint32_t at = CopyIntoArena(guest::Base() + va + first * 4,
-                                                      words * 4, kArenaVertices);
-                    if (at == UINT32_MAX) return out;
+                    // A copy an earlier draw of this submission made of the same
+                    // range, if the watch vouches that nothing has written it since.
+                    const uint64_t copyKey = (uint64_t(physical) << 32) | first;
+                    uint32_t at = UINT32_MAX;
+                    if (auto it = g.vertexCopies.find(copyKey);
+                        it != g.vertexCopies.end() && it->second.words >= words &&
+                        gpu::watch::Unwritten(physical + first * 4, words * 4, it->second.stamp))
+                    {
+                        at = it->second.at;
+                        g.vertexBytesReused += words * 4;
+                    }
+                    else
+                    {
+                        // Never the union with what was cached: draws reaching into a
+                        // shared heap from both ends would ratchet it out to the whole
+                        // buffer, and every later miss would copy all of it.
+                        const uint64_t stamp = (words * 4 >= 4096)
+                            ? gpu::watch::Track(physical + first * 4, words * 4, CompletedSerial, g.frames) : 0;
+                        at = CopyIntoArena(guest::Base() + va + first * 4, words * 4, kArenaVertices);
+                        if (at == UINT32_MAX) return out;
+                        g.vertexBytesCopied += words * 4;
+                        if (stamp) g.vertexCopies[copyKey] = { words, at, stamp };
+                    }
                     if (!found) found = &made[madeCount++];
                     *found = { entry[0] & ~3u, at - first * 4, first, words };
                 }

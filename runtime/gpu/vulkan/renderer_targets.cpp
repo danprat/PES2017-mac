@@ -4,6 +4,7 @@
 #include "../../log.h"
 
 #include <algorithm>
+#include <atomic>
 
 #ifdef MW2_HAVE_VULKAN
 
@@ -14,7 +15,7 @@ namespace vk::renderer::detail
         VkImageCreateInfo info{ VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
         info.imageType = VK_IMAGE_TYPE_2D;
         info.format = target.format;
-        info.extent = { target.width * g.scale, target.height * g.scale, 1 };
+        info.extent = { HostOf(target.width, target.scale), HostOf(target.height, target.scale), 1 };
         info.mipLevels = 1;
         info.arrayLayers = 1;
         info.samples = target.samples;
@@ -317,10 +318,10 @@ namespace vk::renderer::detail
                       VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
         VkImageResolve region{};
         region.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
-        region.srcOffset = Scaled(at.x, at.y, 0);
+        region.srcOffset = Scaled(at.x, at.y, 0, target.scale);
         region.dstSubresource = region.srcSubresource;
         region.dstOffset = region.srcOffset;
-        region.extent = { width * g.scale, height * g.scale, 1 };
+        region.extent = { HostOf(width, target.scale), HostOf(height, target.scale), 1 };
         const VkImage from = target.image, into = target.singleImage;
         Record([=](VkCommandBuffer command) {
             vkCmdResolveImage(command, from, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
@@ -370,7 +371,7 @@ namespace vk::renderer::detail
         // the twin comes out in TRANSFER_SRC, ready to be copied from.
         const VkImageView view = target.view, twinView = target.singleView;
         const VkImage twin = target.singleImage;
-        const VkRect2D area{ Scaled(at), Scaled(VkExtent2D{ width, height }) };
+        const VkRect2D area{ Scaled(at, target.scale), Scaled(VkExtent2D{ width, height }, target.scale) };
         Record([=](VkCommandBuffer command) {
             constexpr VkImageAspectFlags kBoth = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
             // The draws before it wrote the depth; the copies before it read the twin.
@@ -461,6 +462,7 @@ namespace vk::renderer::detail
         target.depth = key.depth;
         target.width = width;
         target.height = height;
+        target.scale = SceneScaleFor(width);
         target.format = VkFormat(key.format);
         target.guestFormat = guestFormat;
         target.samples = HostSamples(key.samples);
@@ -481,7 +483,7 @@ namespace vk::renderer::detail
         if (!MakeImage(target, usage, aspect)) { Skip("render target allocation"); return nullptr; }
 
         LOGI("renderer: %s target %ux%u at EDRAM tile %u (%s), %ux for the title's %ux",
-             key.depth ? "depth" : "colour", target.width * g.scale, target.height * g.scale,
+             key.depth ? "depth" : "colour", HostOf(target.width, target.scale), HostOf(target.height, target.scale),
              key.baseTile,
              key.depth ? gpu::DepthTargetFormatName(guestFormat)
                        : (gpu::ColorTargetFormatName(guestFormat) ?: "unknown"),
@@ -648,17 +650,26 @@ namespace vk::renderer::detail
         const VkImageView colourView = colour.view, depthView = depth.view;
         if (!colourView && !depthView) return;
 
-        uint32_t maxW = width * g.scale;
-        uint32_t maxH = height * g.scale;
+        // Both attachments of a pass have to be drawn at one scale.
+        const float scale = colourView ? colour.scale : depth.scale;
+        if (colourView && depthView && colour.scale != depth.scale)
+        {
+            static std::atomic<int> told{ 0 };
+            if (told++ < 4)
+                LOGW("renderer: a pass pairs a %ux%u colour surface at scale %.2f with a %ux%u depth surface at %.2f",
+                     colour.width, colour.height, colour.scale, depth.width, depth.height, depth.scale);
+        }
+        uint32_t maxW = HostOf(width, scale);
+        uint32_t maxH = HostOf(height, scale);
         if (colourView)
         {
-            maxW = std::min(maxW, colour.width * g.scale);
-            maxH = std::min(maxH, colour.height * g.scale);
+            maxW = std::min(maxW, HostOf(colour.width, colour.scale));
+            maxH = std::min(maxH, HostOf(colour.height, colour.scale));
         }
         if (depthView)
         {
-            maxW = std::min(maxW, depth.width * g.scale);
-            maxH = std::min(maxH, depth.height * g.scale);
+            maxW = std::min(maxW, HostOf(depth.width, depth.scale));
+            maxH = std::min(maxH, HostOf(depth.height, depth.scale));
         }
         const VkExtent2D area{ std::max(1u, maxW), std::max(1u, maxH) };
 
@@ -730,6 +741,7 @@ namespace vk::renderer::detail
         g.currentSamples = uint32_t(colour.samples);
         g.currentWidth = width;
         g.currentHeight = height;
+        g.currentScale = scale;
     }
 
     // The Xenos clears the EDRAM surface as part of the resolve that reads it

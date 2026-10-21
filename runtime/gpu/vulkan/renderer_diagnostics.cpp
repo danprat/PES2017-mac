@@ -554,7 +554,7 @@ namespace vk::renderer::detail
             DumpImage(target.samples > 1 ? target.singleImage : target.image,
                       target.samples > 1 ? VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
                                          : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                      target.width * g.scale, std::min(target.height, 1024u) * g.scale, name);
+                      HostOf(target.width, target.scale), HostOf(std::min(target.height, 1024u), target.scale), name);
         }
 
         // A multisampled depth image cannot be copied out, so it is resolved into
@@ -578,7 +578,7 @@ namespace vk::renderer::detail
                           (unsigned long long)g.frames, shot.tile,
                           shot.target->width, tall, 1u << shot.samples);
             DumpImage(shot.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                      shot.target->width * g.scale, tall * g.scale, name,
+                      HostOf(shot.target->width, shot.target->scale), HostOf(tall, shot.target->scale), name,
                       VK_IMAGE_ASPECT_DEPTH_BIT, g.depthFormat);
         }
         for (const Shot& shot : shots)
@@ -592,7 +592,7 @@ namespace vk::renderer::detail
                           (unsigned long long)g.frames, address,
                           resolved.depth ? "_depth" : "");
             DumpImage(resolved.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                      resolved.width * g.scale, resolved.height * g.scale, name,
+                      HostOf(resolved.width, resolved.scale), HostOf(resolved.height, resolved.scale), name,
                       resolved.depth ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT,
                       resolved.format);
         }
@@ -746,7 +746,7 @@ namespace vk::renderer::detail
             return sign ? -v : v;
         };
         const auto describe = [&](const char* what, VkImage image, VkImageLayout layout, VkFormat format,
-                                  uint32_t width, uint32_t height) {
+                                  uint32_t width, uint32_t height, float scale) {
             uint32_t texel = 0;
             switch (format)
             {
@@ -755,7 +755,7 @@ namespace vk::renderer::detail
             case VK_FORMAT_R16G16B16A16_SFLOAT: case VK_FORMAT_R32G32_SFLOAT: texel = 8; break;
             default: LOGW("DUMP   samples %s: vk format %d not read", what, int(format)); return;
             }
-            const uint32_t w = width * g.scale, h = height * g.scale;
+            const uint32_t w = HostOf(width, scale), h = HostOf(height, scale);
             const std::vector<uint8_t> bytes = ReadColourImage(image, layout, w, h, texel);
             if (bytes.empty()) return;
             std::string line;
@@ -823,7 +823,7 @@ namespace vk::renderer::detail
         for (const auto& [key, target] : g.targets)
         {
             if (!target.depth || !target.draws || target.samples > 1) continue;
-            const uint32_t w = target.width * g.scale, h = std::min(target.height, 1024u) * g.scale;
+            const uint32_t w = HostOf(target.width, target.scale), h = HostOf(std::min(target.height, 1024u), target.scale);
             const std::vector<uint8_t> bytes = ReadColourImage(target.image, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
                                                                w, h, 4, VK_IMAGE_ASPECT_DEPTH_BIT);
             if (bytes.empty()) continue;
@@ -847,7 +847,7 @@ namespace vk::renderer::detail
             if (target.depth || !target.draws || target.samples > 1) continue;
             std::snprintf(name, sizeof name, "target tile %u pitch %u fmt %u", key.baseTile, key.pitch, target.guestFormat);
             describe(name, target.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, target.format,
-                     target.width, std::min(target.height, 1024u));
+                     target.width, std::min(target.height, 1024u), target.scale);
         }
         for (const auto& [address, ring] : g.resolvedTo)
         {
@@ -857,7 +857,7 @@ namespace vk::renderer::detail
             {
                 if (!r->image || r->depth) continue;
                 std::snprintf(name, sizeof name, "resolve %08X%s", address, r == &ring.exact[newest] ? " corner" : "");
-                describe(name, r->image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, r->format, r->width, r->height);
+                describe(name, r->image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, r->format, r->width, r->height, r->scale);
             }
         }
     }

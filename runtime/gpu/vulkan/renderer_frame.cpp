@@ -55,6 +55,7 @@ namespace vk::renderer::detail
         Record([=](VkCommandBuffer) { vkResetCommandPool(device, pool, 0); });
         BeginSegmentBuffer();
         g.arenaUsed = 0;
+        g.vertexCopies.clear();
         g.constantWindows[0].valid = g.constantWindows[1].valid = false;
         g.fetchBlock.valid = g.booleans.valid = g.loops.valid = false;
         g.recording = true;
@@ -369,7 +370,8 @@ namespace
             return;
         for (uint32_t i = 0; i < query.count; i++) query.samples += samples[i];
         // The title compares the count with numbers of its own pixels.
-        query.samples /= uint64_t(g.scale) * g.scale;
+        const double area = double(g.scale) * g.scale * query.scale * query.scale;
+        query.samples = uint64_t(double(query.samples) / area + 0.5);
     }
 }
 
@@ -424,7 +426,8 @@ bool vk::renderer::EndOcclusionQuery(uint32_t tag, uint64_t& samples)
     g.guestQueryCount = 0;
     if (!counted) return true;
     g.guestQueryNext = g.guestQueryFirst + counted;
-    g.pendingQueries.push_back({ g.guestQueryFirst, counted, tag, g.slot, g.submissionSerial + 1 });
+    g.pendingQueries.push_back({ g.guestQueryFirst, counted, tag, g.slot, g.submissionSerial + 1,
+                                 false, 0, g.currentScale });
     return false;
 }
 

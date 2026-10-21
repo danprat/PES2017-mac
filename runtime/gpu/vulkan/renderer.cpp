@@ -23,6 +23,9 @@ bool vk::renderer::DumpingDraws() { return false; }
 #else
 
 #include "renderer_state.h"
+#ifdef MW2_ANDROID
+#include "../../android/android.h"
+#endif
 #include "display_table.h"
 #include "texture_cache.h"
 #include "../memory_watch.h"
@@ -208,6 +211,27 @@ bool vk::renderer::Initialise()
         if (g.scale > 1)
             LOGI("renderer: drawing at %ux the title's sizes, a %ux%u frame", g.scale,
                  g.presentWidth, g.presentHeight);
+        // MW2_SCENE_SCALE: the full-frame surfaces drawn smaller (renderer_state.h
+        // SceneScaleFor). Rounded to a sixteenth, so 1280 lands on whole pixels.
+        g.sceneScale = 1.0f;
+        if (g.scale == 1)
+        {
+            double asked = env::Real("MW2_SCENE_SCALE", 1.0);
+#ifdef MW2_ANDROID
+            // files/scene_scale overrides it, for measuring.
+            if (FILE* f = std::fopen((android::GetPaths().external + "/scene_scale").c_str(), "r"))
+            {
+                double value = 0;
+                if (std::fscanf(f, "%lf", &value) == 1 && value > 0) asked = value;
+                std::fclose(f);
+            }
+#endif
+            asked = std::clamp(asked, 0.5, 1.0);
+            g.sceneScale = float(std::round(asked * 16.0) / 16.0);
+            if (g.sceneScale < 1.0f)
+                LOGI("renderer: the scene is drawn at %.4g of 1280x720 (%ux%u)", g.sceneScale,
+                     HostOf(1280, g.sceneScale), HostOf(720, g.sceneScale));
+        }
     }
 
     VkCommandPoolCreateInfo pool{ VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };

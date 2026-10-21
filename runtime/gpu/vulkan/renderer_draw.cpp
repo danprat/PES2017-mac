@@ -223,7 +223,8 @@ namespace vk::renderer::detail
                          linearise ? " linearised" : "", ids[slot] ? (corner ? "bound (corner)" : "bound") : "NOT BOUND");
                 if (ids[slot])
                 {
-                    scaled |= 1u << slot;
+                    // Only a copy whose image is not the title's size.
+                    if (g.scale > 1 || newest->scale != 1.0f) scaled |= 1u << slot;
                     if (g.drawRecord) NoteDrawTexture(slot, fetch, ids[slot], true);
                     continue;
                 }
@@ -278,6 +279,7 @@ namespace vk::renderer::detail
         uint32_t stencil[2]{};
         uint32_t push[4]{};
         uint32_t scaled = 0;
+        float scaledFactors[2]{};
         VkCullModeFlags cullMode = 0;
         VkFrontFace frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
         DepthTests depthTests{};
@@ -298,8 +300,11 @@ namespace vk::renderer::detail
                 vkCmdPushConstants(command, layout, kBoth,
                                    bindings::kVertexPushOffset, sizeof ndc, ndc);
             if (set & kScaled)
-                vkCmdPushConstants(command, layout, kBoth,
-                                   bindings::kScaledPushOffset, sizeof scaled, &scaled);
+            {
+                uint32_t words[3] = { scaled, 0, 0 };
+                std::memcpy(&words[1], scaledFactors, sizeof scaledFactors);
+                vkCmdPushConstants(command, layout, kBoth, bindings::kScaledPushOffset, sizeof words, words);
+            }
             if (set & kPipeline)
                 vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
             if (set & kViewport) vkCmdSetViewport(command, 0, 1, &viewport);
@@ -1022,17 +1027,18 @@ void vk::renderer::Draw(const gpu::RegisterFile& r, const DrawCall& call)
     }
 
     // The title's pixels up to here, the images' from here.
-    viewport.x *= float(g.scale);
-    viewport.y *= float(g.scale);
-    viewport.width *= float(g.scale);
-    viewport.height *= float(g.scale);
-    scissor = { Scaled(scissor.offset), Scaled(scissor.extent) };
+    const float hostScale = float(g.scale) * g.currentScale;
+    viewport.x *= hostScale;
+    viewport.y *= hostScale;
+    viewport.width *= hostScale;
+    viewport.height *= hostScale;
+    scissor = { Scaled(scissor.offset, g.currentScale), Scaled(scissor.extent, g.currentScale) };
     if (g.currentWidth && g.currentHeight)
     {
         scissor.offset.x = std::max(0, scissor.offset.x);
         scissor.offset.y = std::max(0, scissor.offset.y);
-        const int32_t maxX = int32_t(g.currentWidth * g.scale);
-        const int32_t maxY = int32_t(g.currentHeight * g.scale);
+        const int32_t maxX = int32_t(HostOf(g.currentWidth, g.currentScale));
+        const int32_t maxY = int32_t(HostOf(g.currentHeight, g.currentScale));
         if (scissor.offset.x >= maxX || scissor.offset.y >= maxY)
         {
             scissor.offset = { 0, 0 };
@@ -1045,12 +1051,21 @@ void vk::renderer::Draw(const gpu::RegisterFile& r, const DrawCall& call)
         }
     }
 
-    if (g.scale > 1 && (!bound.scaledValid || bound.scaled != scaledSlots))
+    // Which slots read a resolve's copy drawn at another size than the title
+    // gave it, by how much, and how much smaller this pass is drawn: texture
+    // sizes and the pixel position the shader sees are the title's.
     {
-        op.set |= DrawOp::kScaled;
-        op.scaled = scaledSlots;
-        bound.scaled = scaledSlots;
-        bound.scaledValid = true;
+        const float factors[2] = { 1.0f / (float(g.scale) * (g.sceneScale)), 1.0f / hostScale };
+        if (!bound.scaledValid || bound.scaled != scaledSlots ||
+            std::memcmp(bound.scaledFactors, factors, sizeof factors))
+        {
+            op.set |= DrawOp::kScaled;
+            op.scaled = scaledSlots;
+            std::memcpy(op.scaledFactors, factors, sizeof factors);
+            bound.scaled = scaledSlots;
+            std::memcpy(bound.scaledFactors, factors, sizeof factors);
+            bound.scaledValid = true;
+        }
     }
 
     if (!bound.viewportValid || std::memcmp(&bound.viewport, &viewport, sizeof viewport))
@@ -1110,7 +1125,7 @@ void vk::renderer::Draw(const gpu::RegisterFile& r, const DrawCall& call)
             offset * (depthInfo.Format() ? float(1u << 24) : float((1u << 24) - 1)),
             // A slope is depth per pixel, and the images' pixels are smaller
             // than the title's.
-            scale * (1.0f / 16.0f) * float(g.scale),
+            scale * (1.0f / 16.0f) * float(g.scale) * g.currentScale,
         };
         if (!bound.depthBiasValid || std::memcmp(bound.depthBias, bias, sizeof bias))
         {

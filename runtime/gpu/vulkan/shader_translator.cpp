@@ -391,9 +391,10 @@ namespace
         Id block = m_module.Allocate();
         std::vector<uint32_t> operands{ block };
         operands.insert(operands.end(), members.begin(), members.end());
-        // Only a shader built for larger targets has the member, so one built
-        // for the title's own sizes is what it always was.
-        if (m_scale > 1) operands.push_back(m_uint);
+        // The scaled-copy mask and the two factors (bindings::kScaledPushOffset).
+        operands.push_back(m_uint);
+        operands.push_back(m_float);
+        operands.push_back(m_float);
         auto& declarations = m_module.Declarations();
         declarations.push_back(Head(Op::TypeStruct, uint32_t(operands.size()) + 1));
         declarations.insert(declarations.end(), operands.begin(), operands.end());
@@ -402,12 +403,12 @@ namespace
         for (uint32_t i = 0; i < members.size(); i++)
             Module::Emit(m_module.Decorations(), Op::MemberDecorate,
                          { block, i, uint32_t(Decoration::Offset), offset + 4 * i });
-        if (m_scale > 1)
         {
             m_scaledMember = uint32_t(members.size());
-            Module::Emit(m_module.Decorations(), Op::MemberDecorate,
-                         { block, m_scaledMember, uint32_t(Decoration::Offset),
-                           bindings::kScaledPushOffset });
+            for (uint32_t k = 0; k < 3; k++)
+                Module::Emit(m_module.Decorations(), Op::MemberDecorate,
+                             { block, m_scaledMember + k, uint32_t(Decoration::Offset),
+                               bindings::kScaledPushOffset + 4 * k });
         }
         Id pointer = m_module.Pointer(StorageClass::PushConstant, block);
         Id variable = m_module.Allocate();
@@ -424,16 +425,17 @@ namespace
     // title's half texels and unnormalised coordinates are still the surface's.
     Id Translator::GuestSize(Id size, uint32_t slot, uint32_t components)
     {
-        if (m_scale <= 1) return size;
         Id mask = Emit(Op::Load, m_uint,
                        { Emit(Op::AccessChain, m_module.Pointer(StorageClass::PushConstant, m_uint),
                               { m_pushBlock, m_module.ConstantU(m_scaledMember) }) });
         Id scaled = Emit(Op::INotEqual, m_bool,
                          { Emit(Op::BitwiseAnd, m_uint, { mask, m_module.ConstantU(1u << slot) }),
                            m_module.ConstantU(0) });
+        Id copyFactor = Emit(Op::Load, m_float,
+                             { Emit(Op::AccessChain, m_module.Pointer(StorageClass::PushConstant, m_float),
+                                    { m_pushBlock, m_module.ConstantU(m_scaledMember + 1) }) });
         Id factor = Emit(Op::Select, m_float,
-                         { scaled, m_module.ConstantF(1.0f / float(m_scale)),
-                           m_module.ConstantF(1.0f) });
+                         { scaled, copyFactor, m_module.ConstantF(1.0f) });
         return Emit(Op::VectorTimesScalar,
                     components == 3 ? m_module.Float3() : m_module.Float2(), { size, factor });
     }
@@ -2090,9 +2092,14 @@ namespace
                                 m_module.ConstantU(0xFF) });
             Id coord = Emit(Op::Load, m_float4, { m_fragCoord });
             Id zero = m_module.ConstantF(0.0f);
+            // In the title's pixels: the pass may be drawn smaller (scene scale).
+            Id toGuest = Emit(Op::Load, m_float,
+                              { Emit(Op::AccessChain, m_module.Pointer(StorageClass::PushConstant, m_float),
+                                     { m_alphaTest, m_module.ConstantU(m_scaledMember + 2) }) });
             Id generated = Emit(Op::CompositeConstruct, m_float4,
-                                { Emit(Op::CompositeExtract, m_float, { coord, 0 }),
-                                  Emit(Op::CompositeExtract, m_float, { coord, 1 }), zero, zero });
+                                { Emit(Op::FMul, m_float, { Emit(Op::CompositeExtract, m_float, { coord, 0 }), toGuest }),
+                                  Emit(Op::FMul, m_float, { Emit(Op::CompositeExtract, m_float, { coord, 1 }), toGuest }),
+                                  zero, zero });
             // A select per candidate register with a constant index each: an
             // index computed at run time into the temporaries makes the driver
             // keep all sixty-four of them in memory instead of registers, in

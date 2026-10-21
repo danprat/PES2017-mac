@@ -743,7 +743,7 @@ namespace vk::renderer::detail
     }
 
     constexpr uint32_t kCacheMagic = 0x32574D53;   // 'SMW2'
-    constexpr uint32_t kCacheVersion = 9;   // 3: a vertex program ends by turning
+    constexpr uint32_t kCacheVersion = 10;   // 3: a vertex program ends by turning
                                             // window coordinates into clip space
                                             // 5: pixel programs load the param gen register
                                             // 7: (6 reverted)

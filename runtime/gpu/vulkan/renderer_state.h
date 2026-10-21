@@ -1,4 +1,5 @@
 #pragma once
+#include <cmath>
 #include "../../log.h"
 // The renderer's state and the functions its parts share. Internal to the
 // renderer_*.cpp files; everyone else goes through renderer.h.
@@ -99,6 +100,9 @@ namespace vk::renderer::detail
         VkFormat format = VK_FORMAT_UNDEFINED;
         uint32_t guestFormat = 0;   // for the report
         uint32_t width = 0, height = 0;
+        // The scene render scale (State::sceneScale) for a full-frame surface,
+        // 1 for the rest: the image is HostOf(width, scale) wide.
+        float scale = 1.0f;
         bool depth = false;
         // The console's 2x and 4x surfaces are drawn with that many samples
         // here. A multisampled image can be neither blitted, copied nor
@@ -193,6 +197,8 @@ namespace vk::renderer::detail
         VkImageView gammaView = VK_NULL_HANDLE;
         VkFormat format = VK_FORMAT_UNDEFINED;
         uint32_t width = 0, height = 0;
+        // The scale of the surface it was resolved from; the image is HostOf(width, scale).
+        float scale = 1.0f;
         // A depth resolve is sampled through a depth-only view; the title reads
         // the scene's depth as an ordinary texture.
         bool depth = false;
@@ -259,6 +265,20 @@ namespace vk::renderer::detail
         // registers, stay the title's, and are multiplied where they are
         // handed to Vulkan (Scaled).
         uint32_t scale = 1;
+        // MW2_SCENE_SCALE (0.5-1): the full-frame surfaces are drawn this much
+        // smaller each way and everything that reads them follows; the present
+        // stretches the frame back. Only with scale 1.
+        float sceneScale = 1.0f;
+        // Vertex ranges already copied into the arena this submission, keyed
+        // by physical address and first dword: a mesh drawn in several passes
+        // (shadow, depth, colour) is copied once while the page watch says its
+        // memory is unwritten. Cleared with the arena.
+        struct VertexCopy { uint32_t words = 0, at = 0; uint64_t stamp = 0; };
+        std::unordered_map<uint64_t, VertexCopy> vertexCopies;
+        uint64_t vertexBytesCopied = 0, vertexBytesReused = 0;
+        uint64_t windowWriteBacks = 0;   // resolve write-backs since the last perf line
+        // The scale of the surface the open pass draws into.
+        float currentScale = 1.0f;
 
         // The console's command processor runs while the title builds the next
         // frame. A slot owns the command buffer it records into, the fence that
@@ -349,6 +369,7 @@ namespace vk::renderer::detail
             uint64_t serial = 0;
             bool read = false;          // counted already, waiting to be handed over
             uint64_t samples = 0;
+            float scale = 1.0f;         // the surface's scene scale when it was counted
         };
         std::vector<PendingQuery> pendingQueries;
         uint64_t submissionSerial = 0;
@@ -402,6 +423,7 @@ namespace vk::renderer::detail
             float ndc[4]{};          // window -> clip, for a pre-transformed vertex
             bool ndcValid = false;
             uint32_t scaled = 0;     // the slots bound to a resolve's copy
+            float scaledFactors[2]{}; // 1/(copy scale), 1/(target scale)
             bool scaledValid = false;
             VkBuffer indexBuffer = VK_NULL_HANDLE;
             uint32_t indexOffset = 0;
@@ -533,18 +555,36 @@ namespace vk::renderer::detail
     constexpr VkPipelineStageFlags kShaderStages =
         VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 
-    // The title's pixels as the images' (State::scale).
-    inline VkOffset2D Scaled(VkOffset2D at)
+    // The title's pixels as the images': State::scale (whole numbers, every
+    // surface) times a surface's own scale (the scene render scale, below 1,
+    // only for full-frame surfaces).
+    inline int32_t HostCoord(int32_t guest, float scale = 1.0f)
     {
-        return { at.x * int32_t(g.scale), at.y * int32_t(g.scale) };
+        return scale == 1.0f ? guest * int32_t(g.scale)
+                             : int32_t(std::lround(double(guest) * scale)) * int32_t(g.scale);
     }
-    inline VkExtent2D Scaled(VkExtent2D size)
+    inline uint32_t HostOf(uint32_t guest, float scale = 1.0f)
     {
-        return { size.width * g.scale, size.height * g.scale };
+        return std::max(1u, uint32_t(HostCoord(int32_t(guest), scale)));
     }
-    inline VkOffset3D Scaled(int32_t x, int32_t y, int32_t z)
+    inline VkOffset2D Scaled(VkOffset2D at, float scale = 1.0f)
     {
-        return { x * int32_t(g.scale), y * int32_t(g.scale), z };
+        return { HostCoord(at.x, scale), HostCoord(at.y, scale) };
+    }
+    inline VkExtent2D Scaled(VkExtent2D size, float scale = 1.0f)
+    {
+        return { uint32_t(HostCoord(int32_t(size.width), scale)), uint32_t(HostCoord(int32_t(size.height), scale)) };
+    }
+    inline VkOffset3D Scaled(int32_t x, int32_t y, int32_t z, float scale = 1.0f)
+    {
+        return { HostCoord(x, scale), HostCoord(y, scale), z };
+    }
+    // The scene render scale for a surface this wide: full-frame surfaces only
+    // (1152 and up -- the console's 1280-wide frame), so the shadow maps,
+    // effect buffers and kit compositions keep their sizes.
+    inline float SceneScaleFor(uint32_t width)
+    {
+        return (g.scale == 1 && width >= 1152) ? g.sceneScale : 1.0f;
     }
 
     inline uint32_t FindMemory(uint32_t allowed, VkMemoryPropertyFlags want)

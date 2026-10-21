@@ -415,7 +415,24 @@ PPC_FUNC(__imp__NtReadFile)
         thread_local std::vector<uint8_t> bounce;
         if (bounce.size() < length) bounce.resize(length);
         const long long position = (long long)std::ftell(file->handle);
+        const auto readFrom = std::chrono::steady_clock::now();
         const size_t got = std::fread(bounce.data(), 1, length, file->handle);
+        {
+            // Throughput every two seconds: reads, MB, and the time spent waiting
+            // in fread -- whether a cutscene's stall is the disc.
+            static std::atomic<uint64_t> waitUs{ 0 }, windowBytes{ 0 }, windowReads{ 0 };
+            static std::atomic<int64_t> windowStart{ 0 };
+            const auto now = std::chrono::steady_clock::now();
+            waitUs += uint64_t(std::chrono::duration_cast<std::chrono::microseconds>(now - readFrom).count());
+            windowBytes += got; windowReads++;
+            const int64_t nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+            int64_t start = windowStart.load();
+            if (!start) windowStart.compare_exchange_strong(start, nowMs);
+            else if (nowMs - start >= 2000 && windowStart.compare_exchange_strong(start, nowMs))
+                LOGI("io: %llu reads, %.1f MB, %.0f ms in fread over %.1f s",
+                     (unsigned long long)windowReads.exchange(0), windowBytes.exchange(0) / 1048576.0,
+                     waitUs.exchange(0) / 1000.0, (nowMs - start) / 1000.0);
+        }
         std::memcpy(guest::Base() + buffer, bounce.data(), got);
         uint32_t status = (got == 0 && length != 0) ? X_STATUS_END_OF_FILE : X_STATUS_SUCCESS;
         if (iosb) { iosb->status = status; iosb->information = uint32_t(got); }

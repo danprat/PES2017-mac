@@ -57,8 +57,11 @@ namespace vk::renderer::detail
     }
 
     bool MakeResolveImage(Resolved& into, uint32_t width, uint32_t height,
-                          VkFormat format, bool depth = false, bool exact = false)
+                          VkFormat format, bool depth = false, bool exact = false, float scale = 1.0f)
     {
+        // A copy is drawn at its source surface's scale (the scene scale for a
+        // full-frame one), and a different scale is a different image.
+        if (into.image && into.scale != scale) exact = true;
         // Grow only within a frame: the second shadow cascade lands inside the
         // surface the first one made, and must not throw the first away.
         //
@@ -67,9 +70,9 @@ namespace vk::renderer::detail
         // image, so an image wider than the surface stretches what it holds.
         const bool fits = exact ? into.width == width && into.height == height
                                 : into.width >= width && into.height >= height;
-        if (into.image && fits && into.format == format && into.depth == depth)
+        if (into.image && fits && into.format == format && into.depth == depth && into.scale == scale)
             return true;
-        if (!exact && into.image && into.format == format && into.depth == depth)
+        if (!exact && into.image && into.format == format && into.depth == depth && into.scale == scale)
         {
             width = std::max(width, into.width);
             height = std::max(height, into.height);
@@ -93,7 +96,7 @@ namespace vk::renderer::detail
         VkImageCreateInfo info{ VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
         info.imageType = VK_IMAGE_TYPE_2D;
         info.format = format;
-        info.extent = { width * g.scale, height * g.scale, 1 };
+        info.extent = { HostOf(width, scale), HostOf(height, scale), 1 };
         info.mipLevels = 1;
         info.arrayLayers = 1;
         info.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -146,9 +149,10 @@ namespace vk::renderer::detail
         into.format = format;
         into.width = width;
         into.height = height;
+        into.scale = scale;
         into.depth = depth;
-        LOGI("renderer: %ux%u image for a %s resolve destination", width * g.scale,
-             height * g.scale,
+        LOGI("renderer: %ux%u image for a %s resolve destination", HostOf(width, scale),
+             HostOf(height, scale),
              depth ? "depth" : "colour");
         return true;
     }
@@ -227,7 +231,7 @@ void vk::renderer::Resolve(const gpu::RegisterFile& r)
                                               std::min(destPitch.Height(), 4096u));
         const bool firstThisFrame = into.writtenFrame != g.frames;
         if (!destination || !width || !height ||
-            !MakeResolveImage(into, imageWidth, imageHeight, from->format, true, firstThisFrame))
+            !MakeResolveImage(into, imageWidth, imageHeight, from->format, true, firstThisFrame, from->scale))
         {
             Skip("depth resolve destination image");
             SubmitIfFilling();
@@ -256,10 +260,16 @@ void vk::renderer::Resolve(const gpu::RegisterFile& r)
         VkImageCopy copies[2]{};
         uint32_t copyCount = 1;
         copies[0].srcSubresource = { VK_IMAGE_ASPECT_DEPTH_BIT, 0, 0, 1 };
-        copies[0].srcOffset = Scaled(rect.offset.x, rect.offset.y, 0);
+        const float s = from->scale;
+        copies[0].srcOffset = Scaled(rect.offset.x, rect.offset.y, 0, s);
         copies[0].dstSubresource = copies[0].srcSubresource;
-        copies[0].dstOffset = Scaled(int32_t(destX), int32_t(destY), 0);
-        copies[0].extent = { width * g.scale, height * g.scale, 1 };
+        copies[0].dstOffset = Scaled(int32_t(destX), int32_t(destY), 0, s);
+        // Rounded at a fractional scale, so kept inside both images.
+        const auto room = [](uint32_t size, int32_t at) { return size > uint32_t(at) ? size - uint32_t(at) : 0u; };
+        copies[0].extent = { std::min({ HostOf(width, s), room(HostOf(from->width, s), copies[0].srcOffset.x),
+                                        room(HostOf(into.width, s), copies[0].dstOffset.x) }),
+                             std::min({ HostOf(height, s), room(HostOf(from->height, s), copies[0].srcOffset.y),
+                                        room(HostOf(into.height, s), copies[0].dstOffset.y) }), 1 };
 
         if (from->format == VK_FORMAT_D24_UNORM_S8_UINT || from->format == VK_FORMAT_D32_SFLOAT_S8_UINT)
         {
@@ -396,7 +406,7 @@ void vk::renderer::Resolve(const gpu::RegisterFile& r)
     }
     if (!destination || !width || !height ||
         !MakeResolveImage(into, surfaceWidth, surfaceHeight, copyFormat, false,
-                          firstThisFrame))
+                          firstThisFrame, source->scale))
     {
         Skip("resolve destination image");
         SubmitIfFilling();
@@ -437,12 +447,18 @@ void vk::renderer::Resolve(const gpu::RegisterFile& r)
 
     VkImageBlit copy{};
     copy.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
-    copy.srcOffsets[0] = Scaled(int32_t(destX / gridScaleX), int32_t(destY / gridScaleY), 0);
+    const float s = source->scale;
+    copy.srcOffsets[0] = Scaled(int32_t(destX / gridScaleX), int32_t(destY / gridScaleY), 0, s);
     copy.srcOffsets[1] = Scaled(int32_t((destX + width) / gridScaleX),
-                                int32_t((destY + height) / gridScaleY), 1);
+                                int32_t((destY + height) / gridScaleY), 1, s);
     copy.dstSubresource = copy.srcSubresource;
-    copy.dstOffsets[0] = Scaled(int32_t(destX), int32_t(destY), 0);
-    copy.dstOffsets[1] = Scaled(int32_t(destX + width), int32_t(destY + height), 1);
+    copy.dstOffsets[0] = Scaled(int32_t(destX), int32_t(destY), 0, s);
+    copy.dstOffsets[1] = Scaled(int32_t(destX + width), int32_t(destY + height), 1, s);
+    // Rounded at a fractional scale: kept inside both images.
+    copy.srcOffsets[1].x = std::min(copy.srcOffsets[1].x, int32_t(HostOf(source->width, s)));
+    copy.srcOffsets[1].y = std::min(copy.srcOffsets[1].y, int32_t(HostOf(source->height, s)));
+    copy.dstOffsets[1].x = std::min(copy.dstOffsets[1].x, int32_t(HostOf(into.width, s)));
+    copy.dstOffsets[1].y = std::min(copy.dstOffsets[1].y, int32_t(HostOf(into.height, s)));
     const VkImage intoImage = into.image;
     Record([=](VkCommandBuffer command) {
         vkCmdBlitImage(command, sourceImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
@@ -459,7 +475,7 @@ void vk::renderer::Resolve(const gpu::RegisterFile& r)
     if (exactWidth && exactHeight && (exactWidth < into.width || exactHeight < into.height))
     {
         exact = &ring.exact[ring.newest];
-        if (!MakeResolveImage(*exact, exactWidth, exactHeight, copyFormat, false, true)) exact = nullptr;
+        if (!MakeResolveImage(*exact, exactWidth, exactHeight, copyFormat, false, true, into.scale)) exact = nullptr;
     }
     if (exact)
     {
@@ -473,7 +489,7 @@ void vk::renderer::Resolve(const gpu::RegisterFile& r)
         VkImageCopy corner{};
         corner.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
         corner.dstSubresource = corner.srcSubresource;
-        corner.extent = { exactWidth * g.scale, exactHeight * g.scale, 1 };
+        corner.extent = { HostOf(exactWidth, into.scale), HostOf(exactHeight, into.scale), 1 };
         const VkImage intoImage = into.image, exactImage = exact->image;
         Record([=](VkCommandBuffer command) {
             vkCmdCopyImage(command, intoImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
@@ -501,7 +517,7 @@ void vk::renderer::Resolve(const gpu::RegisterFile& r)
     // the title reads them as soon as its fence passes, which the command
     // processor signals without waiting for this GPU.
     if (destInfo.Format() == 6 && into.format == VK_FORMAT_R8G8B8A8_UNORM &&
-        surfaceWidth <= 512 && surfaceHeight <= 512 && g.scale == 1)
+        surfaceWidth <= 512 && surfaceHeight <= 512 && g.scale == 1 && into.scale == 1.0f)
     {
         // The first 64 resolves of a destination. The kits reuse their scratch
         // destinations player after player -- a few dozen times in a load, in
@@ -519,7 +535,7 @@ void vk::renderer::Resolve(const gpu::RegisterFile& r)
         if (use.frame + 1 == g.frames) use.consecutive++;
         use.frame = g.frames;
         uint32_t& times = use.times;
-        const bool everyFrame = times >= 64 || use.consecutive >= 8;
+        const bool everyFrame = times >= 12 || use.consecutive >= 8;
 
         times++;
         const uint32_t va = kernel::FromPhysical(destination);
@@ -547,6 +563,7 @@ void vk::renderer::Resolve(const gpu::RegisterFile& r)
                     }
                 gpu::NoteWriteBack();
                 into.writtenBack = true;
+                g.windowWriteBacks++;
                 if (width == 256 && height == 256)
                 {
                     // A kit composition: its average colour (R G B), for tools/kits.sh.
@@ -656,7 +673,16 @@ void vk::renderer::Swap(uint32_t frontBuffer)
             const auto nowAt = std::chrono::steady_clock::now();
             const double took = std::chrono::duration<double>(nowAt - lastAt).count();
             lastAt = nowAt;
-            LOGI("perf: %.1f fps over the last 600 swaps (%.1f ms a frame)", 600.0 / took, took * 1000.0 / 600.0);
+            static uint64_t lastFence = 0;
+            const uint64_t fence = g.fenceNanoseconds;
+            LOGI("perf: %.1f fps over the last 600 swaps (%.1f ms a frame); vertex data %.1f MB copied, %.1f MB reused a frame;"
+                 " %.2f ms a frame waiting for the GPU; %llu write-backs",
+                 600.0 / took, took * 1000.0 / 600.0, g.vertexBytesCopied / 600.0 / 1048576.0,
+                 g.vertexBytesReused / 600.0 / 1048576.0, (fence - lastFence) / 600.0 / 1e6,
+                 (unsigned long long)g.windowWriteBacks);
+            lastFence = fence;
+            g.vertexBytesCopied = g.vertexBytesReused = 0;
+            g.windowWriteBacks = 0;
             LOGI("renderer: last 600 swaps: %llu draws (%llu recorded), %llu resolves; skipped:%s",
                  (unsigned long long)(g.draws - lastDraws), (unsigned long long)(g.drawsRecorded - lastRecorded),
                  (unsigned long long)(g.resolves - lastResolves), skipped.empty() ? " nothing" : skipped.c_str());
@@ -711,7 +737,7 @@ void vk::renderer::Swap(uint32_t frontBuffer)
 
     VkImageBlit blit{};
     blit.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
-    blit.srcOffsets[1] = Scaled(int32_t(frame.width), int32_t(frame.height), 1);
+    blit.srcOffsets[1] = Scaled(int32_t(frame.width), int32_t(frame.height), 1, frame.scale);
     blit.dstSubresource = blit.srcSubresource;
     blit.dstOffsets[1] = { int32_t(g.presentWidth), int32_t(g.presentHeight), 1 };
     const VkImage frameImage = frame.image;
