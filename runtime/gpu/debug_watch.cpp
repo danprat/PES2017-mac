@@ -1,0 +1,143 @@
+#include "debug_watch.h"
+
+#include <atomic>
+#include <chrono>
+#include <cstdio>
+#include <thread>
+
+#include <sys/mman.h>
+
+#include "../guest_memory.h"
+#include "../log.h"
+#include "../kernel/kernel.h"
+#include "../platform.h"
+
+extern "C" volatile int pes_trap_inf_armed = 0;
+extern "C" void pes_trap_inf_store(uint32_t address, uint32_t value)
+{
+    static std::atomic<int> told{ 0 };
+    const int n = told++;
+    if (n >= 700) { pes_trap_inf_armed = 0; return; }
+    char why[96];
+    std::snprintf(why, sizeof why, "trap: %cinf stored to guest %08X", (value >> 31) ? '-' : '+', address);
+    platform::PrintBacktrace(why);
+}
+
+namespace
+{
+    std::atomic<bool> g_armed{ false };
+    std::atomic<uint32_t> g_reports{ 0 };
+    std::atomic<bool> g_open{ false };          // the pages are writable, waiting to be re-armed
+    uint64_t g_first = 0, g_pages = 0;
+    bool g_raw = false;          // g_first is a guest address, not a physical offset
+
+    void Protect(bool writable)
+    {
+        if (g_raw)
+        {
+            mprotect(guest::Base() + g_first, g_pages * 4096, writable ? PROT_READ | PROT_WRITE : PROT_READ);
+            return;
+        }
+        for (uint32_t window : { guest::kCachedBase, guest::kPhysicalBase, guest::kApertureBase })
+            mprotect(guest::Base() + window + g_first, g_pages * 4096, writable ? PROT_READ | PROT_WRITE : PROT_READ);
+    }
+}
+
+void debugwatch::ArmFromFile(const std::string& path)
+{
+    // Polled, so it can be armed once the title is where the question is.
+    std::thread([path] {
+        for (;;)
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            if (g_open.exchange(false) && g_reports.load() < 900) Protect(false);
+            static int tick = 0;
+            if (++tick % 300) continue;
+            if (!guest::Base()) continue;   // a request left from the last run waits for the guest space
+            {
+                const std::string trap = path.substr(0, path.rfind('/') + 1) + "trap_inf";
+                if (FILE* t = std::fopen(trap.c_str(), "r")) { std::fclose(t); std::remove(trap.c_str()); pes_trap_inf_armed = 1; LOGW("trap: armed"); }
+            }
+            {
+                // `touch files/report_memory`: the guest heaps' use, now.
+                const std::string req = path.substr(0, path.rfind('/') + 1) + "report_memory";
+                if (FILE* r = std::fopen(req.c_str(), "r")) { std::fclose(r); std::remove(req.c_str()); kernel::ReportMemory(); }
+            }
+            {
+                // `echo "82235AE0 100" > files/dump_guest`: those guest bytes to files/guest_dump.bin.
+                const std::string dir = path.substr(0, path.rfind('/') + 1), req = dir + "dump_guest";
+                if (FILE* r = std::fopen(req.c_str(), "r"))
+                {
+                    unsigned long long a = 0, len = 0x1000;
+                    std::fscanf(r, "%llx %llx", &a, &len);
+                    std::fclose(r); std::remove(req.c_str());
+                    if (FILE* o = std::fopen((dir + "guest_dump.bin").c_str(), "wb"))
+                    {
+                        std::fwrite(guest::Base() + (a & 0xFFFFFFFFull), 1, len, o);
+                        std::fclose(o);
+                        LOGW("dump_guest: %llX +%llX written", a, len);
+                    }
+                }
+            }
+            {
+                // `echo "20026624 1" > files/watch_guest`: the same, for a guest virtual address.
+                const std::string req = path.substr(0, path.rfind('/') + 1) + "watch_guest";
+                if (FILE* f = std::fopen(req.c_str(), "r"))
+                {
+                    unsigned long long a = 0, n = 1;
+                    std::fscanf(f, "%llx %llx", &a, &n);
+                    std::fclose(f); std::remove(req.c_str());
+                    if (g_armed) Protect(true);
+                    g_raw = true; g_first = a & ~0xFFFull; g_pages = n ? n : 1; g_reports = 0; g_armed = true;
+                    Protect(false);
+                    LOGW("debugwatch: guest %08llX, %llu pages read-only", g_first, g_pages);
+                }
+            }
+            FILE* file = std::fopen(path.c_str(), "r");
+            if (!file) continue;
+            unsigned long long address = 0, pages = 1;
+            const int n = std::fscanf(file, "%llx %llx", &address, &pages);
+            std::fclose(file);
+            std::remove(path.c_str());
+            if (n < 1 || !pages) continue;
+            if (g_armed) Protect(true);
+            g_raw = false;
+            g_first = address & ~0xFFFull;
+            g_pages = pages;
+            g_reports = 0;
+            g_armed = true;
+            Protect(false);
+            LOGW("debugwatch: physical %08llX, %llu pages read-only", g_first, g_pages);
+        }
+    }).detach();
+}
+
+bool debugwatch::HandleFault(const void* address)
+{
+    if (!g_armed.load(std::memory_order_relaxed)) return false;
+    const uint8_t* p = static_cast<const uint8_t*>(address);
+    bool ours = false;
+    if (g_raw)
+    {
+        const uint8_t* lo = guest::Base() + g_first;
+        ours = p >= lo && p < lo + g_pages * 4096;
+    }
+    else
+    for (uint32_t window : { guest::kCachedBase, guest::kPhysicalBase, guest::kApertureBase })
+    {
+        const uint8_t* lo = guest::Base() + window + g_first;
+        if (p >= lo && p < lo + g_pages * 4096) ours = true;
+    }
+    if (!ours) return false;
+    Protect(true);
+    g_open = true;
+    const uint32_t n = g_reports++;
+    if (n < 900)
+    {
+        char why[96];
+        std::snprintf(why, sizeof why, "debugwatch: write #%u to %p (physical %08llX)", n, address,
+                      (unsigned long long)(p - guest::Base()) & 0x1FFFFFFFull);
+        platform::PrintBacktrace(why);
+    }
+    return true;
+}

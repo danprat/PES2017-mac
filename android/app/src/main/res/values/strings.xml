@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- app_name comes from the product flavour (campaign or multiplayer). -->
+    <string name="subtitle">A recompilation, running natively</string>
+    <string name="wordmark">MODERN WARFARE 2</string>
+    <string name="wordmark_recompiled">MW2 RECOMPILED</string>
+    <string name="disclaimer">UNOFFICIAL. NOT AFFILIATED WITH ACTIVISION, INFINITY WARD OR MICROSOFT.</string>
+    <string name="hint_choose">TAP TO CHOOSE</string>
+    <string name="network_settings">NETWORK</string>
+    <string name="entry_settings">SETTINGS</string>
+    <string name="entry_mods">MODS</string>
+    <string name="entry_tu6">GET TU6 BUILD</string>
+    <string name="entry_tu0">GET TU0 BUILD</string>
+    <string name="mods_detail_phone">Extra maps, weapons and modes for this install\'s game version. Its .ff, .pak and .bik files are copied into the game folder. Scripts and plugins are reported and left alone — this port runs no plugin system.</string>
+    <string name="tu6_detail_phone">Title Update 6, which mods need, as its own app beside this one (MW2 Campaign TU6 / MW2 Multiplayer TU6) on the releases page. TU6 plays only with TU6, never with this disc-version (TU0) build. The TU6 app installs from the same disc, then downloads the update itself.</string>
+    <string name="tu0_detail_phone">The disc-version build, which phones and crossplay started with, as its own app beside this one on the releases page. It plays only with disc-version copies, never with this title-update one.</string>
+    <string name="tu6_same_version">Same-version rule: TU0 plays only with TU0, TU6 only with TU6.</string>
+    <string name="tu6_downloading">Downloading title update 6…</string>
+    <string name="tu6_applying">Applying title update 6…</string>
+    <string name="tab_graphics">GRAPHICS</string>
+    <string name="tab_controls">CONTROLS</string>
+    <string name="tab_network">NETWORK</string>
+    <string name="tab_files">FILES</string>
+    <string name="check_updates">CHECK FOR UPDATES</string>
+    <string name="quit_launcher">QUIT</string>
+    <string name="up_to_date">This is the newest version.</string>
+    <string name="detail_default_title">DEPLOYMENT</string>
+    <string name="detail_default_text">Pick an entry: its details show here, and choosing it acts at once.</string>
+    <string name="launch_other">Launch %1$s</string>
+    <string name="other_name_campaign">MW2 Campaign</string>
+    <string name="other_name_multiplayer">MW2 Multiplayer</string>
+    <string name="other_missing">%1$s is not installed.</string>
+
+    <!-- launcher -->
+    <string name="play">Play</string>
+    <string name="install_game">Install the game files</string>
+    <string name="graphics_driver">Graphics driver</string>
+    <string name="settings">Settings</string>
+    <string name="view_log">Log</string>
+    <string name="close">Close</string>
+    <string name="cancel">Cancel</string>
+    <string name="reset">Reset</string>
+    <string name="done">Done</string>
+    <string name="share">Share</string>
+
+    <string name="status_ready">Ready to play.\nThe game files are in %1$s.</string>
+    <string name="status_not_installed">The game files are not installed yet.\n\nThis app contains no game data. You supply your own copy: a disc image of the game you own, or a folder with its files in it.</string>
+    <string name="status_library_missing">The runtime could not be loaded:\n%1$s</string>
+    <string name="footer">%1$s\nDriver: %2$s\nBuild %3$s, %4$s</string>
+
+    <!-- installing -->
+    <string name="install_hint">Point this at a disc image (.iso) of your own PES 2017 copy, or at the folder its files were extracted to (default.xex and the .cpk archives). Only the files the game needs are copied into the app\'s own storage; about 7 GB of free space is wanted.</string>
+    <string name="choose_source">Browse the phone\u2019s storage</string>
+    <string name="begin_install">Install</string>
+    <string name="no_source">Nothing chosen yet.</string>
+    <string name="chosen">Installing from:\n%1$s</string>
+    <string name="installing">%1$s  (%2$d%%)</string>
+    <string name="install_done">The game files are installed.</string>
+    <string name="install_failed">The install did not finish:\n%1$s</string>
+    <string name="install_cancelled">Cancelled. What was copied is kept, so starting again carries on from there.</string>
+    <string name="install_running_warning">The install is still running. Leaving now stops it; it can be carried on later.</string>
+    <string name="no_space">There is not enough free space: %1$s free, about 7 GB needed.</string>
+
+    <string name="unknown_reason">no reason given</string>
+    <string name="last_crash">The app stopped last time</string>
+    <string name="log_empty">Nothing logged yet.</string>
+
+    <!-- the log screen is a summary; the log itself is a button away -->
+    <string name="log_none">No errors or warnings in this run.</string>
+    <string name="log_counts">%1$d errors, %2$d warnings</string>
+    <string name="log_where">Where it got to:</string>
+    <string name="log_stopped">The last run stopped:</string>
+    <string name="log_more">and %1$d more, counted but not shown</string>
+    <string name="log_everything">The whole log</string>
+    <string name="log_share_note">Sharing sends the whole log, not this summary.</string>
+
+    <!-- bringing a file in through the system picker -->
+    <string name="pick_with_files">Choose with the Files app</string>
+    <string name="import_file">Import</string>
+    <string name="pick_folder">Choose an extracted game folder (no permission needed)</string>
+    <string name="folder_no_xex">That folder has no default.xex. Pick the folder that holds default.xex and the .cpk files.</string>
+    <string name="folder_wrong_game">This default.xex is not the PES 2017 (Europe) executable this app was built from.</string>
+    <string name="folder_import_explained">Copy %1$s of game files (default.xex, the .cpk archives) into the app? %2$s is free.</string>
+    <string name="copying_file">Copying %1$s (%2$d%%)</string>
+    <string name="import_explained">The Files app hands over a document rather than a path, so the file is copied into this app first: %1$s now, and about 7 GB again for the installed game. %2$s is free.\n\nIf space is tight, use “Browse the phone’s storage” instead — it reads the file where it lies.</string>
+    <string name="import_explained_unknown">The Files app hands over a document rather than a path, so the file is copied into this app first. A disc image is several gigabytes, and the installed game needs about 7 GB more.\n\nIf space is tight, use “Browse the phone’s storage” instead — it reads the file where it lies.</string>
+    <string name="copying">Copying in: %1$s</string>
+
+    <!-- the file browser -->
+    <string name="use_this_folder">Use this folder</string>
+    <string name="allow_storage">Allow storage access</string>
+    <string name="storage_explained">Android only lets an app read files outside its own folder once you allow it. Without that, put the disc image in Android/data/%1$s/files and pick it from there.</string>
+    <string name="up_one">..  (up one)</string>
+
+    <!-- the driver screen -->
+    <string name="driver_hint">Adreno phones can run Mesa\'s Turnip driver, which is often much quicker than the one the phone shipped with, and sometimes renders things the shipped one gets wrong. Import the driver\'s zip archive as it was downloaded; it is unpacked into the app\'s own storage.</string>
+    <string name="import_driver">Import a driver (.zip)</string>
+    <string name="driver_system">The phone\'s own driver</string>
+    <string name="driver_in_use">In use: %1$s</string>
+    <string name="driver_imported">Imported %1$s.</string>
+    <string name="driver_bad_zip">That archive does not look like a driver: it has no meta.json naming the library inside it.</string>
+    <string name="driver_not_arm64">That driver is not for this phone (arm64 is needed).</string>
+    <string name="driver_remove">Remove</string>
+    <string name="driver_removed">Removed.</string>
+    <string name="driver_api">Vulkan %1$s, for Android API %2$d and later</string>
+
+    <!-- settings -->
+    <string name="section_picture">Picture</string>
+    <string name="section_sound">Sound</string>
+    <string name="section_controls">Controls</string>
+    <string name="section_files">Game files</string>
+    <string name="resolution">Display resolution: %1$d%%</string>
+    <string name="resolution_hint">How many pixels are actually drawn, as a share of the screen. The display scales the result up, which costs nothing. This is the single biggest thing a weaker phone can be given; 60 to 75 percent looks close to the original console.</string>
+    <string name="render_scale">Internal render multiplier: %1$dx</string>
+    <string name="render_scale_hint">Vulkan internal render scale (MW2_SCALE). Multiplies the title\'s base framebuffer dimensions: 1x native, 2x (supersampled), 3x (high-end). Higher multipliers require significant GPU horsepower.</string>
+    <string name="msaa">Smooth edges (multisampling)</string>
+    <string name="prefer_60">Lock display to 60 FPS (Hardware Lock)</string>
+    <string name="fov">Field of View (FOV): %1$d°</string>
+    <string name="fov_hint">85° is recommended for ultrawide 20:9 mobile displays. (65° was original 16:9 console FOV).</string>
+    <string name="show_stats">Show frames per second</string>
+    <string name="hide_stats">Hide frames per second</string>
+    <string name="texture_budget_auto">Texture memory: chosen for this phone</string>
+    <string name="texture_budget">Texture memory: %1$d MB</string>
+    <string name="texture_hint">How much the texture cache may hold before it starts letting go of what has not been drawn for a while. Left alone, the runtime picks a figure from the memory this phone has.</string>
+    <string name="audio_on">Sound</string>
+    <string name="touch_controls">On-screen controls</string>
+    <string name="use_gamepad">Use a physical controller</string>
+    <string name="gamepad_hint">Turn this off to ignore controllers entirely. Some phones report an accessory, or their own sensors, as a gamepad with a stick that is not centred, which makes the character walk on its own.</string>
+    <string name="vibration">Vibration</string>
+    <string name="invert_look">Invert looking up and down</string>
+    <string name="look_x">Look sensitivity, sideways: %1$.1f</string>
+    <string name="look_y">Look sensitivity, up and down: %1$.1f</string>
+    <string name="smoothing">Look smoothing: %1$d%%</string>
+    <string name="smoothing_hint">Evens out a finger\'s jitter on glass. Too much and aiming feels like it is on ice.</string>
+    <string name="edit_controls_where">The on-screen pad is edited in the game: pause and choose “Edit controls”.</string>
+    <string name="forget_install">Forget the installed files</string>
+    <string name="forget_explained">The files stay on the phone; the app simply stops using them, and the next install can point somewhere else.</string>
+    <string name="section_storage">Storage</string>
+    <string name="storage_computing">Measuring…</string>
+    <string name="saves_files">Saves</string>
+    <string name="storage_line">%1$s: %2$s</string>
+    <string name="clear_shaders">Clear shader cache</string>
+    <string name="clear_logs">Clear logs</string>
+    <string name="install_mods">Install mod files</string>
+    <string name="install_mods_hint">Extra maps, weapons and modes for this install\'s game version. Choose the extracted folder: its .ff, .pak and .bik files are copied into the game folder. Scripts and plugins are reported and left alone — this port runs no plugin system.</string>
+    <string name="mods_installed">Installed %1$d file(s) into the game folder.%2$s</string>
+    <string name="mods_skipped">\n\nSkipped:\n%1$s</string>
+    <string name="mods_nothing">That folder holds nothing to install: no .ff, .pak or .bik files.</string>
+    <string name="shaders_cleared">Shader cache cleared. Shaders rebuild as you play.</string>
+    <string name="logs_cleared">Logs cleared.</string>
+    <string name="paths_line">Installed in:\n%1$s</string>
+    <string name="paths_none">Nothing installed yet.</string>
+
+    <!-- split-screen (a physical controller means a second player) -->
+    <string name="splitscreen_title">Two-player split-screen?</string>
+    <string name="splitscreen_warning">A controller is attached, so a second player can join: Spec Ops co-op and split-screen multiplayer take a second player through the game\u2019s sign-in screen.\n\nHeads-up: two viewports cost frames. Expect dips below 60 FPS, a hot phone, and fast battery drain — lower the display resolution first on weaker devices.</string>
+    <string name="play_anyway">Play anyway</string>
+    <string name="dont_show_again">Don\u2019t show again</string>
+
+    <!-- shader prewarming -->
+    <string name="prewarm_all">Compile all shaders at boot</string>
+    <string name="prewarm_all_hint">Compiles every recorded pipeline before the title screen instead of warming them up during play. Boot takes minutes on a cold cache and the phone gets warm, but there is almost no in-game shader stutter left afterwards. Off means the quick 2-second boot with background warmup.</string>
+
+    <!-- network play -->
+    <string name="player_name">Network player name</string>
+    <string name="player_name_hint">The name other players on the network see (15 characters at most). Empty means the profile\u2019s name, which on a fresh install is \u201cPlayer 1\u201d.</string>
+    <string name="lan_accept">Accept network invites automatically</string>
+    <string name="lan_accept_hint">When another player on the network invites this phone to their lobby, join without asking. Off means invites are only logged.</string>
+    <string name="lan_iface">Announced adapter (blank = auto)</string>
+    <string name="lan_iface_hint">Which connection sessions invite to: a name or address piece (WiFi, wlan0, 192.168.1). Needed with a VPN and WiFi at once, so guests are told a door they can reach.</string>
+    <string name="invite_players">Invite network players</string>
+    <string name="join_game">Join network game</string>
+    <string name="no_peers">Nobody heard on the network yet — host a lobby on the other machine first, on the same WiFi.</string>
+    <string name="max_rank">Max rank 70</string>
+    <string name="unlock_all">Unlock everything</string>
+    <string name="prestige_up">Prestige +1</string>
+    <string name="cheats_done">%1$s: %2$d file(s) changed. Restart the match to play on them.</string>
+    <string name="cheats_failed">Cheat failed: %1$s</string>
+    <string name="lan_peers">LAN players: %1$d</string>
+
+    <!-- self-update -->
+    <string name="update_title">Update available: %1$s</string>
+    <string name="update_message">This install is build %1$d, the release carries build %2$d.\n\nOpen the release page and install the APK over this one — no uninstall, no data loss.</string>
+    <string name="update_download">Download &amp; install</string>
+    <string name="update_downloading">Downloading update…</string>
+    <string name="update_failed">The download failed. Open the release page instead.</string>
+    <string name="open_page">Release page</string>
+    <string name="skip_version">Skip this version</string>
+
+    <!-- in the game -->
+    <string name="menu">Menu</string>
+    <string name="paused">Paused</string>
+    <string name="resume">Carry on</string>
+    <string name="edit_controls">Edit controls</string>
+    <string name="edit_controls_short">Edit</string>
+    <string name="hide_touch_controls">Hide the on-screen controls</string>
+    <string name="show_touch_controls">Show the on-screen controls</string>
+    <string name="disable_gamepad">Ignore physical controllers</string>
+    <string name="enable_gamepad">Use physical controllers</string>
+    <string name="quit">Quit</string>
+    <string name="quit_explained">The game ends now. Anything the game itself has not saved is lost.</string>
+    <string name="cannot_start">The game could not start</string>
+    <string name="error_library">The runtime library would not load:\n%1$s</string>
+    <string name="error_not_installed">The game files are not installed. Install them from the launcher first.</string>
+    <string name="error_start">The runtime would not start. The log has the details.</string>
+    <string name="stats_line">%1$.0f fps   %2$d MB textures   %3$d×%4$d</string>
+
+    <!-- the run's own notification, which is there so the process is not the
+         first thing the system reclaims (GameService.kt) -->
+    <string name="run_channel">A game is running</string>
+    <string name="run_working">Running. Leaving the app does not end the game.</string>
+
+    <!-- editing the pad -->
+    <string name="edit_pick_one">Touch a control to pick it up. Drag to move it, pinch to resize.</string>
+    <string name="edit_selected">%1$s — drag to move, pinch to resize</string>
+    <string name="edit_hint">Hidden controls are shown faintly here so they can be turned back on.</string>
+    <string name="size">Size</string>
+    <string name="opacity">Opacity</string>
+    <string name="shown">Shown</string>
+    <string name="toggle">Stays down</string>
+    <string name="snap">Snap</string>
+    <string name="reset_one">Reset this</string>
+    <string name="reset_all">Reset all</string>
+    <string name="reset_all_explained">Every control goes back where it started, at its original size.</string>
+</resources>

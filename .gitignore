@@ -1,0 +1,115 @@
+# ---- game data: extracted from the retail disc, never commit ----
+# Anchored with a leading slash, and that matters: "mw2/" on its own matches
+# a directory of that name at any depth, and the app's Kotlin lives in
+# android/app/src/main/java/com/mw2/recomp. That rule silently swallowed the
+# whole app once -- it built, installed, and died on a manifest pointing at
+# classes that were never committed. Anchor anything meant for the root.
+/mw2/
+/mw2-iso/
+/pes/
+/GAME/
+/_mw2_specific/
+*.xex
+*.xexp
+*.pe
+*.iso
+
+# ---- upstream tool checkout (121 MB + 6 submodules) ----
+# Cloned and patched by build.sh; local changes live in patches/.
+/XenonRecomp/
+
+# ---- generated C++ (~2.2M lines, 64 MB) ----
+/ppc/
+
+# ---- generated switch tables (XenonAnalyse output, rebuilt by build.sh) ----
+config/pes_switch_tables.toml
+logs-*.txt
+
+# ---- build artifacts ----
+/build/
+/build-android/
+/build-release/
+/build-win*/
+# The checks' own build (tests/CMakeLists.txt), which needs none of the game:
+# cmake -S tests -B build-tests -G Ninja
+/build-tests/
+/out/
+
+# ---- editor / OS ----
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# ---- generated runtime glue ----
+runtime/kernel/stubs_generated.cpp
+ppc/kernel_imports.txt
+__pycache__/
+*.pyc
+/diagnosis/
+
+# ---- the user's RenderDoc captures, hundreds of MB each ----
+/captures/
+
+# ---- saved games the runtime writes beside the binary ----
+/saves/
+
+# ---- the multiplayer executable's derived files (TITLE=mp ./build.sh) ----
+/ppc_mp/
+/build-mp/
+/build-mp-release/
+config/mw2mp_switch_tables.toml
+
+# ---- the Android app's build output ----
+android/build/
+/build-android/
+android/.gradle/
+android/app/build/
+/build-android/
+android/local.properties
+# android/gradle/wrapper/gradle-wrapper.jar
+*.apk
+*.aab
+*.keystore
+
+# ---- fetched by android/fetch_deps.sh, somebody else's code ----
+third_party/libadrenotools/
+
+# ---- the native build's scratch directory ----
+android/app/.cxx/
+.cxx/
+*.log
+*.tmp
+compile_commands.json
+
+# ---- the disc version's derived files (VERSION=tu0 ./build.sh) ----
+ppc_tu0/
+ppc_mp_tu0/
+build*-tu0/
+config/*_switch_tables.tu0.toml
+
+# ---- a development run's switches (docs/switches.md, "The settings file") ----
+.env
+
+# ---- local vendor tools and temporary binaries ----
+tools/rad/
+tools/xdvdfs_bin/
+rad_installer.exe
+*.txt
+!CMakeLists.txt
+!requirements.txt
+
+# ---- local inspection dumps and test artifacts ----
+/ucode_dump/
+/*.png
+/*.spv
+
+
+# ---- iw4L port ----
+iw4L/
+/iw4L/
+iw4L-cpp/build/
+/build-android/
+/iw4L-cpp/build/
+/build-android/
+build-iw4l*/
