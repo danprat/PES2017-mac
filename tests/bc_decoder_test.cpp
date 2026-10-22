@@ -13,6 +13,9 @@
 
 #include <vulkan/vulkan.h>
 
+#include <algorithm>
+#include <cstdlib>
+#include <cstring>
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -606,6 +609,197 @@ void DecodingIntoTheSameObjectReusesTheBuffer()
     Check(matches, "a smaller decode into a reused buffer is still right: " + why);
 }
 
+    // ---- BC1 to ASTC 4x4 ------------------------------------------------------
+
+    // An ASTC decoder for the one block shape the transcoder writes, from the spec: the
+    // block mode must be a 4x4 grid with 2-bit weights and one plane, one partition,
+    // colour endpoint mode 8 with 8-bit values. Anything else fails the check, so a
+    // wrong header bit is a failure rather than a different block read the same way.
+    bool RefAstcDecode(const uint8_t* block, uint8_t texels[16][3])
+    {
+        uint64_t lo = 0, hi = 0;
+        for (int i = 0; i < 8; i++) { lo |= uint64_t(block[i]) << (8 * i); hi |= uint64_t(block[8 + i]) << (8 * i); }
+        const auto bit = [&](int n) -> uint32_t { return n < 64 ? uint32_t((lo >> n) & 1) : uint32_t((hi >> (n - 64)) & 1); };
+        const auto field = [&](int from, int count) { uint32_t v = 0; for (int i = 0; i < count; i++) v |= bit(from + i) << i; return v; };
+
+        const uint32_t mode = field(0, 11);
+        const uint32_t r = (bit(4) << 0) | (bit(0) << 1) | (bit(1) << 2);   // R0 is bit 4, R1 bit 0, R2 bit 1
+        const uint32_t layout = field(2, 2);
+        const uint32_t a = field(5, 2), b = field(7, 2);
+        const bool high = bit(9), dual = bit(10);
+        if (layout != 0 || dual || high || r != 4) return false;            // R = 4, H = 0: weights 0..3
+        if (b + 4 != 4 || a + 2 != 4) return false;                        // 4 wide, 4 high
+        (void)mode;
+        if (field(11, 2) != 0) return false;                               // one partition
+        if (field(13, 4) != 8) return false;                               // RGB, direct
+        int v[6];
+        for (int i = 0; i < 6; i++) v[i] = int(field(17 + 8 * i, 8));
+        int e0[3] = { v[0], v[2], v[4] }, e1[3] = { v[1], v[3], v[5] };
+        if (e1[0] + e1[1] + e1[2] < e0[0] + e0[1] + e0[2]) return false;   // blue contraction: not written
+        static const int kWeight[4] = { 0, 21, 43, 64 };
+        for (int t = 0; t < 16; t++)
+        {
+            // The weight stream runs backwards from bit 127: weight t's low bit is bit 127 - 2t.
+            const uint32_t w = (bit(127 - 2 * t) << 0) | (bit(126 - 2 * t) << 1);
+            for (int c = 0; c < 3; c++)
+            {
+                const int c0 = e0[c] * 257, c1 = e1[c] * 257;
+                const int value = (c0 * (64 - kWeight[w]) + c1 * kWeight[w] + 32) >> 6;
+                texels[t][c] = uint8_t(value >> 8);
+            }
+        }
+        return true;
+    }
+
+    int MaxDiff(const uint8_t a[16][3], const uint8_t ref[16][4], uint32_t indices, bool skipAlpha0)
+    {
+        int worst = 0;
+        for (int t = 0; t < 16; t++)
+        {
+            if (skipAlpha0 && ref[t][3] == 0) continue;
+            for (int c = 0; c < 3; c++) worst = std::max(worst, std::abs(int(a[t][c]) - int(ref[t][c])));
+        }
+        (void)indices;
+        return worst;
+    }
+
+    void Bc1ToAstcMatchesTheReference()
+    {
+        Rng rng(0xA57C);
+        int dual = 0, fourColour = 0, threeColour = 0, worst4 = 0, worst3 = 0;
+        for (int n = 0; n < 200000; n++)
+        {
+            uint8_t block[8];
+            for (uint8_t& b : block) b = rng.Byte();
+            if ((n & 3) == 0)  // flat and near-flat endpoints, which random bytes seldom make
+            {
+                block[2] = block[0]; block[3] = uint8_t(block[1] ^ (n & 4 ? 0 : 1));
+            }
+            uint8_t astc[16];
+            const uint16_t c0 = Le16(block), c1 = Le16(block + 2);
+            const uint32_t indices = Le32(block + 4);
+            Check(vk::bc::TranscodeBc1BlockToAstc(block, astc), "every block transcodes");
+            const bool dualPlane = (astc[0] | ((astc[1] & 7) << 8)) == 0x442;
+            dual += dualPlane;
+            if (dualPlane)
+            {
+                // The colour selector says alpha is the second plane, and CEM 12 is RGBA.
+                Check(((astc[7] >> 6) & 3) == 3, "dual-plane blocks select alpha for the second plane");
+                Check((((astc[1] >> 5) | (astc[2] << 3)) & 15) == 12, "dual-plane blocks use RGBA direct");
+                continue;
+            }
+            uint8_t pal[4][4];
+            RefColorPalette(block, false, pal);
+            uint8_t ref[16][4];
+            for (int i = 0; i < 16; i++) std::memcpy(ref[i], pal[(indices >> (2 * i)) & 3], 4);
+            uint8_t got[16][3];
+            Check(RefAstcDecode(astc, got), "the block is the shape the transcoder promises");
+            const int diff = MaxDiff(got, ref, indices, false);
+            if (c0 > c1) { fourColour++; worst4 = std::max(worst4, diff); }
+            else         { threeColour++; worst3 = std::max(worst3, diff); }
+        }
+        std::printf("bc1->astc: %d four-colour (worst %d levels), %d single-plane three-colour (worst %d), %d dual-plane\n",
+                    fourColour, worst4, threeColour, worst3, dual);
+        Check(worst4 <= 2, "four-colour blocks are within two levels of BC1");
+        Check(worst3 <= 3, "single-plane three-colour blocks are within three levels of BC1");
+    }
+
+    // Blocks whose ASTC bytes and decoded texels were taken from Apple's Metal ASTC decoder,
+    // so a wrong header bit, trit packing or weight order shows up here and not on a phone.
+    void Bc1ToAstcGoldenBlocks()
+    {
+#include "bc1_astc_golden.inc"
+        const size_t count = sizeof kGoldenBc1 / sizeof kGoldenBc1[0];
+        for (size_t i = 0; i < count; i++)
+        {
+            uint8_t astc[16];
+            Check(vk::bc::TranscodeBc1BlockToAstc(kGoldenBc1[i], astc), "a golden block transcodes");
+            Check(std::memcmp(astc, kGoldenAstc[i], 16) == 0, "golden block " + std::to_string(i) + " is byte for byte what was validated");
+            // And the texels Metal read out are what BC1 says, within the format's loss.
+            uint8_t pal[4][4];
+            RefColorPalette(kGoldenBc1[i], false, pal);
+            const uint32_t indices = Le32(kGoldenBc1[i] + 4);
+            int worst = 0;
+            for (int t = 0; t < 16; t++)
+            {
+                const uint8_t* want = pal[(indices >> (2 * t)) & 3];
+                const uint8_t* got = kGoldenRgba[i] + 4 * t;
+                if (want[3] == 0) { Check(got[3] < 8, "a transparent texel stays transparent"); continue; }
+                Check(got[3] > 247, "an opaque texel stays opaque");
+                for (int c = 0; c < 3; c++) worst = std::max(worst, std::abs(int(want[c]) - int(got[c])));
+            }
+            Check(worst <= 45, "golden decode is near BC1");
+        }
+    }
+
+    // BC2 and BC3 the same way: golden blocks decoded by Metal, and a layout check.
+    void Bc23ToAstcGoldenBlocks()
+    {
+#include "bc23_astc_golden.inc"
+        const size_t count = sizeof kGoldenIsBc3 / sizeof kGoldenIsBc3[0];
+        for (size_t i = 0; i < count; i++)
+        {
+            uint8_t astc[16];
+            Check(vk::bc::TranscodeBc23BlockToAstc(kGoldenBc23[i], kGoldenIsBc3[i], astc), "a golden BC2/BC3 block transcodes");
+            Check(std::memcmp(astc, kGoldenBc23Astc[i], 16) == 0,
+                  "golden BC2/BC3 block " + std::to_string(i) + " is byte for byte what was validated");
+            uint8_t ref[16][4];
+            RefBlock(kGoldenIsBc3[i] ? 20 : 19, kGoldenBc23[i], ref);
+            int worstRgb = 0, worstAlpha = 0;
+            for (int t = 0; t < 16; t++)
+            {
+                for (int c = 0; c < 3; c++) worstRgb = std::max(worstRgb, std::abs(int(ref[t][c]) - int(kGoldenBc23Rgba[i][4 * t + c])));
+                worstAlpha = std::max(worstAlpha, std::abs(int(ref[t][3]) - int(kGoldenBc23Rgba[i][4 * t + 3])));
+            }
+            Check(worstRgb <= 4, "BC2/BC3 colour is within four levels");
+            Check(worstAlpha <= 45, "BC2/BC3 alpha is within the four-level quantisation");
+        }
+    }
+
+    void Bc23ToAstcLayoutAndConstantAlpha()
+    {
+        // Opaque BC3 with a flat colour: single-plane RGBA, exact.
+        uint8_t block[16] = { 255, 255, 0, 0, 0, 0, 0, 0,  0x1F, 0xF8, 0x1F, 0xF8, 0, 0, 0, 0 };
+        uint8_t astc[16];
+        Check(vk::bc::TranscodeBc23BlockToAstc(block, true, astc), "an opaque BC3 block transcodes");
+        Check((astc[0] | ((astc[1] & 7) << 8)) == 0x42, "constant alpha uses one plane");
+        gpu::TextureData src;
+        src.ok = true;
+        src.width = 8; src.height = 4; src.blocksWide = 2; src.blocksHigh = 1; src.bytesPerBlock = 16;
+        gpu::TextureData::Level l0; l0.width = 8; l0.height = 4; l0.blocksWide = 2; l0.blocksHigh = 1; l0.offset = 0; l0.size = 32;
+        src.levels = { l0 };
+        src.bytes.assign(32, 0);
+        std::memcpy(src.bytes.data(), block, 16); std::memcpy(src.bytes.data() + 16, block, 16);
+        gpu::TextureData dst;
+        int format = 0;
+        Check(vk::bc::TranscodeToAstc(src, 20, dst, format) && dst.bytes.size() == 32 && dst.bytesPerBlock == 16,
+              "a BC3 texture keeps its block count");
+        Check(!vk::bc::TranscodeToAstc(src, 18, dst, format), "BC1 on 16-byte blocks is refused");
+        Check(!vk::bc::TranscodeToAstc(src, 49, dst, format), "BC5 is not transcoded");
+    }
+
+    void Bc1ToAstcKeepsTheLevelLayout()
+    {
+        gpu::TextureData src;
+        src.ok = true;
+        src.width = 8; src.height = 8; src.blocksWide = 2; src.blocksHigh = 2; src.bytesPerBlock = 8;
+        gpu::TextureData::Level l0; l0.width = 8; l0.height = 8; l0.blocksWide = 2; l0.blocksHigh = 2; l0.offset = 0; l0.size = 32;
+        gpu::TextureData::Level l1; l1.width = 4; l1.height = 4; l1.blocksWide = 1; l1.blocksHigh = 1; l1.offset = 32; l1.size = 8;
+        src.levels = { l0, l1 };
+        src.bytes.assign(40, 0);
+        for (int b = 0; b < 5; b++) { src.bytes[b * 8] = 0xFF; src.bytes[b * 8 + 1] = 0xFF; src.bytes[b * 8 + 4] = uint8_t(b * 0x1B); }
+        gpu::TextureData dst;
+        int format = 0;
+        Check(vk::bc::TranscodeBc1ToAstc(src, dst, format), "a small chain transcodes");
+        Check(format == VK_FORMAT_ASTC_4x4_UNORM_BLOCK, "the format is ASTC 4x4");
+        Check(dst.levels.size() == 2 && dst.bytesPerBlock == 16 && !dst.expanded, "block layout is kept");
+        Check(dst.levels[0].offset == 0 && dst.levels[0].size == 64, "level 0 holds four 16-byte blocks");
+        Check(dst.levels[1].offset == 64 && dst.levels[1].size == 16, "level 1 follows, 16-byte aligned");
+        Check(dst.bytes.size() == 80, "the buffer holds exactly the blocks");
+        src.bytes.resize(36);
+        Check(!vk::bc::TranscodeBc1ToAstc(src, dst, format) && !dst.ok, "short data fails");
+    }
+
 int main()
 {
     RandomBlocksMatchTheReference();
@@ -618,6 +812,11 @@ int main()
     UnsupportedFormatsAreRefused();
     ZeroBlockSizeIsRefused();
     DecodingIntoTheSameObjectReusesTheBuffer();
+    Bc1ToAstcMatchesTheReference();
+    Bc1ToAstcGoldenBlocks();
+    Bc1ToAstcKeepsTheLevelLayout();
+    Bc23ToAstcGoldenBlocks();
+    Bc23ToAstcLayoutAndConstantAlpha();
 
     std::printf("%d checks, %d failures\n", g_checks, g_failures);
     return g_failures == 0 ? 0 : 1;

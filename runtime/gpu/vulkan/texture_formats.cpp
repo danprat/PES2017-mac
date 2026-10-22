@@ -105,6 +105,7 @@ int vk::formats::SrgbFormatFor(int format)
     case VK_FORMAT_BC1_RGBA_UNORM_BLOCK: return VK_FORMAT_BC1_RGBA_SRGB_BLOCK;
     case VK_FORMAT_BC2_UNORM_BLOCK:      return VK_FORMAT_BC2_SRGB_BLOCK;
     case VK_FORMAT_BC3_UNORM_BLOCK:      return VK_FORMAT_BC3_SRGB_BLOCK;
+    case VK_FORMAT_ASTC_4x4_UNORM_BLOCK: return VK_FORMAT_ASTC_4x4_SRGB_BLOCK;
     default:                             return VK_FORMAT_UNDEFINED;
     }
 }
@@ -133,6 +134,7 @@ const char* vk::formats::VulkanFormatName(int format)
     case VK_FORMAT_BC3_UNORM_BLOCK:          return "BC3";
     case VK_FORMAT_BC4_UNORM_BLOCK:          return "BC4";
     case VK_FORMAT_BC5_UNORM_BLOCK:          return "BC5";
+    case VK_FORMAT_ASTC_4x4_UNORM_BLOCK:     return "ASTC4x4";
     default:                                 return "unsupported";
     }
 }

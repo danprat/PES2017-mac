@@ -58,6 +58,10 @@ namespace vk::pipeline
     bool     LegacyMode();
     // Whether the device supports BC texture compression (BC1..BC5).
     bool     TextureCompressionBC();
+    // Whether the driver samples this Xenos BC format (linear filtering, copy destination).
+    bool     BcFormatSampled(uint32_t xenosFormat);
+    // Whether ASTC 4x4 LDR (UNORM and sRGB) can be sampled, linear-filtered and copied to.
+    bool     AstcSampled();
 
     // The device has one queue, and the window thread and the GPU thread both
     // submit to it; Vulkan requires a queue to be externally synchronised.

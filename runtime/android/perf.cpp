@@ -181,6 +181,26 @@ void android::perf::ApplyMemoryDefaults()
     const uint32_t totalMB = TotalMemoryMB();
     const Paths& paths = GetPaths();
 
+    // files/env_override: NAME=value lines set as switches before the run, for A/B runs
+    // without a rebuild or the app's settings (PES17_ADRENO_BC=hw, for one).
+    if (!paths.external.empty())
+    {
+        if (std::FILE* f = std::fopen((paths.external + "/env_override").c_str(), "r"))
+        {
+            char line[256];
+            while (std::fgets(line, sizeof line, f))
+            {
+                std::string text(line);
+                while (!text.empty() && (text.back() == '\n' || text.back() == '\r')) text.pop_back();
+                const size_t eq = text.find('=');
+                if (eq == std::string::npos || eq == 0 || text.compare(0, 6, "PES17_") != 0) continue;
+                setenv(text.substr(0, eq).c_str(), text.c_str() + eq + 1, 1);
+                LOGI("perf: env_override %s", text.c_str());
+            }
+            std::fclose(f);
+        }
+    }
+
     // The guest's own 512 MB bank, its 440 MB heap and the image are not
     // negotiable; what is left over is what the renderer may cache. A sixth of
     // the device's memory keeps a 4 GB phone alive with room for the system.

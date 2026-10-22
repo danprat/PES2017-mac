@@ -131,6 +131,28 @@ is the case its sampler is known to get wrong; `PES17_ADRENO_BC=hw` (the same as
 `PES17_FORCE_BC_DECOMPRESS=1` makes a desktop driver exercise the same decoder, so a decode
 bug can be told apart from a driver one.
 
+**ASTC instead of RGBA8 (prototype, off by default).** The stock Adreno 650 driver reports no
+`textureCompressionBC` at all, so BC1/BC2/BC3 are software-decoded to RGBA8 there. It does sample ASTC
+LDR, so `PES17_BC_ASTC=1` (or `files/env_override`, one `PES17_*=value` line per setting, read at
+start-up in `runtime/android/perf.cpp`) re-encodes them as ASTC 4x4 instead (`TranscodeToAstc` in
+`bc_decoder.cpp`): a quarter of the memory and of the bytes staged (433 MB to 108 MB of textures
+in a match; fps unchanged within noise).
+
+- BC1 four-colour blocks: one plane, RGB direct, the four BC1 colours on the 2-bit weights
+  (0, 21, 43, 64 of 64). Within two levels of BC1.
+- BC1 blocks with a transparent texel, and BC2/BC3 with varying alpha: dual plane, RGBA direct with
+  48-level (trit) endpoints, alpha in the second plane. Colour is within four levels. BC1/BC2/BC3
+  alpha of 0/255 is exact; a smooth alpha gradient is cut to four levels between the block's
+  extremes (off by more than 8 levels in about 11% of BC2/BC3 blocks on the PES textures).
+- Constant alpha costs nothing (single-plane RGBA).
+- The log's `tex:` lines (`PES17_TEXTURE_TIMING=1`) show what was converted and how far off.
+
+The encoder was checked against Apple's Metal ASTC decoder; `tests/bc1_astc_golden.inc` and
+`tests/bc23_astc_golden.inc` hold the blocks and what that decoder made of them.
+`vulkan: BCn sampling ... supported` lines in the log come from a per-format support check at
+start-up (`vk::pipeline::BcFormatSampled`), which also keeps a driver that offers only some BC
+formats on the software path for the rest.
+
 | Xenos (id) | Vulkan |
 |---|---|
 | 8, 8_A, 8_B (2, 8, 9) | R8 |

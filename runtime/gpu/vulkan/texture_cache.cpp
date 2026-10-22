@@ -1,5 +1,6 @@
 #include "../../android/android.h"
 #include <cstdio>
+#include <unistd.h>
 #include "texture_cache.h"
 #include "../../diagnostics.h"
 
@@ -60,6 +61,7 @@ void vk::textures::BeginUploads(uint32_t) {}
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <chrono>
 #include <cstring>
 #include <map>
@@ -122,10 +124,50 @@ namespace
         static const bool force = std::getenv("PES17_FORCE_BC_DECOMPRESS") != nullptr;
         if (force) return true;
         if (!vk::pipeline::TextureCompressionBC()) return true;
+        if (!vk::pipeline::BcFormatSampled(xenosFormat)) return true;
         if (vk::bc::AdrenoMode() != vk::bc::AdrenoBC::kDxt1Only) return false;
         // 18 is DXT1 and 51 its 16_16_16_16 alias: the two that carry a 1-bit
         // alpha mode, and the sizes the driver samples wrong for a frame.
         return xenosFormat == 18 || xenosFormat == 51;
+    }
+
+    // BC1, BC2 and BC3 sent to a GPU that samples ASTC but not BC as ASTC 4x4 rather than
+    // RGBA8: a quarter of the memory and of the bytes the staging copies. Off unless
+    // PES17_BC_ASTC (or the older PES17_BC1_ASTC) is set; a prototype.
+    bool Bc1AsAstc(uint32_t xenosFormat)
+    {
+        static const bool wanted = env::Flag("PES17_BC_ASTC") || env::Flag("PES17_BC1_ASTC");
+        const bool bc123 = xenosFormat == 18 || xenosFormat == 51 || xenosFormat == 19 || xenosFormat == 52 ||
+                           xenosFormat == 20 || xenosFormat == 53;
+        return wanted && bc123 && vk::pipeline::AstcSampled();
+    }
+
+    struct AstcStats
+    {
+        std::atomic<uint64_t> textures{0}, refused{0}, bcBytes{0}, astcBytes{0}, rgbaBytes{0}, ns{0};
+    } g_astc;
+
+    // Software-decode `data` for a format DecodeInSoftware picked.
+    bool DecodeBc(const gpu::TextureData& data, uint32_t xenosFormat, gpu::TextureData& out,
+                  int& format)
+    {
+        if (Bc1AsAstc(xenosFormat))
+        {
+            const auto t0 = std::chrono::steady_clock::now();
+            const bool ok = vk::bc::TranscodeToAstc(data, xenosFormat, out, format);
+            g_astc.ns += uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(
+                std::chrono::steady_clock::now() - t0).count());
+            if (ok)
+            {
+                g_astc.textures++;
+                g_astc.bcBytes += data.bytes.size();
+                g_astc.astcBytes += out.bytes.size();
+                g_astc.rgbaBytes += (out.bytes.size() / 16) * 64;
+                return true;
+            }
+            g_astc.refused++;
+        }
+        return vk::bc::Decompress(data, xenosFormat, out, format);
     }
 
     struct Image
@@ -227,6 +269,43 @@ namespace
     };
     constexpr VkDeviceSize kStagingLeast = 8ull << 20, kStagingMost = 256ull << 20;
 
+    // What turning guest textures into images costs the thread that parses the
+    // command stream (files/texture_timing or PES17_TEXTURE_TIMING=1): a
+    // `tex:` line every 600 frames. Cumulative nanoseconds; `frame` is this
+    // frame's share of them, which is what a stutter is made of.
+    struct Timing
+    {
+        enum Part { kRead, kDecode, kStage, kParts };
+        bool on = false;
+        uint64_t ns[kParts]{}, newTextures = 0, restages = 0, decodedBytes = 0;
+        uint64_t frame = 0, worstFrame = 0, framesOver2 = 0, framesOver8 = 0;
+        uint64_t since[kParts]{}, newSince = 0, restagesSince = 0, decodedSince = 0;
+    };
+
+    class Timed
+    {
+    public:
+        Timed(Timing& timing, Timing::Part part) : m_timing(timing), m_part(part)
+        {
+            if (timing.on) m_from = std::chrono::steady_clock::now();
+        }
+        ~Timed()
+        {
+            if (!m_timing.on) return;
+            const uint64_t ns = uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(
+                                             std::chrono::steady_clock::now() - m_from).count());
+            m_timing.ns[m_part] += ns;
+            m_timing.frame += ns;
+        }
+        Timed(const Timed&) = delete;
+        Timed& operator=(const Timed&) = delete;
+
+    private:
+        Timing& m_timing;
+        Timing::Part m_part;
+        std::chrono::steady_clock::time_point m_from;
+    };
+
     struct State
     {
         VkDevice device = VK_NULL_HANDLE;
@@ -321,6 +400,7 @@ namespace
         uint64_t shared = 0;                  // fetch constants answered by an image already held
         std::map<std::string, uint32_t> failureReasons;
         std::string lastError;
+        Timing timing;
     };
     State g;
 
@@ -900,7 +980,9 @@ namespace
         if (DecodeInSoftware(xenosFormat))
         {
             int decompFormat = 0;
-            if (!vk::bc::Decompress(data, xenosFormat, decompressed, decompFormat))
+            Timed timed(g.timing, Timing::kDecode);
+            g.timing.decodedBytes += data.bytes.size();
+            if (!DecodeBc(data, xenosFormat, decompressed, decompFormat))
             {
                 Fail("software BC decompression failed", error);
                 LOGE("Texture upload: software BC decompression failed for xenosFormat %u (%ux%u, %zu levels): %s",
@@ -956,6 +1038,7 @@ namespace
         image.bytes = pData->bytes.size();
         image.levels = pData->levels;
 
+        Timed staging(g.timing, Timing::kStage);
         if (!MakeImage(image, error)) { DestroyImage(image); return vk::textures::kNone; }
         if (!StageInto(image, pData->bytes.data(), pData->bytes.size(), error))
         {
@@ -1023,6 +1106,12 @@ bool vk::textures::Initialise()
         if (g.memory.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT)
             deviceLocal = std::max(deviceLocal, g.memory.memoryHeaps[i].size);
     g.budget = env::Number("PES17_TEXTURE_BUDGET_MB") << 20;
+    g.timing.on = env::Flag("PES17_TEXTURE_TIMING");
+#ifdef PES17_ANDROID
+    if (!g.timing.on)
+        g.timing.on = access((android::GetPaths().external + "/texture_timing").c_str(), F_OK) == 0;
+#endif
+    if (g.timing.on) LOGW("textures: timing of reads, decodes and uploads is on");
     if (!g.budget)
     {
 #if defined(PES17_ANDROID) || defined(__ANDROID__)
@@ -1244,7 +1333,9 @@ namespace
         if (DecodeInSoftware(image.xenosFormat))
         {
             int decompFormat = 0;
-            if (!vk::bc::Decompress(data, image.xenosFormat, decompressed, decompFormat))
+            Timed timed(g.timing, Timing::kDecode);
+            g.timing.decodedBytes += data.bytes.size();
+            if (!DecodeBc(data, image.xenosFormat, decompressed, decompFormat))
             {
                 LOGE("Texture restage: software BC decompression failed for xenosFormat %u (%ux%u, %zu levels): %s",
                      image.xenosFormat, data.width, data.height, data.levels.size(),
@@ -1274,6 +1365,8 @@ namespace
             return false;
         }
 
+        Timed staging(g.timing, Timing::kStage);
+        g.timing.restages++;
         return StageInto(image, pData->bytes.data(), pData->bytes.size(), nullptr);
     }
 
@@ -1281,6 +1374,7 @@ namespace
     {
         gpu::TextureFetch fetch;
         std::memcpy(fetch.d, image.fetchWords, sizeof fetch.d);
+        Timed timed(g.timing, Timing::kRead);
         return gpu::ReadTexture(fetch, HostAddress(image.address), HostAddress(image.mipAddress));
     }
 
@@ -1559,6 +1653,44 @@ void vk::textures::NewFrame()
     g.lateReads.resize(kept);
     g.frame++;
     if (!g.device) return;
+    if (Timing& t = g.timing; t.on)
+    {
+        t.worstFrame = std::max(t.worstFrame, t.frame);
+        t.framesOver2 += t.frame > 2'000'000;
+        t.framesOver8 += t.frame > 8'000'000;
+        t.frame = 0;
+        if (g.frame % 600 == 0)
+        {
+            const auto ms = [&](int part) { return double(t.ns[part] - t.since[part]) / 1e6; };
+            LOGI("tex: %llu new, %llu restaged in 600 frames; read %.1f ms, decode %.1f ms"
+                 " (%llu KB of BC), stage %.1f ms; worst frame %.1f ms, %llu frames over 2 ms,"
+                 " %llu over 8 ms; since start: %llu new, decode %.0f ms, read %.0f ms, stage %.0f ms",
+                 (unsigned long long)(t.newTextures - t.newSince),
+                 (unsigned long long)(t.restages - t.restagesSince), ms(Timing::kRead),
+                 ms(Timing::kDecode), (unsigned long long)((t.decodedBytes - t.decodedSince) >> 10),
+                 ms(Timing::kStage), double(t.worstFrame) / 1e6,
+                 (unsigned long long)t.framesOver2, (unsigned long long)t.framesOver8,
+                 (unsigned long long)t.newTextures, double(t.ns[Timing::kDecode]) / 1e6,
+                 double(t.ns[Timing::kRead]) / 1e6, double(t.ns[Timing::kStage]) / 1e6);
+            if (g_astc.textures || g_astc.refused)
+                LOGI("tex: bc->astc %llu textures (%llu refused): %llu KB of BC -> %llu KB ASTC"
+                     " (RGBA8 would be %llu KB); transcode %.1f ms total; blocks %llu, dual-plane %llu, midpoint off >4 levels %llu, >16 levels %llu",
+                     (unsigned long long)g_astc.textures, (unsigned long long)g_astc.refused,
+                     (unsigned long long)(g_astc.bcBytes >> 10), (unsigned long long)(g_astc.astcBytes >> 10),
+                     (unsigned long long)(g_astc.rgbaBytes >> 10), double(g_astc.ns) / 1e6,
+                     (unsigned long long)vk::bc::AstcStats().blocks, (unsigned long long)vk::bc::AstcStats().dual,
+                     (unsigned long long)vk::bc::AstcStats().approximate, (unsigned long long)vk::bc::AstcStats().severe);
+            if (const auto a = vk::bc::AstcAlphaStats(); a.blocks)
+                LOGI("tex: bc2/bc3 alpha: %llu blocks, %llu with varying alpha (dual plane), alpha off >8 levels in %llu, >32 in %llu",
+                     (unsigned long long)a.blocks, (unsigned long long)a.dual, (unsigned long long)a.off8,
+                     (unsigned long long)a.off32);
+            std::copy(t.ns, t.ns + Timing::kParts, t.since);
+            t.newSince = t.newTextures;
+            t.restagesSince = t.restages;
+            t.decodedSince = t.decodedBytes;
+            t.worstFrame = t.framesOver2 = t.framesOver8 = 0;
+        }
+    }
     // Every half minute, what the cache holds and how much of it is in use.
     if constexpr (diag::kOn)
         if (g.frame % 1800 == 0)
@@ -1722,7 +1854,11 @@ uint64_t vk::textures::Upload(const gpu::TextureFetch& fetch, const char** error
     // Watched before it is read, so a write after the read shows.
     const uint64_t watchStamp = TrackSource(extents.baseAddress, base ? extents.baseBytes : 0,
                                             extents.mipAddress, mips ? extents.mipBytes : 0);
-    gpu::TextureData data = gpu::ReadTexture(fetch, base, mips);
+    g.timing.newTextures++;
+    gpu::TextureData data = [&] {
+        Timed timed(g.timing, Timing::kRead);
+        return gpu::ReadTexture(fetch, base, mips);
+    }();
     if (!data.ok)
     {
         Fail(data.error ? data.error : "unreadable", error);

@@ -28,6 +28,8 @@ bool     vk::pipeline::HasDynamicRendering() { return false; }
 bool     vk::pipeline::HasExtendedDynamicState() { return false; }
 bool     vk::pipeline::LegacyMode() { return false; }
 bool     vk::pipeline::TextureCompressionBC() { return false; }
+bool     vk::pipeline::BcFormatSampled(uint32_t) { return false; }
+bool     vk::pipeline::AstcSampled() { return false; }
 std::mutex& vk::pipeline::QueueMutex() { static std::mutex m; return m; }
 void*    vk::pipeline::SetLayout(uint32_t) { return nullptr; }
 void*    vk::pipeline::Layout() { return nullptr; }
@@ -89,6 +91,11 @@ namespace
         bool hasExtendedDynamicState = false;
         bool legacyMode = false;
         bool textureCompressionBC = false;
+        // BC1, BC2, BC3, BC4, BC5: whether the driver samples each (with linear filtering and as a
+        // copy destination), which is what Xenia asks of each format before using it.
+        bool bcSampled[5]{};
+        // ASTC 4x4 LDR, UNORM and sRGB: what a BC1 texture is transcoded to where BC is absent.
+        bool astcSampled = false;
         std::string name = "none";
 
         VkDescriptorSetLayout sets[3]{};
@@ -183,6 +190,7 @@ bool vk::pipeline::CreateDevice(void* physicalDevice, uint32_t family,
     // Compressed BC textures (BC1..BC5) used throughout the title. Strict drivers
     // (Mali, etc.) require this feature to be explicitly enabled before creating BC images.
     enabled.textureCompressionBC = supported.textureCompressionBC;
+    enabled.textureCompressionASTC_LDR = supported.textureCompressionASTC_LDR;
     g.textureCompressionBC = supported.textureCompressionBC;
     // Adreno's compressed-sampling path has a known BC1-with-1-bit-alpha flicker:
     // surfaces sampling as black one frame and lit the next, missing geometry,
@@ -212,6 +220,40 @@ bool vk::pipeline::CreateDevice(void* physicalDevice, uint32_t family,
     }
     if (!supported.textureCompressionBC)
         LOGW("vulkan: the device does not report textureCompressionBC support");
+    {
+        constexpr VkFormatFeatureFlags kNeeded = VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT |
+            VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT | VK_FORMAT_FEATURE_TRANSFER_DST_BIT;
+        VkFormatProperties unorm{}, srgb{};
+        vkGetPhysicalDeviceFormatProperties(physical, VK_FORMAT_ASTC_4x4_UNORM_BLOCK, &unorm);
+        vkGetPhysicalDeviceFormatProperties(physical, VK_FORMAT_ASTC_4x4_SRGB_BLOCK, &srgb);
+        g.astcSampled = supported.textureCompressionASTC_LDR &&
+                        (unorm.optimalTilingFeatures & kNeeded) == kNeeded &&
+                        (srgb.optimalTilingFeatures & kNeeded) == kNeeded;
+        LOGI("vulkan: ASTC 4x4 sampling %s", g.astcSampled ? "supported" : "NOT supported");
+    }
+    {
+        static const struct { VkFormat format; VkFormat srgb; const char* name; } kBc[5] = {
+            { VK_FORMAT_BC1_RGBA_UNORM_BLOCK, VK_FORMAT_BC1_RGBA_SRGB_BLOCK, "BC1" },
+            { VK_FORMAT_BC2_UNORM_BLOCK, VK_FORMAT_BC2_SRGB_BLOCK, "BC2" },
+            { VK_FORMAT_BC3_UNORM_BLOCK, VK_FORMAT_BC3_SRGB_BLOCK, "BC3" },
+            { VK_FORMAT_BC4_UNORM_BLOCK, VK_FORMAT_UNDEFINED, "BC4" },
+            { VK_FORMAT_BC5_UNORM_BLOCK, VK_FORMAT_UNDEFINED, "BC5" } };
+        constexpr VkFormatFeatureFlags kNeeded = VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT |
+            VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT | VK_FORMAT_FEATURE_TRANSFER_DST_BIT;
+        for (int i = 0; i < 5; ++i)
+        {
+            VkFormatProperties props{};
+            vkGetPhysicalDeviceFormatProperties(physical, kBc[i].format, &props);
+            bool ok = supported.textureCompressionBC && (props.optimalTilingFeatures & kNeeded) == kNeeded;
+            if (ok && kBc[i].srgb != VK_FORMAT_UNDEFINED)
+            {
+                vkGetPhysicalDeviceFormatProperties(physical, kBc[i].srgb, &props);
+                ok = (props.optimalTilingFeatures & kNeeded) == kNeeded;
+            }
+            g.bcSampled[i] = ok;
+            LOGI("vulkan: %s sampling %s", kBc[i].name, ok ? "supported" : "NOT supported");
+        }
+    }
     // The title's occlusion queries are a sample count it compares against a
     // threshold, and without this a query is only allowed to answer "some".
     enabled.occlusionQueryPrecise = supported.occlusionQueryPrecise;
@@ -865,6 +907,19 @@ bool     vk::pipeline::HasDynamicRendering() { return g.hasDynamicRendering; }
 bool     vk::pipeline::HasExtendedDynamicState() { return g.hasExtendedDynamicState; }
 bool     vk::pipeline::LegacyMode() { return g.legacyMode; }
 bool     vk::pipeline::TextureCompressionBC() { return g.textureCompressionBC; }
+bool     vk::pipeline::AstcSampled() { return g.astcSampled; }
+bool     vk::pipeline::BcFormatSampled(uint32_t xenosFormat)
+{
+    switch (xenosFormat)
+    {
+    case 18: case 51: return g.bcSampled[0];
+    case 19: case 52: return g.bcSampled[1];
+    case 20: case 53: return g.bcSampled[2];
+    case 59:          return g.bcSampled[3];
+    case 49:          return g.bcSampled[4];
+    default:          return false;
+    }
+}
 std::mutex& vk::pipeline::QueueMutex() { static std::mutex m; return m; }
 std::mutex& vk::pipeline::CacheMutex() { static std::mutex m; return m; }
 std::mutex& vk::pipeline::CreationMutex() { static std::mutex m; return m; }
