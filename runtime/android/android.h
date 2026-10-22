@@ -200,6 +200,13 @@ namespace android::perf
     // A thread that must not be late: the guest's main thread, the ring
     // consumer, the audio mixer.
     void RaiseThreadPriority();
+    // The system's performance hint (ADPF, Android 12+; a no-op where it is missing): the
+    // threads that carry the frame are put in one session with the frame period as their
+    // target, and each finished frame reports how long it took. A phone that is missing frames
+    // is given more CPU and GPU clock for them, one that is not is let off it. PES17_HINT=0
+    // turns it off.
+    void AddHintThread();                        // the calling thread joins the session
+    void ReportFrameWork(int64_t actualNanoseconds);
     // How much RAM the device has, in MB, and how much is free right now.
     uint32_t TotalMemoryMB();
     uint32_t AvailableMemoryMB();

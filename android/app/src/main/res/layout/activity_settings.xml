@@ -233,6 +233,32 @@
                     android:text="@string/scene_scale_hint" />
 
                 <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/heat_scale"
+                    style="@style/SettingSwitch"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/heat_scale" />
+
+                <TextView
+                    style="@style/SettingHint"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/heat_scale_hint" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/load_scale"
+                    style="@style/SettingSwitch"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/load_scale" />
+
+                <TextView
+                    style="@style/SettingHint"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/load_scale_hint" />
+
+                <androidx.appcompat.widget.SwitchCompat
                     android:id="@+id/fsr"
                     style="@style/SettingSwitch"
                     android:layout_width="match_parent"
@@ -256,18 +282,35 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content" />
 
-                <androidx.appcompat.widget.SwitchCompat
-                    android:id="@+id/cap30"
-                    style="@style/SettingSwitch"
+                <TextView
+                    android:id="@+id/fps_limit_label"
+                    style="@style/SettingLabel"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/cap30" />
+                    android:layout_height="wrap_content" />
+
+                <SeekBar
+                    android:id="@+id/fps_limit"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content" />
 
                 <TextView
                     style="@style/SettingHint"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="@string/cap30_hint" />
+                    android:text="@string/fps_limit_hint" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/perf_hint"
+                    style="@style/SettingSwitch"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/perf_hint" />
+
+                <TextView
+                    style="@style/SettingHint"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/perf_hint_hint" />
 
                 <androidx.appcompat.widget.SwitchCompat
                     android:id="@+id/low_memory"

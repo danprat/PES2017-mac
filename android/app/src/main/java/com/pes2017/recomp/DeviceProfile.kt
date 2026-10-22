@@ -12,11 +12,14 @@ import java.io.File
  * starts from. The match is GPU-bound first (docs/performance.md), so the GPU
  * decides the tier; the CPU and the memory can only pull it down.
  *
- *   High    the S20 FE's Adreno 650 and better: the defaults the port was tuned on.
+ *   High    the Snapdragon 865's Adreno 650 and better: the defaults the port was tuned on.
  *   Medium  a step below (Adreno 640/642L/7xx entry, Mali-G68/G78/G610):
  *           a smaller scene with FSR to sharpen it back.
  *   Low     Helio G99 / Snapdragon 680-class (Mali-G57 MC2, Adreno 610-619):
  *           the smallest scene, no multisampling, and 30 frames a second.
+ *           Medium is held to 45: steady frame times on a 60 Hz screen, and a lighter
+ *           load than 60 (measured on a Snapdragon 865, which is High: 45 and 30 had the
+ *           steadiest frames, 40 and 35 hitched).
  *
  * Nothing here is measured on a Low or Medium phone yet; the table is the
  * GPUs' relative throughput, not a benchmark.
@@ -41,14 +44,21 @@ object DeviceProfile {
         val sceneScalePercent: Int,
         val multisampling: Boolean,
         val fsr: Boolean,
-        val cap30: Boolean,
+        val fpsLimit: Int,
         val lowMemory: Boolean,
+        val heatScale: Boolean,
+        val loadScale: Boolean,
     )
 
+    // With the heat rule on, the scene scale is the most the match will be drawn at and the
+    // runtime lowers it (to 50%) as the phone heats, so Medium and Low start higher than they
+    // would be fixed. The heat rule is on everywhere: on a Snapdragon 865 it dropped the picture and
+    // held 57-60 fps in a match at thermal status 4. The load rule is not in any preset: on that
+    // phone the GPU pass time never went over budget in a slow match, so it never acted.
     fun preset(tier: Tier): Preset = when (tier) {
-        Tier.HIGH -> Preset(sceneScalePercent = 75, multisampling = true, fsr = false, cap30 = false, lowMemory = false)
-        Tier.MEDIUM -> Preset(sceneScalePercent = 65, multisampling = true, fsr = true, cap30 = false, lowMemory = false)
-        Tier.LOW -> Preset(sceneScalePercent = 50, multisampling = false, fsr = true, cap30 = true, lowMemory = true)
+        Tier.HIGH -> Preset(75, multisampling = true, fsr = false, fpsLimit = 60, lowMemory = false, heatScale = true, loadScale = false)
+        Tier.MEDIUM -> Preset(75, multisampling = true, fsr = true, fpsLimit = 60, lowMemory = false, heatScale = true, loadScale = false)
+        Tier.LOW -> Preset(60, multisampling = false, fsr = true, fpsLimit = 30, lowMemory = true, heatScale = true, loadScale = false)
     }
 
     fun apply(prefs: Prefs, tier: Tier) {
@@ -56,8 +66,10 @@ object DeviceProfile {
         prefs.sceneScalePercent = p.sceneScalePercent
         prefs.multisampling = p.multisampling
         prefs.fsr = p.fsr
-        prefs.cap30 = p.cap30
+        prefs.fpsLimit = p.fpsLimit
         prefs.lowMemory = p.lowMemory
+        prefs.heatScale = p.heatScale
+        prefs.loadScale = p.loadScale
         prefs.preset = tier.name
     }
 

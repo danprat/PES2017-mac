@@ -227,11 +227,12 @@ class CaptureSession(private val activity: Activity, private val prefs: Prefs) {
         info.append("driver: $driver\n")
         info.append("game folder: ${prefs.gameDirectory}\n\n")
         info.append("settings:\n")
-        info.append("  performance preset ${prefs.preset.ifEmpty { "none" }}\n")
+        info.append("  performance preset ${prefs.preset.ifEmpty { "none" }}, heat scale ${prefs.heatScale}, " +
+            "load scale ${prefs.loadScale}, performance hint ${prefs.perfHint}\n")
         info.append("  display resolution ${(prefs.resolutionScale * 100).toInt()}%, internal scale ${prefs.renderScale}x, " +
             "scene ${prefs.sceneScalePercent}%\n")
         info.append("  msaa ${prefs.multisampling}, 60 Hz lock ${prefs.prefer60Hz}, fsr ${prefs.fsr} (sharpness ${prefs.fsrSharpness}), " +
-            "30 fps cap ${prefs.cap30}, low memory ${prefs.lowMemory}\n")
+            "fps limit ${prefs.fpsLimit}, low memory ${prefs.lowMemory}\n")
         info.append("  texture memory ${if (prefs.textureBudgetMB > 0) "${prefs.textureBudgetMB} MB" else "auto"}, " +
             "compile all shaders ${prefs.prewarmAllShaders}, audio ${prefs.audioEnabled}\n")
         info.append("  touch controls ${prefs.touchControls}, gamepad ${prefs.gamepadEnabled}, vibration ${prefs.vibration}\n")

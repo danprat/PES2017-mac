@@ -122,3 +122,12 @@ if(WIN32)
     target_link_options(volume-test PRIVATE -static)
     target_link_options(version-test PRIVATE -static)
 endif()
+
+# ---- the dynamic scene scale -------------------------------------------------
+# The policy that lowers the match's render scale when its GPU time runs over
+# the frame and when the phone reports heat, and raises it again when there is
+# room (runtime/gpu/vulkan/dynamic_scale.h). Header-only arithmetic.
+add_executable(dynamic-scale-test
+    "${CMAKE_CURRENT_SOURCE_DIR}/dynamic_scale_test.cpp")
+target_include_directories(dynamic-scale-test PRIVATE "${PES17_RUNTIME}")
+add_test(NAME dynamic-scale COMMAND dynamic-scale-test)

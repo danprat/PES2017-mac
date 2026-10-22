@@ -48,6 +48,36 @@ class Prefs(context: Context) {
         get() = store.getInt(KEY_SCENE_SCALE, 75).coerceIn(50, 100)
         set(value) = store.edit().putInt(KEY_SCENE_SCALE, value.coerceIn(50, 100)).apply()
 
+    /**
+     * Lower the picture when the phone gets hot (PES17_HEAT_SCALE): the match's render quality
+     * above is the most it will be, and the runtime takes it down as the phone's thermal status
+     * rises (a quarter of the way to 50% at MODERATE, half at SEVERE, all of it from CRITICAL),
+     * before the GPU is throttled, and back up as it falls. Read from the same key the first
+     * adaptive switch used, so a phone that had it on keeps it.
+     */
+    var heatScale: Boolean
+        get() = store.getBoolean(KEY_HEAT_SCALE, store.getBoolean(KEY_DYNAMIC_SCALE, false))
+        set(value) = store.edit().putBoolean(KEY_HEAT_SCALE, value).apply()
+
+    /**
+     * Lower the picture when the GPU runs over the frame (PES17_LOAD_SCALE): the render passes'
+     * GPU time is held under a share of the frame by stepping the scale down, and raised again
+     * when there is room. It reacts to GPU pass time only, which on the Snapdragon 865 was not what made
+     * a slow match slow, so it is a separate choice from the heat one. Experimental.
+     */
+    var loadScale: Boolean
+        get() = store.getBoolean(KEY_LOAD_SCALE, store.getBoolean(KEY_DYNAMIC_SCALE, false))
+        set(value) = store.edit().putBoolean(KEY_LOAD_SCALE, value).apply()
+
+    /**
+     * The system's performance hint (PES17_HINT): the frame threads report how long each frame
+     * took so Android can raise or lower the CPU and GPU clock to suit. Does nothing on a phone
+     * that refuses it (a Snapdragon 865 phone on Android 13 does). On by default.
+     */
+    var perfHint: Boolean
+        get() = store.getBoolean(KEY_PERF_HINT, true)
+        set(value) = store.edit().putBoolean(KEY_PERF_HINT, value).apply()
+
     /** FSR upscale and sharpen instead of a plain stretch (PES17_UPSCALER=fsr). */
     var fsr: Boolean
         get() = store.getBoolean(KEY_FSR, false)
@@ -66,10 +96,15 @@ class Prefs(context: Context) {
         get() = store.getBoolean(KEY_WIDESCREEN, true)
         set(value) = store.edit().putBoolean(KEY_WIDESCREEN, value).apply()
 
-    /** Limit the match to 30 frames a second (PES17_FPS_LIMIT=30), for heat and battery. */
-    var cap30: Boolean
-        get() = store.getBoolean(KEY_CAP30, false)
-        set(value) = store.edit().putBoolean(KEY_CAP30, value).apply()
+    /**
+     * Frames a second the match is limited to (PES17_FPS_LIMIT), for heat and battery: 30 to 60
+     * in steps of 5, where 60 is the console's own pacing and no limit. Before this was a
+     * setting of its own, the old 30 FPS switch (cap30) stood for 30.
+     */
+    var fpsLimit: Int
+        get() = if (store.contains(KEY_FPS_LIMIT)) store.getInt(KEY_FPS_LIMIT, 60).coerceIn(30, 60)
+                else if (store.getBoolean(KEY_CAP30, false)) 30 else 60
+        set(value) = store.edit().putInt(KEY_FPS_LIMIT, value.coerceIn(30, 60)).apply()
 
     /** Skip the large vertex shadow buffer (PES17_NO_SHADOW), for phones with little memory. */
     var lowMemory: Boolean
@@ -86,7 +121,7 @@ class Prefs(context: Context) {
 
     /** Whether the player set any of the settings a preset sets, before presets existed. */
     fun hasTunedPerformance(): Boolean =
-        listOf(KEY_SCENE_SCALE, KEY_MSAA, KEY_FSR, KEY_CAP30, KEY_LOW_MEMORY).any { store.contains(it) }
+        listOf(KEY_SCENE_SCALE, KEY_MSAA, KEY_FSR, KEY_CAP30, KEY_FPS_LIMIT, KEY_LOW_MEMORY).any { store.contains(it) }
 
     /** The GPU's GL renderer name, as read on the build `key` (DeviceProfile). */
     fun cachedGpu(key: String): String? =
@@ -102,7 +137,7 @@ class Prefs(context: Context) {
 
     /**
      * Multisampling: the title's own 2x/4x world pass. On by default for PES: without it the thin pitch
-     * lines break into dashes at the 0.75 scene scale, and on the S20 FE's Adreno 650 it measured no cost
+     * lines break into dashes at the 0.75 scene scale, and on the Snapdragon 865's Adreno 650 it measured no cost
      * (50 fps with it, about 44 without, Battery Saver on).
      */
     var multisampling: Boolean
@@ -248,8 +283,13 @@ class Prefs(context: Context) {
         private const val KEY_RESOLUTION = "resolutionScale"
         private const val KEY_SCENE_SCALE = "sceneScale"
         private const val KEY_FSR = "fsr"
+        private const val KEY_DYNAMIC_SCALE = "dynamicScale"   // the first, single adaptive switch
+        private const val KEY_HEAT_SCALE = "heatScale"
+        private const val KEY_LOAD_SCALE = "loadScale"
+        private const val KEY_PERF_HINT = "perfHint"
         private const val KEY_FSR_SHARP = "fsrSharpness"
         private const val KEY_CAP30 = "cap30"
+        private const val KEY_FPS_LIMIT = "fpsLimit"
         private const val KEY_WIDESCREEN = "widescreen"
         private const val KEY_LOW_MEMORY = "lowMemory"
         private const val KEY_PENDING_FOLDER = "pendingFolder"

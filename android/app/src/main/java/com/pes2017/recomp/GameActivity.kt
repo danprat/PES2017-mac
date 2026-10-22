@@ -334,6 +334,7 @@ class GameActivity : AppCompatActivity(), NativeListener {
         // Sustained performance mode locks CPU/GPU governors to steady frequencies
         // to prevent erratic thermal throttling mid-gameplay.
         window.setSustainedPerformanceMode(true)
+        watchThermalStatus()
         if (prefs.prefer60Hz) {
             val attributes = window.attributes
             attributes.preferredRefreshRate = 60f
@@ -717,6 +718,9 @@ class GameActivity : AppCompatActivity(), NativeListener {
         // The port's own switches, from Settings > Performance. Always given,
         // so a player's choice wins over the runtime's per-device defaults.
         NativeBridge.nativeSetOption("PES17_SCENE_SCALE", String.format(Locale.US, "%.4f", prefs.sceneScalePercent / 100.0))
+        NativeBridge.nativeSetOption("PES17_HEAT_SCALE", if (prefs.heatScale) "1" else "")
+        NativeBridge.nativeSetOption("PES17_LOAD_SCALE", if (prefs.loadScale) "1" else "")
+        NativeBridge.nativeSetOption("PES17_HINT", if (prefs.perfHint) "" else "0")
         NativeBridge.nativeSetOption("PES17_UPSCALER", if (prefs.fsr) "fsr" else "")
         NativeBridge.nativeSetOption("PES17_FSR_SHARPNESS", String.format(Locale.US, "%.1f", prefs.fsrSharpness))
         // For trying other caps without a rebuild: a number in files/fps_limit
@@ -724,7 +728,7 @@ class GameActivity : AppCompatActivity(), NativeListener {
         val fpsOverride = try {
             getExternalFilesDir(null)?.let { File(it, "fps_limit") }?.takeIf { it.isFile }?.readText()?.trim()
         } catch (_: Exception) { null }
-        NativeBridge.nativeSetOption("PES17_FPS_LIMIT", fpsOverride?.takeIf { it.isNotEmpty() } ?: if (prefs.cap30) "30" else "")
+        NativeBridge.nativeSetOption("PES17_FPS_LIMIT", fpsOverride?.takeIf { it.isNotEmpty() } ?: if (prefs.fpsLimit < 60) prefs.fpsLimit.toString() else "")
         NativeBridge.nativeSetOption(
             "PES17_ASPECT",
             if (prefs.widescreen) String.format(Locale.US, "%.4f", screenAspect()) else "",
@@ -1275,7 +1279,37 @@ class GameActivity : AppCompatActivity(), NativeListener {
 
     private fun toast(text: String) = android.widget.Toast.makeText(this, text, android.widget.Toast.LENGTH_SHORT).show()
 
+    private var thermalListener: Any? = null
+
+    /**
+     * The phone's own heat status, from Android 10, handed to the runtime: the adaptive scene
+     * scale (Settings > Adaptive quality) lowers the picture when it reaches MODERATE, before the
+     * GPU is throttled, rather than after. Without a status the runtime reads none.
+     */
+    private fun watchThermalStatus() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
+        val power = getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager ?: return
+        val listener = android.os.PowerManager.OnThermalStatusChangedListener { status ->
+            try { NativeBridge.nativeSetThermalStatus(status) } catch (_: Throwable) {}
+        }
+        thermalListener = listener
+        try {
+            NativeBridge.nativeSetThermalStatus(power.currentThermalStatus)
+            power.addThermalStatusListener(listener)
+        } catch (_: Throwable) {
+            thermalListener = null
+        }
+    }
+
+    private fun stopWatchingThermalStatus() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
+        val listener = thermalListener as? android.os.PowerManager.OnThermalStatusChangedListener ?: return
+        (getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager)?.removeThermalStatusListener(listener)
+        thermalListener = null
+    }
+
     override fun onDestroy() {
+        stopWatchingThermalStatus()
         try { unregisterReceiver(macroControl) } catch (_: Throwable) {}
         Macro.stopPlayback()
         super.onDestroy()
@@ -1294,7 +1328,7 @@ class GameActivity : AppCompatActivity(), NativeListener {
 
     // ---- what the runtime tells the app ---------------------------------------------------
 
-    // Battery Saver halves the fast cores' clock (2.84 GHz to 1.5 GHz on an S20 FE): a match falls from
+    // Battery Saver halves the fast cores' clock (2.84 GHz to 1.5 GHz on a Snapdragon 865): a match falls from
     // about 58 fps to about 45, and the uneven frames show as a stuttering ball. Said once a resume.
     private fun warnIfPowerSaving() {
         val power = getSystemService(android.content.Context.POWER_SERVICE) as? android.os.PowerManager ?: return

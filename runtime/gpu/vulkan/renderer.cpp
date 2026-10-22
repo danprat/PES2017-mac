@@ -9,6 +9,7 @@
 bool vk::renderer::Initialise() { return false; }
 void vk::renderer::Shutdown() {}
 bool vk::renderer::Ready() { return false; }
+void vk::renderer::SetThermalStatus(int) {}
 void vk::renderer::Draw(const gpu::RegisterFile&, const DrawCall&) {}
 void vk::renderer::Resolve(const gpu::RegisterFile&) {}
 void vk::renderer::Swap(uint32_t) {}
@@ -24,6 +25,7 @@ bool vk::renderer::DumpingDraws() { return false; }
 #else
 
 #include "renderer_state.h"
+#include "../../frame_rate.h"
 #ifdef PES17_ANDROID
 #include "../../android/android.h"
 #endif
@@ -35,6 +37,7 @@ bool vk::renderer::DumpingDraws() { return false; }
 #include "../../log.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace vk::renderer::detail
 {
@@ -238,6 +241,27 @@ bool vk::renderer::Initialise()
             if (g.sceneScale < 1.0f)
                 LOGI("renderer: the scene is drawn at %.4g of 1280x720 (%ux%u)", g.sceneScale,
                      HostOf(1280, g.sceneScale), HostOf(720, g.sceneScale));
+
+            // PES17_HEAT_SCALE and PES17_LOAD_SCALE (PES17_DYNAMIC_SCALE is both): the scale the
+            // player chose is the most it will be, and half of 1280x720 the least. The GPU time the
+            // load rule keeps the passes under is a share of one frame at the rate the title is
+            // held to.
+            const bool both = env::Flag("PES17_DYNAMIC_SCALE");
+            g.heatScale = both || env::Flag("PES17_HEAT_SCALE");
+            g.loadScale = both || env::Flag("PES17_LOAD_SCALE");
+            g.dynamicScale = g.heatScale || g.loadScale;
+            if (g.dynamicScale)
+            {
+                const uint32_t limit = frame_rate::Limit();
+                const double period = 1000.0 / double(limit ? std::min(limit, 240u) : 60u);
+                g.dynScale.Configure(int(std::lround(g.sceneScale * 16.0f)), 8, period * 0.78);
+                g.dynScale.SetRules(g.heatScale, g.loadScale);
+                g.dynScale.SetThermal(g.thermalStatus.load());
+                LOGI("renderer: the scene scale moves with %s%s%s: %u/16 to %u/16, passes under %.1f ms",
+                     g.heatScale ? "the phone's heat" : "", g.heatScale && g.loadScale ? " and " : "",
+                     g.loadScale ? "the GPU time" : "", unsigned(g.dynScale.Floor()),
+                     unsigned(g.dynScale.Ceiling()), g.dynScale.Budget());
+            }
         }
     }
 
@@ -305,6 +329,9 @@ bool vk::renderer::Initialise()
 #ifdef PES17_ANDROID
         if (!wanted) wanted = access((android::GetPaths().external + "/gpu_timing").c_str(), F_OK) == 0;
 #endif
+        g.timingReport = wanted;
+        // The load rule reads the passes' times, so it needs them taken.
+        if (g.loadScale) wanted = true;
         if (wanted && props.limits.timestampComputeAndGraphics)
         {
             VkQueryPoolCreateInfo timestamps{ VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO };
@@ -314,7 +341,14 @@ bool vk::renderer::Initialise()
             for (auto& timing : g.passTiming)
                 if (vkCreateQueryPool(g.device, &timestamps, nullptr, &timing.pool) != VK_SUCCESS)
                     { timing.pool = VK_NULL_HANDLE; g.timingOn = false; }
-            LOGW("renderer: GPU timing of the render passes is on (%.2f ns a tick)", g.timestampPeriod);
+            if (g.timingReport) LOGW("renderer: GPU timing of the render passes is on (%.2f ns a tick)", g.timestampPeriod);
+        }
+        if (g.loadScale && !g.timingOn)
+        {
+            LOGW("renderer: the device cannot timestamp render passes, so the scene scale cannot follow the GPU time");
+            g.loadScale = false;
+            g.dynScale.SetRules(g.heatScale, false);
+            g.dynamicScale = g.heatScale;
         }
     }
 
@@ -612,5 +646,9 @@ void vk::renderer::Shutdown()
 }
 
 bool vk::renderer::Ready() { return g.ready; }
+
+// The phone's thermal status (PowerManager THERMAL_STATUS_*), from the Java side. Read by the
+// dynamic scene scale at the next frame.
+void vk::renderer::SetThermalStatus(int status) { g.thermalStatus.store(status, std::memory_order_relaxed); }
 
 #endif  // PES17_HAVE_VULKAN

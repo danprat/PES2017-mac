@@ -532,6 +532,31 @@ namespace vk::renderer::detail
         return &stored;
     }
 
+    void ApplySceneScale()
+    {
+        if (!g.dynamicScale) return;
+        const float wanted = float(g.dynScale.Current()) / 16.0f;
+        if (wanted == g.sceneScale) return;
+        const float was = g.sceneScale;
+
+        // The full-frame surfaces carry their scale (Target::scale) and the resolves out of
+        // them carry it too (renderer_resolve.cpp makes a copy over when its scale differs),
+        // so only these are rebuilt: the next draw into one makes it at the new size.
+        RetireBeforeDestroy();
+        for (auto found = g.targets.begin(); found != g.targets.end();)
+        {
+            if (found->second.width >= 1152 && found->second.scale != wanted)
+            {
+                DestroyTarget(found->second);
+                found = g.targets.erase(found);
+            }
+            else ++found;
+        }
+        g.sceneScale = wanted;
+        LOGI("renderer: the scene scale is now %.4g of 1280x720 (%ux%u), was %.4g (heat status %d)", wanted,
+             HostOf(1280, wanted), HostOf(720, wanted), was, g.thermalStatus.load(std::memory_order_relaxed));
+    }
+
     VkRenderPass GetRenderPass(VkFormat colourFormat, VkFormat depthFormat, VkSampleCountFlagBits samples)
     {
         static std::mutex s_renderPassMutex;

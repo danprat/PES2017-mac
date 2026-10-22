@@ -20,6 +20,10 @@ namespace vk::renderer
     void Shutdown();
     bool Ready();
 
+    // The phone's thermal status, PowerManager's THERMAL_STATUS_* (0 none .. 6 shutdown). Any
+    // thread; the dynamic scene scale (PES17_DYNAMIC_SCALE) reads it at the next frame.
+    void SetThermalStatus(int status);
+
     // The name a shader goes by here: FNV-1a over its microcode dwords, as the
     // command stream loads them.
     inline uint64_t ShaderHash(const uint32_t* code, size_t words)

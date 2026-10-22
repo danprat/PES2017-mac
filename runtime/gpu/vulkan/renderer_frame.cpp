@@ -10,6 +10,9 @@
 #include "../../log.h"
 #include "../../pacing_trace.h"
 #include "../../report.h"
+#ifdef PES17_ANDROID
+#include "../../android/android.h"
+#endif
 
 #ifdef PES17_HAVE_VULKAN
 
@@ -216,9 +219,17 @@ namespace vk::renderer::detail
                     sum += ns;
                 }
                 frameNs += sum; passes += n; frames++;
+                // A world frame is twenty-odd passes; a menu or a cutscene is a handful and says
+                // nothing about what the match costs.
+                if (g.loadScale && n >= 10) g.dynScale.Note(sum / 1e6);
             }
         }
-        if (frames >= 600)
+        if (!g.timingReport)
+        {
+            // Collected for the dynamic scale and not to be logged.
+            totals.clear(); frameNs = 0; frames = 0; passes = 0;
+        }
+        else if (frames >= 600)
         {
             std::vector<std::pair<uint32_t, std::pair<double, uint32_t>>> rows(totals.begin(), totals.end());
             std::sort(rows.begin(), rows.end(), [](const auto& a, const auto& b) { return a.second.first > b.second.first; });
@@ -353,6 +364,16 @@ namespace vk::renderer::detail
         if (!Submit(plan.Any())) { Skip("frame submission failed"); return; }
         g.frames++;
         vk::textures::NewFrame();
+#ifdef PES17_ANDROID
+        {
+            // The frame's length, for the system's performance hint (android::perf): how long
+            // since the last frame was finished, which is what it is asked to keep to the target.
+            static auto last = std::chrono::steady_clock::now();
+            const auto now = std::chrono::steady_clock::now();
+            android::perf::ReportFrameWork(std::chrono::duration_cast<std::chrono::nanoseconds>(now - last).count());
+            last = now;
+        }
+#endif
 
         // The title does not redraw the world every time it presents -- better than
         // half the frames of the training level are the interface over whatever the
@@ -371,6 +392,14 @@ namespace vk::renderer::detail
                 worldDrawn = true;
             target.colourDrawsThisFrame = 0;
         }
+        // The scale moves after a frame that drew the world, so the next one draws it again into
+        // the surfaces made at the new size rather than showing them empty.
+        if (g.heatScale)
+        {
+            g.dynScale.SetThermal(g.thermalStatus.load(std::memory_order_relaxed));
+            g.dynScale.Frame();
+        }
+        if (worldDrawn) ApplySceneScale();
         pacing::Note(pacing::kFrame, worldDrawn ? 1 : 0);
         stutters::Finished(g.frames, worldDrawn);
         report::Frame(worldDrawn);

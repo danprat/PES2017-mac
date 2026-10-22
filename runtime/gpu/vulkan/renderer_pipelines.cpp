@@ -625,7 +625,7 @@ namespace vk::renderer::detail
                     // minute of menus before a match, where 200 ms each left
                     // most of the intro to compile on demand (players missing,
                     // effects popping in). MW2's 200 ms guarded a device whose
-                    // vkQueueSubmit blocked while compiling; the S20 FE's does not.
+                    // vkQueueSubmit blocked while compiling; the Snapdragon 865's does not.
                     sleepMs = 25 + int(tookMs / 4);
                 }
                 else

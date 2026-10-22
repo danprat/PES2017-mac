@@ -451,6 +451,13 @@ PES17_NATIVE(void, nativeRestoreMemory)(JNIEnv*, jobject)
     android::perf::RestoreMemory();
 }
 
+// PowerManager's thermal status (THERMAL_STATUS_*): the dynamic scene scale lowers the picture
+// before the phone is throttled (PES17_DYNAMIC_SCALE, gpu/vulkan/dynamic_scale.h).
+PES17_NATIVE(void, nativeSetThermalStatus)(JNIEnv*, jobject, jint status)
+{
+    vk::renderer::SetThermalStatus(int(status));
+}
+
 PES17_NATIVE(void, nativeSetRefreshRate)(JNIEnv*, jobject, jfloat hz)
 {
     android::detail::SetRefreshHz(double(hz));

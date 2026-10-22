@@ -16,6 +16,7 @@
 #include "renderer.h"
 #include "../../diagnostics.h"
 #include "bindings.h"
+#include "dynamic_scale.h"
 #include "texture_cache.h"
 #include "pipeline.h"
 #include "recorder.h"
@@ -27,6 +28,7 @@
 #include "../../stutters.h"
 #include "../../words_hash.h"
 
+#include <atomic>
 #include <chrono>
 #include <map>
 #include <string>
@@ -276,6 +278,17 @@ namespace vk::renderer::detail
         // smaller each way and everything that reads them follows; the present
         // stretches the frame back. Only with scale 1.
         float sceneScale = 1.0f;
+        // PES17_DYNAMIC_SCALE (dynamic_scale.h): the scene scale moved while the match
+        // runs, from the passes' GPU time and the phone's thermal status. sceneScale
+        // above is then where it stands now and the player's own is the controller's
+        // ceiling. The status comes from the Java side, on another thread.
+        bool dynamicScale = false;                 // either rule on
+        bool heatScale = false, loadScale = false; // the rules (dynamic_scale.h SetRules)
+        vk::dynscale::Controller dynScale;
+        std::atomic<int> thermalStatus{ 0 };
+        // Whether the passes' timing is written to the log (files/gpu_timing); with the
+        // dynamic scale it is collected without being reported.
+        bool timingReport = false;
         // Vertex ranges already copied into the arena this submission, keyed
         // by physical address and first dword: a mesh drawn in several passes
         // (shadow, depth, colour) is copied once while the page watch says its
@@ -737,6 +750,10 @@ namespace vk::renderer::detail
     void NoteCompleted();
     // Destroying an image the GPU may still use.
     void RetireBeforeDestroy();
+    // Moves the scene scale to where the dynamic controller has it, rebuilding the
+    // full-frame surfaces at the new size. At a frame boundary, after a frame that
+    // drew the world; a no-op when it has not moved.
+    void ApplySceneScale();
     // Until the GPU has finished the submission a slot holds, if it holds one.
     bool WaitForSlot(State::Slot& slot, const char* what);
     void FinishFrame(VkImage present);

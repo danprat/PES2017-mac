@@ -74,11 +74,17 @@ class SettingsActivity : AppCompatActivity() {
         presets()
         bar(R.id.scene_scale, R.id.scene_scale_label, 10, (prefs.sceneScalePercent - 50) / 5,
             { getString(R.string.scene_scale, 50 + it * 5) }) { prefs.sceneScalePercent = 50 + it * 5; presetTouched() }
+        switch(R.id.heat_scale, prefs.heatScale) { prefs.heatScale = it; presetTouched() }
+        switch(R.id.load_scale, prefs.loadScale) { prefs.loadScale = it; presetTouched() }
         switch(R.id.fsr, prefs.fsr) { prefs.fsr = it; presetTouched() }
         bar(R.id.fsr_sharp, R.id.fsr_sharp_label, 20, (prefs.fsrSharpness * 10f).roundToInt(),
             { getString(R.string.fsr_sharp, it / 10f) }) { prefs.fsrSharpness = it / 10f }
-        switch(R.id.cap30, prefs.cap30) { prefs.cap30 = it; presetTouched() }
+        bar(R.id.fps_limit, R.id.fps_limit_label, 6, (prefs.fpsLimit - 30) / 5,
+            { if (it == 6) getString(R.string.fps_limit_off) else getString(R.string.fps_limit, 30 + it * 5) }) {
+            prefs.fpsLimit = 30 + it * 5; presetTouched()
+        }
         switch(R.id.low_memory, prefs.lowMemory) { prefs.lowMemory = it; presetTouched() }
+        switch(R.id.perf_hint, prefs.perfHint) { prefs.perfHint = it }
         // 0 means "let the runtime decide"; then 128 MB steps to 2 GB.
         bar(R.id.texture_budget, R.id.texture_label, 15,
             if (prefs.textureBudgetMB <= 0) 0 else (prefs.textureBudgetMB / 128).coerceIn(1, 15),

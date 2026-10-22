@@ -92,6 +92,9 @@ object NativeBridge {
     external fun nativeRestoreMemory()
     external fun nativeSetRefreshRate(hz: Float)
 
+    /** PowerManager.THERMAL_STATUS_* (0 none .. 6 shutdown), for the adaptive scene scale. */
+    external fun nativeSetThermalStatus(status: Int)
+
     // ---- input ------------------------------------------------------------
 
     external fun nativeTouchState(

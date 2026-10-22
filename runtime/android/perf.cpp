@@ -15,10 +15,12 @@
 
 #include "android.h"
 #include "../env.h"
+#include "../frame_rate.h"
 #include "../log.h"
 #include "../gpu/vulkan/texture_cache.h"
 #include "../gpu/vulkan/pipeline.h"
 
+#include <dlfcn.h>
 #include <malloc.h>
 #include <pthread.h>
 #include <sched.h>
@@ -119,6 +121,80 @@ namespace
     }
 
     uint64_t g_fullTextureBudget = 0;
+
+    // ---- the performance hint session (APerformanceHint, API 33 in the NDK; looked up
+    // by name so a phone with Android 8 to 12 loads this library all the same) ----------
+    struct Hint
+    {
+        using GetManager = void* (*)();
+        using Create = void* (*)(void*, const int32_t*, size_t, int64_t);
+        using Report = int (*)(void*, int64_t);
+        using Close = void (*)(void*);
+
+        std::mutex lock;
+        std::once_flag once;
+        bool usable = false;
+        GetManager getManager = nullptr;
+        Create create = nullptr;
+        Report report = nullptr;
+        Close close = nullptr;
+        void* manager = nullptr;
+        void* session = nullptr;
+        std::vector<int32_t> threads;
+        int64_t targetNanoseconds = 16'666'667;
+    } g_hint;
+
+    void LoadHint()
+    {
+        if (const char* off = std::getenv("PES17_HINT"); off && off[0] == '0') return;
+        void* library = dlopen("libandroid.so", RTLD_NOW);
+        if (!library) return;
+        g_hint.getManager = reinterpret_cast<Hint::GetManager>(dlsym(library, "APerformanceHint_getManager"));
+        g_hint.create = reinterpret_cast<Hint::Create>(dlsym(library, "APerformanceHint_createSession"));
+        g_hint.report = reinterpret_cast<Hint::Report>(dlsym(library, "APerformanceHint_reportActualWorkDuration"));
+        g_hint.close = reinterpret_cast<Hint::Close>(dlsym(library, "APerformanceHint_closeSession"));
+        if (!g_hint.getManager || !g_hint.create || !g_hint.report) return;
+        g_hint.manager = g_hint.getManager();
+        if (!g_hint.manager) return;
+        const uint32_t limit = frame_rate::Limit();
+        g_hint.targetNanoseconds = int64_t(1'000'000'000.0 / double(limit ? std::min(limit, 240u) : 60u));
+        g_hint.usable = true;
+    }
+
+    // A session cannot take threads after it is made, so each new one makes it over.
+    // Called with the lock held. A system that refuses the first (a Samsung on Android 13
+    // did, with the main thread's id) is not asked again.
+    void RebuildHintSession()
+    {
+        if (g_hint.session && g_hint.close) g_hint.close(g_hint.session);
+        g_hint.session = g_hint.create(g_hint.manager, g_hint.threads.data(), g_hint.threads.size(),
+                                       g_hint.targetNanoseconds);
+        LOGI("perf: performance hint session %s for %zu threads, %.1f ms a frame",
+             g_hint.session ? "made" : "refused", g_hint.threads.size(), double(g_hint.targetNanoseconds) / 1e6);
+        if (!g_hint.session) g_hint.usable = false;
+    }
+}
+
+void android::perf::AddHintThread()
+{
+    std::call_once(g_hint.once, LoadHint);
+    if (!g_hint.usable) return;
+    const int32_t tid = int32_t(syscall(SYS_gettid));
+    std::lock_guard lock(g_hint.lock);
+    if (std::find(g_hint.threads.begin(), g_hint.threads.end(), tid) != g_hint.threads.end()) return;
+    g_hint.threads.push_back(tid);
+    RebuildHintSession();
+}
+
+void android::perf::ReportFrameWork(int64_t actualNanoseconds)
+{
+    std::call_once(g_hint.once, LoadHint);
+    if (!g_hint.usable) return;
+    // The thread that finishes frames is the other one that must not be late.
+    static thread_local bool joined = false;
+    if (!joined) { joined = true; AddHintThread(); }
+    std::lock_guard lock(g_hint.lock);
+    if (g_hint.session) g_hint.report(g_hint.session, actualNanoseconds);
 }
 
 void android::perf::PinToBigCores()
@@ -143,6 +219,7 @@ void android::perf::RaiseThreadPriority()
     const int tid = int(syscall(SYS_gettid));
     if (setpriority(PRIO_PROCESS, id_t(tid), -8) != 0)
         setpriority(PRIO_PROCESS, id_t(tid), -4);
+    AddHintThread();
 }
 
 uint32_t android::perf::TotalMemoryMB() { return uint32_t(MemInfoKB("MemTotal") / 1024); }
