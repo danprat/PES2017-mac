@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Taken from Konami's PES 2017 key art (drawable-nodpi/launcher_players.png,
-     launcher_logo.png): the art's white page, the wordmark's red, the kits'
-     navy and blue, the crest's gold. As in the PES 5/6 menus, the chosen
-     entry is the one in gold on a dark band. -->
+<!-- The app's own palette, shared with its artwork (tools/make_artwork.py):
+     a white page, navy and blue, a red accent and a gold highlight. As in the
+     PES 5/6 menus, the chosen entry is the one in gold on a dark band. -->
 <resources>
     <color name="launcher_background">#FFFFFF</color>
     <color name="pes_page">#FFFFFF</color>

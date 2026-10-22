@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- The launcher's screens: the key art's white page, navy type, red controls. -->
+    <!-- The launcher's screens: a white page, navy type, red controls. -->
     <style name="Theme.PES17" parent="Theme.AppCompat.Light.NoActionBar">
         <item name="android:windowBackground">@color/pes_page</item>
         <item name="colorPrimary">@color/pes_navy</item>

@@ -365,7 +365,7 @@ if(PES17_USE_SDL)
         string(APPEND fonts_text "extern const unsigned char kFont${font_name}[] = { ${font_bytes} };\n"
                                  "extern const unsigned kFont${font_name}Size = ${font_size};\n")
     endforeach()
-    # The window's icon the same way (tools/launcher_icon.py makes it).
+    # The window's icon the same way (tools/make_artwork.py makes it).
     set(icon_path "${CMAKE_SOURCE_DIR}/launcher/icon/launcher.bmp")
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${icon_path}")
     file(READ "${icon_path}" icon_hex HEX)

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The launcher, laid out like PES 6's main menu in PES 2017's key art: the
+<!-- The launcher, laid out like PES 6's main menu: the
      wordmark top-left, a left-aligned list of italic entries with a cursor and
-     a band on the chosen one, the players on the right, the chosen entry's
+     a band on the chosen one, the hero picture on the right, the chosen entry's
      details on a panel between, and a strip along the foot that the build
      line scrolls in. Landscape, one screen, nothing scrolls. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -10,7 +10,7 @@
     android:layout_height="match_parent"
     android:background="@color/pes_page">
 
-    <!-- Konami's key art, the players only; its white page is the screen's. -->
+    <!-- The menu's backdrop, the squad on the right; its white page is the screen's. -->
     <FrameLayout
         android:layout_width="wrap_content"
         android:layout_height="match_parent"

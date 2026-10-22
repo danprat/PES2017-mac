@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Tabbed settings, laid out like PES 6's settings screens: a header strip
      for the tabs, the settings as rows on a panel, a help strip at the foot.
-     The key art's players stand faded behind on the right. -->
+     The hero picture stands faded behind on the right. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"

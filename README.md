@@ -131,7 +131,8 @@ This port stands on other people's work.
 - **Barlow Condensed** (Jeremy Tribby, SIL OFL 1.1; `third_party/fonts`): launcher typeface.
 - **Android NDK / SDK / Gradle** and the **Khronos Vulkan** headers and SPIR-V tooling.
 - **Konami**: *Pro Evolution Soccer 2017* is their game and property. This project contains none of it and
-  is not affiliated with or endorsed by Konami.
+  is not affiliated with or endorsed by Konami. The app's icon (drawn by `tools/make_artwork.py`), menu
+  backdrop and wordmark are original artwork; the game's name is used only to say what it runs.
 
 ## Licence
 
