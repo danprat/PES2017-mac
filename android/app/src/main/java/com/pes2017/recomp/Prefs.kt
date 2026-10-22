@@ -76,6 +76,25 @@ class Prefs(context: Context) {
         get() = store.getBoolean(KEY_LOW_MEMORY, false)
         set(value) = store.edit().putBoolean(KEY_LOW_MEMORY, value).apply()
 
+    /**
+     * The performance preset last applied (DeviceProfile.Tier's name), CUSTOM once
+     * the player moves one of its settings, or "" before presets were ever chosen.
+     */
+    var preset: String
+        get() = store.getString(KEY_PRESET, "") ?: ""
+        set(value) = store.edit().putString(KEY_PRESET, value).apply()
+
+    /** Whether the player set any of the settings a preset sets, before presets existed. */
+    fun hasTunedPerformance(): Boolean =
+        listOf(KEY_SCENE_SCALE, KEY_MSAA, KEY_FSR, KEY_CAP30, KEY_LOW_MEMORY).any { store.contains(it) }
+
+    /** The GPU's GL renderer name, as read on the build `key` (DeviceProfile). */
+    fun cachedGpu(key: String): String? =
+        if (store.getString(KEY_GPU_BUILD, null) == key) store.getString(KEY_GPU_NAME, null) else null
+
+    fun cacheGpu(key: String, name: String) =
+        store.edit().putString(KEY_GPU_BUILD, key).putString(KEY_GPU_NAME, name).apply()
+
     /** A game folder the player chose that still waits for the storage permission. */
     var pendingFolder: String
         get() = store.getString(KEY_PENDING_FOLDER, "") ?: ""
@@ -258,5 +277,8 @@ class Prefs(context: Context) {
         private const val KEY_AUTO_LAUNCH = "autoLaunch"
         private const val KEY_UPDATE_TAG = "seenUpdateTag"
         private const val KEY_PREWARM_ALL = "prewarmAllShaders"
+        private const val KEY_PRESET = "performancePreset"
+        private const val KEY_GPU_BUILD = "gpuNameBuild"
+        private const val KEY_GPU_NAME = "gpuName"
     }
 }

@@ -719,7 +719,12 @@ class GameActivity : AppCompatActivity(), NativeListener {
         NativeBridge.nativeSetOption("PES17_SCENE_SCALE", String.format(Locale.US, "%.4f", prefs.sceneScalePercent / 100.0))
         NativeBridge.nativeSetOption("PES17_UPSCALER", if (prefs.fsr) "fsr" else "")
         NativeBridge.nativeSetOption("PES17_FSR_SHARPNESS", String.format(Locale.US, "%.1f", prefs.fsrSharpness))
-        NativeBridge.nativeSetOption("PES17_FPS_LIMIT", if (prefs.cap30) "30" else "")
+        // For trying other caps without a rebuild: a number in files/fps_limit
+        // (adb shell "echo 40 > /sdcard/Android/data/com.pes2017.recomp/files/fps_limit") wins over the switch.
+        val fpsOverride = try {
+            getExternalFilesDir(null)?.let { File(it, "fps_limit") }?.takeIf { it.isFile }?.readText()?.trim()
+        } catch (_: Exception) { null }
+        NativeBridge.nativeSetOption("PES17_FPS_LIMIT", fpsOverride?.takeIf { it.isNotEmpty() } ?: if (prefs.cap30) "30" else "")
         NativeBridge.nativeSetOption(
             "PES17_ASPECT",
             if (prefs.widescreen) String.format(Locale.US, "%.4f", screenAspect()) else "",
@@ -753,6 +758,11 @@ class GameActivity : AppCompatActivity(), NativeListener {
         }
         NativeBridge.nativeSetOption("PES17_PIPELINE_CACHE", "${filesDir.absolutePath}/pipeline.cache")
         NativeBridge.nativeSetOption("PES17_SHADER_CACHE", shaderCacheFile.absolutePath)
+        // Textures converted for the GPU (BC to ASTC) in earlier sessions,
+        // read back instead of converted again (runtime/gpu/vulkan/texture_store.h).
+        // The internal folder: reads through the external one's sdcardfs ran at
+        // under 500 MB/s, which made a texture as slow to read as to convert.
+        NativeBridge.nativeSetOption("PES17_TEXTURE_STORE", "${filesDir.absolutePath}/texture_store.bin")
 
         NativeBridge.nativeLookSettings(
             prefs.lookSensitivityX, prefs.lookSensitivityY,

@@ -30,10 +30,22 @@ class SettingsActivity : AppCompatActivity() {
     private val tabPages = mutableListOf<android.view.View>()
     private lateinit var storageAccess: TextView
     private lateinit var grantStorage: Button
+    private lateinit var savesSummary: TextView
+
+    // Save backups (SaveBackup): written where the player picks, read from a file they pick.
+    private val createBackup = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/zip"),
+    ) { uri -> if (uri != null) backupTo(uri) }
+    private val openBackup = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
+    ) { uri -> if (uri != null) confirmRestore { contentResolver.openInputStream(uri) } }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
+        // BACK on the strip along the top; through the dispatcher, so a screen's own back handling (the install's
+        // "stop copying?") applies to it too.
+        findViewById<android.view.View>(R.id.back_button).setOnClickListener { onBackPressedDispatcher.onBackPressed() }
         prefs = Prefs(this)
         title = getString(R.string.entry_settings)
 
@@ -54,18 +66,19 @@ class SettingsActivity : AppCompatActivity() {
             { getString(R.string.resolution, it + 35) }) { prefs.resolutionScale = (it + 35) / 100f }
         bar(R.id.render_scale, R.id.render_scale_label, 2, prefs.renderScale - 1,
             { getString(R.string.render_scale, it + 1) }) { prefs.renderScale = it + 1 }
-        switch(R.id.msaa, prefs.multisampling) { prefs.multisampling = it }
+        switch(R.id.msaa, prefs.multisampling) { prefs.multisampling = it; presetTouched() }
         switch(R.id.prefer60, prefs.prefer60Hz) { prefs.prefer60Hz = it }
         switch(R.id.widescreen, prefs.widescreen) { prefs.widescreen = it }
 
         // ---- match performance (the runtime's own switches) ----
+        presets()
         bar(R.id.scene_scale, R.id.scene_scale_label, 10, (prefs.sceneScalePercent - 50) / 5,
-            { getString(R.string.scene_scale, 50 + it * 5) }) { prefs.sceneScalePercent = 50 + it * 5 }
-        switch(R.id.fsr, prefs.fsr) { prefs.fsr = it }
+            { getString(R.string.scene_scale, 50 + it * 5) }) { prefs.sceneScalePercent = 50 + it * 5; presetTouched() }
+        switch(R.id.fsr, prefs.fsr) { prefs.fsr = it; presetTouched() }
         bar(R.id.fsr_sharp, R.id.fsr_sharp_label, 20, (prefs.fsrSharpness * 10f).roundToInt(),
             { getString(R.string.fsr_sharp, it / 10f) }) { prefs.fsrSharpness = it / 10f }
-        switch(R.id.cap30, prefs.cap30) { prefs.cap30 = it }
-        switch(R.id.low_memory, prefs.lowMemory) { prefs.lowMemory = it }
+        switch(R.id.cap30, prefs.cap30) { prefs.cap30 = it; presetTouched() }
+        switch(R.id.low_memory, prefs.lowMemory) { prefs.lowMemory = it; presetTouched() }
         // 0 means "let the runtime decide"; then 128 MB steps to 2 GB.
         bar(R.id.texture_budget, R.id.texture_label, 15,
             if (prefs.textureBudgetMB <= 0) 0 else (prefs.textureBudgetMB / 128).coerceIn(1, 15),
@@ -117,6 +130,14 @@ class SettingsActivity : AppCompatActivity() {
         }
         paths.text = pathsText()
 
+        // ---- save data ----
+        savesSummary = findViewById(R.id.saves_summary)
+        refreshSaves()
+        findViewById<Button>(R.id.backup_saves).setOnClickListener {
+            createBackup.launch(SaveBackup.suggestedName())
+        }
+        findViewById<Button>(R.id.restore_saves).setOnClickListener { chooseRestore() }
+
         // ---- storage ----
         val storage: TextView = findViewById(R.id.storage)
         refreshStorage(storage)
@@ -145,6 +166,118 @@ class SettingsActivity : AppCompatActivity() {
         grantStorage.visibility = if (granted) android.view.View.GONE else android.view.View.VISIBLE
     }
 
+    /**
+     * Low / Medium / High (DeviceProfile): a button writes its tier's settings and
+     * the page is built again, so every slider and switch shows what it set.
+     */
+    private fun presets() {
+        DeviceProfile.ensurePreset(this, prefs)
+        val detected = DeviceProfile.detect(this, prefs)
+        val specs = detected.specs
+        findViewById<TextView>(R.id.preset_detected).text = getString(
+            R.string.preset_detected,
+            tierName(detected.tier.name), detected.reason,
+            specs.gpu.ifEmpty { getString(R.string.preset_gpu_unknown) },
+            specs.fastCores, specs.fastestMHz, specs.totalMemoryMB / 1024.0,
+        )
+        presetLabel = findViewById(R.id.preset_label)
+        presetLabel.text = getString(R.string.preset_label, tierName(prefs.preset))
+        listOf(
+            R.id.preset_low to DeviceProfile.Tier.LOW,
+            R.id.preset_medium to DeviceProfile.Tier.MEDIUM,
+            R.id.preset_high to DeviceProfile.Tier.HIGH,
+        ).forEach { (id, tier) ->
+            findViewById<Button>(id).setOnClickListener {
+                DeviceProfile.apply(prefs, tier)
+                intent.putExtra(EXTRA_TAB, TAB_PORT)
+                recreate()
+            }
+        }
+    }
+
+    private lateinit var presetLabel: TextView
+
+    /** One of a preset's settings moved by hand: it is the player's own now. */
+    private fun presetTouched() {
+        if (prefs.preset == DeviceProfile.PRESET_CUSTOM) return
+        prefs.preset = DeviceProfile.PRESET_CUSTOM
+        presetLabel.text = getString(R.string.preset_label, tierName(prefs.preset))
+    }
+
+    private fun tierName(name: String): String = getString(
+        when (name) {
+            DeviceProfile.Tier.LOW.name -> R.string.preset_low
+            DeviceProfile.Tier.MEDIUM.name -> R.string.preset_medium
+            DeviceProfile.Tier.HIGH.name -> R.string.preset_high
+            else -> R.string.preset_custom
+        },
+    )
+
+    private fun refreshSaves() {
+        val saves = SaveBackup.savesDir(this, prefs)
+        val packages = SaveBackup.packages(saves)
+        savesSummary.text =
+            if (packages.isEmpty()) getString(R.string.saves_none, saves.absolutePath)
+            else getString(R.string.saves_summary, packages.size, saves.absolutePath, packages.joinToString(", "))
+    }
+
+    private fun backupTo(uri: android.net.Uri) {
+        val saves = SaveBackup.savesDir(this, prefs)
+        Thread {
+            val message = try {
+                val count = contentResolver.openOutputStream(uri)?.use { SaveBackup.write(saves, it) }
+                    ?: throw IllegalStateException("cannot write there")
+                getString(R.string.backup_done, count)
+            } catch (t: Throwable) {
+                getString(R.string.backup_failed, t.message ?: t.javaClass.simpleName)
+            }
+            runOnUiThread { android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_LONG).show() }
+        }.start()
+    }
+
+    /** A file the player picks, or one of the automatic backups, newest first. */
+    private fun chooseRestore() {
+        val automatic = SaveBackup.automaticBackups(this)
+        val names = listOf(getString(R.string.restore_from_file)) +
+            automatic.map { getString(R.string.restore_auto_entry, it.name.removePrefix("auto-").removeSuffix(".zip")) }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.restore_saves)
+            .setItems(names.toTypedArray()) { _, which ->
+                if (which == 0) openBackup.launch(arrayOf("application/zip", "application/octet-stream"))
+                else confirmRestore { automatic[which - 1].inputStream() }
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    private fun confirmRestore(open: () -> java.io.InputStream?) {
+        if (SaveBackup.gameRunning(this)) {
+            AlertDialog.Builder(this).setMessage(R.string.restore_game_running).setPositiveButton(android.R.string.ok, null).show()
+            return
+        }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.restore_confirm_title)
+            .setMessage(R.string.restore_confirm)
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.restore) { _, _ ->
+                val saves = SaveBackup.savesDir(this, prefs)
+                Thread {
+                    val message = try {
+                        val count = open()?.use { SaveBackup.restore(saves, it) }
+                            ?: throw IllegalStateException("cannot read the backup")
+                        getString(R.string.restore_done, count)
+                    } catch (t: Throwable) {
+                        getString(R.string.restore_failed, t.message ?: t.javaClass.simpleName)
+                    }
+                    runOnUiThread {
+                        android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_LONG).show()
+                        refreshSaves()
+                    }
+                }.start()
+            }
+            .show()
+    }
+
     private fun pathsText(): String =
         if (prefs.gameDirectory.isEmpty()) getString(R.string.paths_none)
         else getString(R.string.paths_line, prefs.gameDirectory)
@@ -156,11 +289,11 @@ class SettingsActivity : AppCompatActivity() {
         }
         tabButtons.forEachIndexed { i, button ->
             if (i == index) {
-                button.setBackgroundResource(R.drawable.bg_entry_selected)
-                button.setTextColor(0xFF2CC4FF.toInt())
+                button.setBackgroundResource(R.drawable.bg_tab_selected)
+                button.setTextColor(getColor(R.color.pes_gold))
             } else {
                 button.setBackgroundColor(android.graphics.Color.TRANSPARENT)
-                button.setTextColor(0xFFEAF1FF.toInt())
+                button.setTextColor(getColor(R.color.pes_on_dark))
             }
         }
     }

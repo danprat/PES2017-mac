@@ -8,6 +8,7 @@
 #include "recorder.h"
 #include "texture_formats.h"
 #include "bc_decoder.h"
+#include "texture_store.h"
 #include "../texture.h"
 #include "../memory_watch.h"
 #include "renderer.h"
@@ -134,12 +135,17 @@ namespace
     // BC1, BC2 and BC3 sent to a GPU that samples ASTC but not BC as ASTC 4x4 rather than
     // RGBA8: a quarter of the memory and of the bytes the staging copies. Off unless
     // PES17_BC_ASTC (or the older PES17_BC1_ASTC) is set; a prototype.
-    bool Bc1AsAstc(uint32_t xenosFormat)
+    bool AstcWanted()
     {
         static const bool wanted = env::Flag("PES17_BC_ASTC") || env::Flag("PES17_BC1_ASTC");
+        return wanted && vk::pipeline::AstcSampled();
+    }
+
+    bool Bc1AsAstc(uint32_t xenosFormat)
+    {
         const bool bc123 = xenosFormat == 18 || xenosFormat == 51 || xenosFormat == 19 || xenosFormat == 52 ||
                            xenosFormat == 20 || xenosFormat == 53;
-        return wanted && bc123 && vk::pipeline::AstcSampled();
+        return bc123 && AstcWanted();
     }
 
     struct AstcStats
@@ -153,6 +159,9 @@ namespace
     {
         if (Bc1AsAstc(xenosFormat))
         {
+            // Converted in an earlier session (texture_store.h): read back, not made again.
+            uint64_t hash = 0;
+            if (vk::texstore::Load(data, xenosFormat, out, format, hash)) return true;
             const auto t0 = std::chrono::steady_clock::now();
             const bool ok = vk::bc::TranscodeToAstc(data, xenosFormat, out, format);
             g_astc.ns += uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -163,6 +172,7 @@ namespace
                 g_astc.bcBytes += data.bytes.size();
                 g_astc.astcBytes += out.bytes.size();
                 g_astc.rgbaBytes += (out.bytes.size() / 16) * 64;
+                if (hash) vk::texstore::Save(data, xenosFormat, hash, out, format);
                 return true;
             }
             g_astc.refused++;
@@ -1112,6 +1122,9 @@ bool vk::textures::Initialise()
         g.timing.on = access((android::GetPaths().external + "/texture_timing").c_str(), F_OK) == 0;
 #endif
     if (g.timing.on) LOGW("textures: timing of reads, decodes and uploads is on");
+    // The store holds ASTC conversions, so it is opened -- on its own thread, ready
+    // well before a match -- only when there will be some.
+    if (AstcWanted()) vk::texstore::Open();
     if (!g.budget)
     {
 #if defined(PES17_ANDROID) || defined(__ANDROID__)
@@ -1680,6 +1693,13 @@ void vk::textures::NewFrame()
                      (unsigned long long)(g_astc.rgbaBytes >> 10), double(g_astc.ns) / 1e6,
                      (unsigned long long)vk::bc::AstcStats().blocks, (unsigned long long)vk::bc::AstcStats().dual,
                      (unsigned long long)vk::bc::AstcStats().approximate, (unsigned long long)vk::bc::AstcStats().severe);
+            if (const auto st = vk::texstore::Counts(); st.hits || st.misses)
+                LOGI("tex: store %llu hits (hashing %.1f ms, reading %.1f ms), %llu misses; %llu saved this run"
+                     " (%llu MB), %llu not kept; %llu textures, %llu MB on disk",
+                     (unsigned long long)st.hits, double(st.hashNs) / 1e6, double(st.readNs) / 1e6,
+                     (unsigned long long)st.misses, (unsigned long long)st.saved,
+                     (unsigned long long)(st.savedBytes >> 20), (unsigned long long)st.dropped,
+                     (unsigned long long)st.records, (unsigned long long)(st.fileBytes >> 20));
             if (const auto a = vk::bc::AstcAlphaStats(); a.blocks)
                 LOGI("tex: bc2/bc3 alpha: %llu blocks, %llu with varying alpha (dual plane), alpha off >8 levels in %llu, >32 in %llu",
                      (unsigned long long)a.blocks, (unsigned long long)a.dual, (unsigned long long)a.off8,

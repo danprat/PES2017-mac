@@ -9,6 +9,7 @@ would sample at the moment a draw executes.
 | Fetch constant, tiling, level layout, untiling | `runtime/gpu/texture.{h,cpp}` |
 | Xenos to Vulkan formats and swizzles | `runtime/gpu/vulkan/texture_formats.{h,cpp}` |
 | Images, samplers, descriptor sets, re-reads | `runtime/gpu/vulkan/texture_cache.{h,cpp}` |
+| Converted (BC to ASTC) textures kept on disk between sessions | `runtime/gpu/vulkan/texture_store.{h,cpp}` |
 | The images' memory, in blocks | `runtime/gpu/vulkan/image_memory.{h,cpp}` |
 | Write watch on guest pages | `runtime/gpu/memory_watch.{h,cpp}` |
 | The image pool's block copy | `runtime/image_move.{h,cpp}` |
@@ -149,6 +150,68 @@ in a match; fps unchanged within noise).
 
 The encoder was checked against Apple's Metal ASTC decoder; `tests/bc1_astc_golden.inc` and
 `tests/bc23_astc_golden.inc` hold the blocks and what that decoder made of them.
+
+**The store of converted textures** (`texture_store.{h,cpp}`). The conversion is the same work
+every session: the game reads the same textures out of its archives each time. So what
+`TranscodeToAstc` makes is kept on disk and read back the next time the same blocks are uploaded:
+
+- **Key:** a hash of the source blocks as `gpu::ReadTexture` returns them (untiled, host-endian,
+  still BC), plus the format and shape. It is not keyed on the guest address or the fetch
+  constant, so it holds wherever the title streams a texture to. A restage after an in-place
+  rewrite looks the new bytes up the same way.
+- **File:** one append-only file, `PES17_TEXTURE_STORE` (the app sets
+  `<internal files>/texture_store.bin`), at most `PES17_TEXTURE_STORE_MB` (1024) MB. Each record
+  is a head with its own checksum, the levels and the ASTC bytes. The head is written last, so a
+  crash leaves a record that the next open drops. The file header carries an encoder version
+  (`kEncoder`); bump it whenever the conversion's output changes, and every file made by the old
+  encoder is started again.
+- **Threads:** the store is opened, its index read and the whole file read ahead on a thread of
+  its own, which then stays on as the writer. A miss converts as before and queues a copy for that
+  thread (at most 64 MB waiting). The command-stream thread waits for none of this. Before the
+  index is read, the store answers that it has nothing.
+- **Only when `PES17_BC_ASTC` is on.** Kept RGBA8 would be four to eight times the bytes, and
+  reading that back is no faster than decoding it again.
+- **Internal storage.** The external folder goes through sdcardfs on the S20 FE: 256 KB reads ran
+  at 489 MB/s, which made a texture (about 0.6 ms) as slow to read as to convert. From the
+  internal folder a hit costs 0.17-0.65 ms.
+- `tests/texture_store_test.cpp`: a record round-trips byte for byte across sessions, other bytes
+  or another format miss, a torn record is dropped, and another encoder's file is restarted.
+
+Measured on the S20 FE with the `play` macro, one session from launch to 30 s into a match.
+`tex:` lines come from `PES17_TEXTURE_TIMING=1` or `files/texture_timing`. Configs were run
+alternately; ms is the time the command-stream thread spent:
+
+| | convert/decode | untile (read) | stage | worst frame, match load |
+|---|---|---|---|---|
+| RGBA8 (default) | 217-341 | 260-355 | 212-251 | 89-152 |
+| ASTC, no store | 296-801 | 249-418 | 120-220 | 112-361 |
+| ASTC, store filled (2 runs) | 157-166 | 340-353 | 147-185 | 46-91 |
+
+About 95 MB is stored after one match. The first session fills it (a cold run converts as before,
+plus 10-15 ms of hashing). The fps of these runs is not comparable: the macro ends in a different
+scene from run to run (450 draws at about 50 fps, 650-1050 draws at 23-30), whatever the textures.
+The untiling (`read`) is now the larger cost on a hit; keying the store on the guest bytes before
+untiling would remove that too.
+
+*How others do it, and why this design.* No emulator found ships a persistent cache of *converted
+console textures*:
+- Xenia, RPCS3 and the Switch emulators keep shaders and pipelines on disk, not textures. They
+  convert on the GPU instead: Xenia untiles and converts in compute shaders, and the Switch
+  emulators decode ASTC in compute where the GPU cannot sample it.
+- Dolphin is the closest model. Its texture dumps and custom texture packs are keyed by a hash of
+  the guest texture data, not by address, and can be prefetched into memory at start. The store
+  borrows that keying.
+
+Alternatives weighed:
+- *Decode BC in a compute shader:* no CPU decode at all, but every upload costs GPU time on a
+  GPU that is already the thermal limit.
+- *A driver that samples BC:* Turnip, which the app can load, exposes BC on Adreno, and the
+  hardware has it. That removes the conversion entirely, on drivers where it is stable.
+- *Scan the game's archives offline:* the `dt*_x36.cpk` files would need the game's texture
+  container parsed and the console's tiling and mip packing reproduced before anything could be
+  hashed the way the runtime sees it. Recording from play gets the same keys with none of that,
+  for exactly the textures a player meets. A seed could be shipped like `shader_cache.bin`, but
+  at about 100 MB it is too large for the APK.
 `vulkan: BCn sampling ... supported` lines in the log come from a per-format support check at
 start-up (`vk::pipeline::BcFormatSampled`), which also keeps a driver that offers only some BC
 formats on the software path for the rest.

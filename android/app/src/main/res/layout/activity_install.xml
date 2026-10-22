@@ -1,9 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fillViewport="true"
-    android:background="#070D1C">
+    android:orientation="vertical"
+    android:background="@color/pes_page">
+
+    <include layout="@layout/view_back_bar" />
+
+<ScrollView
+    android:layout_width="match_parent"
+    android:layout_height="0dp"
+    android:layout_weight="1"
+    android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -15,7 +23,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/install_game"
-            android:textColor="#FFFFFF"
+            android:textColor="@color/pes_navy"
             android:textSize="20sp"
             android:textStyle="bold" />
 
@@ -30,9 +38,9 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:background="#0E1A36"
+            android:background="@color/pes_panel"
             android:padding="12dp"
-            android:textColor="#D6E2FF"
+            android:textColor="@color/pes_text"
             android:textSize="13sp" />
 
         <Button
@@ -88,3 +96,4 @@
             android:text="@string/cancel" />
     </LinearLayout>
 </ScrollView>
+</LinearLayout>

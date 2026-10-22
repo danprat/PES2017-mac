@@ -6,6 +6,7 @@
 #include "../guest.h"
 #include "../log.h"
 #include "../gpu/gpu.h"
+#include "../frame_rate.h"
 #include "trace.h"
 
 namespace
@@ -146,6 +147,7 @@ PPC_FUNC(__imp__VdSwap)
         dwords[i++] = fetch ? ((size >> 13) & 0x1FFF) + 1 : kDisplayHeight;
         while (i < kReservedDwords) dwords[i++] = kType2Nop;
     }
+    frame_rate::PaceSwap();
     gpu::Swap();
     ctx.r3.u64 = 0;
 }

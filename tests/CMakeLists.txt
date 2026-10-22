@@ -95,6 +95,21 @@ add_executable(version-test
 target_include_directories(version-test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../launcher")
 add_test(NAME version COMMAND version-test)
 
+# ---- the store of converted textures ---------------------------------------
+# What one session converts (BC to ASTC) the next reads back from disk
+# (runtime/gpu/vulkan/texture_store.cpp): byte for byte, never for other source
+# bytes, a record cut short by a crash dropped, another encoder's file restarted.
+# POSIX only, as the store is: Windows samples BC itself and keeps nothing.
+if(NOT WIN32)
+    add_executable(texture-store-test
+        "${CMAKE_CURRENT_SOURCE_DIR}/texture_store_test.cpp"
+        "${PES17_RUNTIME}/gpu/vulkan/texture_store.cpp")
+    target_include_directories(texture-store-test PRIVATE "${PES17_RUNTIME}")
+    find_package(Threads REQUIRED)
+    target_link_libraries(texture-store-test PRIVATE Threads::Threads)
+    add_test(NAME texture-store COMMAND texture-store-test)
+endif()
+
 if(WIN32)
     # The same rule the game is linked with: no C++ runtime beside the
     # executable. Without it a check that pulls in one more libstdc++ symbol

@@ -68,6 +68,7 @@
             android:name=".GameActivity"
             android:exported="false"
             android:process=":game"
+            android:theme="@style/Theme.PES17.Game"
             android:screenOrientation="sensorLandscape"
             android:launchMode="singleTask"
             android:excludeFromRecents="false"

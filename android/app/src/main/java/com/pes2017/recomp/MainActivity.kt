@@ -79,6 +79,8 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         prefs = Prefs(this)
+        // The performance preset this phone starts from, once (DeviceProfile).
+        try { DeviceProfile.ensurePreset(this, prefs) } catch (_: Throwable) {}
 
         status = findViewById(R.id.status)
         footer = findViewById(R.id.footer)
@@ -159,6 +161,10 @@ class MainActivity : AppCompatActivity() {
             select(quitButton)
             finishAndRemoveTask()
         }
+        // The cursor starts on KICK OFF, and the strip at the foot scrolls
+        // (a marquee runs only on a selected view).
+        select(play)
+        footer.isSelected = true
 
         // Whatever killed the app last time, shown before anything else is
         // attempted -- it may well be about to happen again.
@@ -505,6 +511,12 @@ class MainActivity : AppCompatActivity() {
 
     private fun startGame() {
         if (!nativeReady) return
+        // A copy of the saves before every run (SaveBackup), taken before the
+        // game's process exists, so nothing is writing them while they are read.
+        val context = applicationContext
+        thread(name = "save-backup", isDaemon = true) {
+            try { SaveBackup.automatic(context, prefs) } catch (_: Throwable) {}
+        }.join(3000)
         GameActivity.start(this)
     }
 
@@ -514,12 +526,23 @@ class MainActivity : AppCompatActivity() {
     }
 
     private var selectedEntry: Button? = null
+    private var selectedColors: android.content.res.ColorStateList? = null
 
-    /** The game menu's highlight bar on the chosen entry. */
+    /**
+     * PES 6's cursor on the chosen entry: the ring beside it, the band under it,
+     * its text in gold. The one before gets its own colour back.
+     */
     private fun select(entry: Button) {
-        selectedEntry?.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+        selectedEntry?.let { previous ->
+            previous.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+            previous.setCompoundDrawablesRelativeWithIntrinsicBounds(R.drawable.ic_menu_cursor_space, 0, 0, 0)
+            selectedColors?.let { previous.setTextColor(it) }
+        }
         selectedEntry = entry
+        selectedColors = entry.textColors
         entry.setBackgroundResource(R.drawable.bg_entry_selected)
+        entry.setCompoundDrawablesRelativeWithIntrinsicBounds(R.drawable.ic_menu_cursor, 0, 0, 0)
+        entry.setTextColor(getColor(R.color.pes_gold))
     }
 
     /** A newer published APK, if there is one: silent when offline. */

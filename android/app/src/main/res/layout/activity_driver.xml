@@ -3,14 +3,22 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#070D1C"
-    android:padding="20dp">
+    android:background="@color/pes_page">
+
+    <include layout="@layout/view_back_bar" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:padding="20dp">
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/graphics_driver"
-        android:textColor="#FFFFFF"
+        android:textColor="@color/pes_navy"
         android:textSize="20sp"
         android:textStyle="bold" />
 
@@ -19,9 +27,9 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:background="#0E1A36"
+        android:background="@color/pes_panel"
         android:padding="12dp"
-        android:textColor="#D6E2FF"
+        android:textColor="@color/pes_text"
         android:textSize="13sp" />
 
     <TextView
@@ -43,6 +51,7 @@
         android:layout_height="0dp"
         android:layout_weight="1"
         android:layout_marginTop="12dp"
-        android:divider="#1E262F"
+        android:divider="@color/pes_line"
         android:dividerHeight="1dp" />
+    </LinearLayout>
 </LinearLayout>

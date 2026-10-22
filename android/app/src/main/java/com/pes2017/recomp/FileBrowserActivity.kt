@@ -41,6 +41,9 @@ class FileBrowserActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_browser)
+        // BACK on the strip along the top; through the dispatcher, so a screen's own back handling (the install's
+        // "stop copying?") applies to it too.
+        findViewById<android.view.View>(R.id.back_button).setOnClickListener { onBackPressedDispatcher.onBackPressed() }
         prefs = Prefs(this)
 
         here = findViewById(R.id.here)

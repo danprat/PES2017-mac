@@ -227,6 +227,7 @@ class CaptureSession(private val activity: Activity, private val prefs: Prefs) {
         info.append("driver: $driver\n")
         info.append("game folder: ${prefs.gameDirectory}\n\n")
         info.append("settings:\n")
+        info.append("  performance preset ${prefs.preset.ifEmpty { "none" }}\n")
         info.append("  display resolution ${(prefs.resolutionScale * 100).toInt()}%, internal scale ${prefs.renderScale}x, " +
             "scene ${prefs.sceneScalePercent}%\n")
         info.append("  msaa ${prefs.multisampling}, 60 Hz lock ${prefs.prefer60Hz}, fsr ${prefs.fsr} (sharpness ${prefs.fsrSharpness}), " +

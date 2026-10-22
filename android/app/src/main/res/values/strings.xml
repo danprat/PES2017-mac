@@ -15,7 +15,7 @@
     <string name="done">Done</string>
     <string name="share">Share</string>
     <string name="status_library_missing">The runtime could not be loaded:\n%1$s</string>
-    <string name="footer">%1$s\nDriver: %2$s\nBuild %3$s, %4$s</string>
+    <string name="footer">%1$s     ●     Driver: %2$s     ●     Build %3$s, %4$s     ●     UNOFFICIAL FAN PORT. NOT AFFILIATED WITH KONAMI. BRING YOUR OWN COPY.</string>
 
     <!-- installing -->
     <string name="choose_source">Browse the phone\u2019s storage</string>
@@ -68,7 +68,24 @@
     <!-- settings -->
     <string name="section_storage">Storage</string>
     <string name="storage_computing">Measuring…</string>
+    <string name="back">◀  Back</string>
     <string name="saves_files">Saves</string>
+    <string name="section_saves">Save data</string>
+    <string name="saves_summary">%1$d save packages in %2$s: %3$s</string>
+    <string name="saves_none">No saves yet in %1$s.</string>
+    <string name="backup_saves">Back up saves…</string>
+    <string name="restore_saves">Restore saves…</string>
+    <string name="saves_backup_hint">Master League, Become a Legend, edit data and settings, all in one zip you can keep anywhere (Downloads, Drive). A copy is also taken automatically each time you kick off from the launcher; the last 5 are kept. Restoring keeps your current saves as saves.before-restore-… beside them.</string>
+    <string name="restore_from_file">From a backup file…</string>
+    <string name="restore_auto_entry">Automatic: %1$s</string>
+    <string name="restore_confirm_title">Replace your saves?</string>
+    <string name="restore_confirm">The saves now on this phone are set aside (not deleted) and the backup\'s take their place.</string>
+    <string name="restore">Restore</string>
+    <string name="backup_done">Backed up %1$d files.</string>
+    <string name="restore_done">Restored %1$d files.</string>
+    <string name="backup_failed">The backup failed: %1$s</string>
+    <string name="restore_failed">The restore failed: %1$s</string>
+    <string name="restore_game_running">Quit the game first: its saves cannot be replaced while it is running.</string>
     <string name="storage_line">%1$s: %2$s</string>
     <string name="clear_shaders">Clear shader cache</string>
     <string name="clear_logs">Clear logs</string>
@@ -178,6 +195,14 @@
     <string name="tab_files">GAME FILES</string>
     <string name="section_picture">Picture</string>
     <string name="section_port">Match performance</string>
+    <string name="settings_help_strip">Every change is kept the moment it is made, and takes effect when the next match starts. Press Back to return to the menu.</string>
+    <string name="preset_label">Preset: %1$s</string>
+    <string name="preset_low">Low</string>
+    <string name="preset_medium">Medium</string>
+    <string name="preset_high">High</string>
+    <string name="preset_custom">Custom</string>
+    <string name="preset_detected">This phone looks like %1$s (%2$s; %3$s, %4$d fast cores at %5$d MHz, %6$.1f GB). A preset sets render quality, multisampling, FSR, the 30 FPS cap and low-memory mode; change any of them afterwards and the preset reads Custom.</string>
+    <string name="preset_gpu_unknown">GPU unknown</string>
     <string name="section_sound">Sound</string>
     <string name="section_controls">Controls</string>
     <string name="section_files">Game files</string>

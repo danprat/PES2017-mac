@@ -1,19 +1,38 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Tabbed settings: a plain-view tab bar, one page visible at a time. -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- Tabbed settings, laid out like PES 6's settings screens: a header strip
+     for the tabs, the settings as rows on a panel, a help strip at the foot.
+     The key art's players stand faded behind on the right. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#070D1C"
+    android:background="@color/pes_page">
+
+    <ImageView
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:layout_gravity="end"
+        android:adjustViewBounds="true"
+        android:alpha="0.22"
+        android:scaleType="fitEnd"
+        android:src="@drawable/launcher_players"
+        android:importantForAccessibility="no" />
+
+<LinearLayout
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
     android:orientation="vertical">
+
+    <include layout="@layout/view_back_bar" />
 
     <LinearLayout
         android:id="@+id/tab_bar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:background="@drawable/bg_panel_title"
         android:orientation="horizontal"
         android:paddingStart="8dp"
         android:paddingEnd="8dp"
-        android:paddingTop="8dp">
+        android:paddingTop="4dp">
 
         <Button
             android:id="@+id/tab_picture"
@@ -37,21 +56,6 @@
 
     </LinearLayout>
 
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:layout_marginStart="16dp"
-        android:layout_marginEnd="16dp"
-        android:layout_marginTop="4dp"
-        android:background="#243457" />
-
-    <View
-        android:layout_width="48dp"
-        android:layout_height="2dp"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="4dp"
-        android:background="#2CC4FF" />
-
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -60,8 +64,15 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginTop="10dp"
+            android:layout_marginBottom="10dp"
+            android:background="@drawable/bg_panel"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="10dp">
 
             <LinearLayout
                 android:id="@+id/page_picture"
@@ -161,6 +172,48 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="@string/section_port" />
+
+                <TextView
+                    android:id="@+id/preset_label"
+                    style="@style/SettingLabel"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/preset_low"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/preset_low" />
+
+                    <Button
+                        android:id="@+id/preset_medium"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="6dp"
+                        android:layout_weight="1"
+                        android:text="@string/preset_medium" />
+
+                    <Button
+                        android:id="@+id/preset_high"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="6dp"
+                        android:layout_weight="1"
+                        android:text="@string/preset_high" />
+
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/preset_detected"
+                    style="@style/SettingHint"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content" />
 
                 <TextView
                     android:id="@+id/scene_scale_label"
@@ -358,7 +411,7 @@
                     style="@style/SettingHint"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textColor="#D6E2FF"
+                    android:textColor="@color/pes_text"
                     android:textSize="12sp" />
 
                 <TextView
@@ -366,7 +419,7 @@
                     style="@style/SettingHint"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textColor="#D6E2FF"
+                    android:textColor="@color/pes_text"
                     android:textSize="12sp" />
 
                 <Button
@@ -400,6 +453,40 @@
                     style="@style/SectionHeading"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:text="@string/section_saves" />
+
+                <TextView
+                    android:id="@+id/saves_summary"
+                    style="@style/SettingHint"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/pes_text"
+                    android:textSize="12sp" />
+
+                <Button
+                    android:id="@+id/backup_saves"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="@string/backup_saves" />
+
+                <Button
+                    android:id="@+id/restore_saves"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="@string/restore_saves" />
+
+                <TextView
+                    style="@style/SettingHint"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/saves_backup_hint" />
+
+                <TextView
+                    style="@style/SectionHeading"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
                     android:text="@string/section_storage" />
 
                 <TextView
@@ -407,7 +494,7 @@
                     style="@style/SettingHint"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textColor="#D6E2FF"
+                    android:textColor="@color/pes_text"
                     android:textSize="12sp" />
 
                 <Button
@@ -428,4 +515,20 @@
 
         </LinearLayout>
     </ScrollView>
+
+    <!-- The help strip along the foot, as PES 6's "Press X to confirm" line. -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="26dp"
+        android:background="@drawable/bg_ticker"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:paddingTop="2dp"
+        android:singleLine="true"
+        android:ellipsize="end"
+        android:text="@string/settings_help_strip"
+        android:textColor="@color/pes_on_dark"
+        android:textSize="12sp"
+        android:fontFamily="sans-serif-condensed" />
 </LinearLayout>
+</FrameLayout>

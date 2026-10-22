@@ -1,10 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Taken from Konami's PES 2017 key art (drawable-nodpi/launcher_players.png,
+     launcher_logo.png): the art's white page, the wordmark's red, the kits'
+     navy and blue, the crest's gold. As in the PES 5/6 menus, the chosen
+     entry is the one in gold on a dark band. -->
 <resources>
-    <color name="launcher_background">#070D1C</color>
-    <color name="pes_navy">#070D1C</color>
-    <color name="pes_panel">#0E1A36</color>
-    <color name="pes_line">#243457</color>
-    <color name="pes_cyan">#2CC4FF</color>
-    <color name="pes_text">#EAF1FF</color>
-    <color name="pes_muted">#8FA0C2</color>
+    <color name="launcher_background">#FFFFFF</color>
+    <color name="pes_page">#FFFFFF</color>
+    <color name="pes_navy">#0A1B45</color>
+    <color name="pes_blue">#004D98</color>
+    <color name="pes_red">#DC0014</color>
+    <color name="pes_garnet">#A50044</color>
+    <color name="pes_gold">#EDBB00</color>
+    <color name="pes_panel">#F2F4F8</color>
+    <color name="pes_row">#FFFFFF</color>
+    <color name="pes_line">#C9D1DE</color>
+    <color name="pes_text">#0A1B45</color>
+    <color name="pes_muted">#5D6B86</color>
+    <color name="pes_on_dark">#FFFFFF</color>
 </resources>
