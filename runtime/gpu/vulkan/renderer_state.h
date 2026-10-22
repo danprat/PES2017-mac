@@ -283,6 +283,7 @@ namespace vk::renderer::detail
         // above is then where it stands now and the player's own is the controller's
         // ceiling. The status comes from the Java side, on another thread.
         bool dynamicScale = false;                 // either rule on
+        float ballScale = 1.0f;                    // PES17_BALL_SCALE: the ball model drawn this many times larger
         bool heatScale = false, loadScale = false; // the rules (dynamic_scale.h SetRules)
         vk::dynscale::Controller dynScale;
         std::atomic<int> thermalStatus{ 0 };
@@ -771,7 +772,7 @@ namespace vk::renderer::detail
                                    const shader::Translation& program,
                                    const shader::Translation& pixelProgram,
                                    uint32_t lowestVertex, uint32_t highestVertex,
-                                   uint32_t rectangles);
+                                   uint32_t rectangles, float modelScale = 1.0f);
     uint32_t WriteIndices(uint32_t address, uint32_t count, bool wide,
                           uint32_t& lowest, uint32_t& highest);
 

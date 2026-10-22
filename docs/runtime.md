@@ -5,7 +5,7 @@
 the kernel and XAM imports, runs guest threads on host threads, and executes
 the GPU command stream through Vulkan and the audio hardware through SDL.
 
-MW2 links D3D9 and XAudio2 statically, so both are recompiled guest code. The
+The title links D3D9 and XAudio2 statically, so both are recompiled guest code. The
 runtime meets the title at the kernel imports (`Vd*` for the GPU, `XAudio*` and
 `XMA*` for sound) and, where it needs more than those show, by hooking
 individual guest functions.
@@ -15,9 +15,6 @@ individual guest functions.
 | the GPU seam: ring buffer, flip handshake, D3D9 hooks | [d3d9-seam.md](d3d9-seam.md) |
 | shaders, textures, render targets | [shaders.md](shaders.md), [textures.md](textures.md), [rendering.md](rendering.md) |
 | sound | [audio.md](audio.md) |
-| saved games and the profile | [saves.md](saves.md) |
-| networking and the online services | [multiplayer.md](multiplayer.md) |
-| security fixes in the network code | [security.md](security.md) |
 | switches | [switches.md](switches.md) |
 
 ## Guest address space
@@ -67,10 +64,7 @@ has never been used and is already zero.
 `MmAllocatePhysicalMemoryEx` aligns every block to at least 64 KB, whatever
 alignment the caller asks for. The console serves physical memory in 64 KB
 pages (16 MB for the largest requests), so a title never sees a large block at
-an odd 4 KB offset, and MW2 depends on it: it takes one 444 MB block for nearly
-all of its memory, asked for with 4 KB alignment, and on a base that is only
-4 KB aligned its own sub-allocators corrupt the script compiler's data during
-level loads.
+an odd 4 KB offset,.
 
 `MmGetPhysicalAddress` (`kernel::ToPhysical`) is exactly the sequence the title
 inlines: `(va & 0x1FFFFFFF) + (((va >> 20) + 0x200) & 0x1000)`.
@@ -82,27 +76,17 @@ physical heap, since everything the GPU is handed comes from there.
 `main.cpp` gets the image one of two ways (`runtime/install/`):
 
 - **A player's start** (no arguments): the executable works from its own
-  folder. It reads `game/default.xex` or `game/default_mp.xex` and takes it
+  folder. It reads `game/default.xex` and takes it
   only if its SHA-256 is the one CMake baked in from `pes17/` (another region or
   another version has other code at other addresses), then decrypts and
-  decompresses the XEX2 in memory, where it has either (`install/xex.cpp`,
+  decompresses the XEX2 in memory (`install/xex.cpp`,
   `install/crypto.cpp`). With no such executable there -- nothing installed,
   or an install of another version -- it starts `pes17-launcher` beside it and
-  ends; installing is the launcher's ([building.md](building.md#the-launcher)).
+  ends; installing is the launcher's.
 - **A development run** names the image and the game folder:
   `./build/pes17 pes17/default.pe pes17/game`. The image is the flat PE that
   `tools/xexdump.py` writes; the disc version also takes the disc's XEX
   itself, decrypted on the way in.
-
-The campaign and the multiplayer are two executables, and the title's menus
-go from one to the other with `XamLoaderLaunchTitle`, after leaving what the
-other should know with `XamLoaderSetLaunchData` (1000 bytes it reads back at
-its own start). Here they are two programs: the call ends the run, and once
-the window and the sound are let go it starts `pes17-sp` or `pes17-mp` beside the
-running one, with the launch data in the `PES17_LAUNCH_DATA` environment
-variable (`kernel/misc.cpp`, `install/install.cpp`). A development run only
-logs the request, since nothing tells it where the other build and its image
-are.
 
 The image is copied to `PPC_IMAGE_BASE`, and every recompiled function from
 `PPCFuncMappings` is written into the function table, so an indirect call
@@ -135,7 +119,7 @@ allocates one block per guest thread:
 Rules the block has to satisfy:
 
 - The thread id must be real. The recompiled `GetCurrentThreadId` reads
-  `[[r13 + 256] + 332]`, and IW4's render lock compares thread ids; with every
+  `[[r13 + 256] + 332]`, and the title's render lock compares thread ids; with every
   thread reporting 0 the lock's owner test is always true and its ticket lock
   deadlocks. The main thread is id 1; created threads draw from 2 upwards, so
   code running from XAudio2's voice callbacks does not pass the title's "is
@@ -143,9 +127,8 @@ Rules the block has to satisfy:
 - `TlsData` must point at a populated TLS block: the CRT hangs its per-thread
   allocator off it, and a null pointer sends every thread to one pool at
   address 0.
-- The processor number must be the one the thread was put on. IW4 dispatches on
-  the byte at r13+268 (the renderer's command-buffer jobs are only accepted on
-  processors 1 and 2), and XAudio2's workers wait for each other by processor
+- The processor number must be the one the thread was put on. Guest code reads
+  the byte at r13+268, and XAudio2's workers wait for each other by processor
   number. `ExCreateThread` takes it from the top byte of the creation flags and
   `KeSetAffinityThread` from its affinity mask, each a one-bit mask over the six
   hardware threads.
@@ -163,7 +146,7 @@ runtime implements them with `PPC_FUNC(__imp__<Name>)` in `runtime/kernel/`:
 | `threads.cpp` | thread creation, resume, affinity |
 | `misc.cpp` | clocks, delays, module queries |
 | `files.cpp` | file I/O |
-| `content.cpp`, `profile.cpp` | content packages and the profile ([saves.md](saves.md)) |
+| `content.cpp`, `profile.cpp` | content packages and the profile |
 | `xam.cpp` | users, XOVERLAPPED, notifications, UI calls, sessions and Live stand-ins |
 | `input.cpp` | gamepad |
 | `net.cpp` | XNet and Winsock |
@@ -190,32 +173,28 @@ Two kernel exports are data, not functions, and nothing resolves them, so
 
 Every `mftb` reads `PPC_QueryTimebase`, a 50 MHz counter, and
 `KeQueryPerformanceFrequency` reports 50 MHz. The console's timebase runs at
-that rate and titles assume it without asking: MW2's server thread converts
-ticks to milliseconds with a constant 1/50000. System time is 100 ns ticks since
+that rate and titles assume it without asking. System time is 100 ns ticks since
 1601.
 
 ### Calling guest code from the host
 
 `kernel::CallGuest` runs a guest function on the caller's stack, below its frame
 and red zone, with the caller's r13. It restores MXCSR afterwards: the console
-keeps the scalar and vector float modes in separate registers, x86 has one,
+keeps the scalar and vector float modes in separate registers, the host has one,
 and the recompiled code tracks which mode it last set, so a callee that leaves
 flush-to-zero on would make the caller's scalar code flush from then on.
 
 ### setjmp and longjmp
 
-`Com_Error` leaves an error with the CRT's `longjmp` to the `setjmp` in the
-thread's frame loop (the main loop, the renderer, the workers each have one).
-Both recompiler configs name the pair (`setjmp_address`, `longjmp_address`), so
+The title leaves an error with the CRT's `longjmp` to a `setjmp` in the
+thread's frame loop. Both recompiler configs name the pair (`setjmp_address`, `longjmp_address`), so
 the recompiler emits host `setjmp`/`longjmp` there, saving the guest registers
 at the `setjmp` and restoring them when the `longjmp` lands. Recompiled as
 ordinary functions, the `longjmp` would return into the code that raised the
-error, which carries on in a state the title never expects: a client dropped at
-the end of a match hung in its error cleanup.
+error, which carries on in a state the title never expects.
 
 A host `longjmp` skips every host frame between the two, destructors included.
-Runtime code that calls back into guest code -- a hook's `GUEST_ORIG`, an APC,
-the scripted console -- must not hold a lock or an owning object across the
+Runtime code that calls back into guest code -- a hook's `GUEST_ORIG`, an APC -- must not hold a lock or an owning object across the
 call.
 
 ## Threads
@@ -293,17 +272,12 @@ into a page the GPU watch has made read-only fails instead of faulting (see
 With the window open, the keyboard also drives the pad: Return is Start, Escape
 Back, arrows the d-pad, Z/X/C/V are A/B/X/Y, Q/E the bumpers. The packet number
 changes only when the state does, since the title reads a new packet as
-"something changed". Diagnostic builds add scripted presses and the headless
-walker ([switches.md](switches.md)).
+"something changed". Diagnostic builds add scripted presses ([switches.md](switches.md)).
 
 ## Networking
 
 `net.cpp` implements XNet and Winsock. Every call answers definitively, since
-the title spins on "pending" answers (single player polls
-`XNetGetTitleXnAddr`). The Ethernet link is reported down in the campaign and
-up in the multiplayer, which refuses to start a match without one
-(`PES17_NET_LINK` overrides). With an online service built in, the title's
-sockets and addresses go through it; see [multiplayer.md](multiplayer.md).
+the title spins on "pending" answers.
 
 ## The fault handler and the write watch
 
@@ -319,7 +293,7 @@ it is in (null page, function table slot, image, past the top of the space),
 and a backtrace. The recompiled functions are ordinary `sub_XXXXXXXX` symbols
 (linked with `-rdynamic` on Linux), so the host backtrace is the guest call
 stack; on Windows frames are printed as `exe+offset` for `llvm-symbolizer`. A
-`SIGTRAP` is a guest trap instruction, which IW4 uses for its asserts. A
+`SIGTRAP` is a guest trap instruction. A
 `SIGFPE` is an integer divide by zero whose guarding trap the recompiler drops.
 With `PES17_TRACE_INDIRECT` (on by default), an indirect call to an address with
 no recompiled function is reported instead of jumping to null.
@@ -337,13 +311,11 @@ and received packets are copied in from a buffer of the runtime's own.
 ## Hooking guest functions
 
 `title.h` names every guest function and global the runtime hooks or reads,
-once for each executable, since the campaign and the multiplayer are the same
-engine built twice with every function somewhere else. XenonRecomp emits each
+XenonRecomp emits each
 function as a weak `sub_XXXXXXXX` that calls `__imp__sub_XXXXXXXX`;
 `GUEST_HOOK(T_x)` defines a strong `sub_` in its place, and `GUEST_ORIG(T_x)`
 calls the original. The hooks cover D3D9's present and command-buffer paths,
-the engine's print, error and console paths, the job system's spin waits, and
-the memcard setup.
+the job system's spin waits, and the memcard setup.
 
 Stores the recompiler marks as hardware-register writes (a store followed by
 `eieio`) go through `PPC_MM_STORE_U32` from `mmio_hook.h`, force-included into

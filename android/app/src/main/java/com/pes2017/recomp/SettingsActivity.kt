@@ -19,10 +19,11 @@ class SettingsActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_TAB = "pes17.tab"
-        const val TAB_PICTURE = 0
-        const val TAB_PORT = 1
+        const val TAB_GRAPHICS = 0
+        const val TAB_PERFORMANCE = 1
         const val TAB_CONTROLS = 2
-        const val TAB_FILES = 3
+        const val TAB_ADVANCED = 3
+        const val TAB_FILES = 4
     }
 
     private lateinit var prefs: Prefs
@@ -50,54 +51,66 @@ class SettingsActivity : AppCompatActivity() {
         title = getString(R.string.entry_settings)
 
         // ---- tab bar (plain views, no new deps): one page visible at a time ----
-        tabButtons.add(findViewById(R.id.tab_picture))
-        tabButtons.add(findViewById(R.id.tab_port))
-        tabButtons.add(findViewById(R.id.tab_controls))
-        tabButtons.add(findViewById(R.id.tab_files))
-        tabPages.add(findViewById(R.id.page_picture))
-        tabPages.add(findViewById(R.id.page_port))
-        tabPages.add(findViewById(R.id.page_controls))
-        tabPages.add(findViewById(R.id.page_files))
+        listOf(R.id.tab_graphics, R.id.tab_performance, R.id.tab_controls, R.id.tab_advanced, R.id.tab_files)
+            .forEach { tabButtons.add(findViewById(it)) }
+        listOf(R.id.page_graphics, R.id.page_performance, R.id.page_controls, R.id.page_advanced, R.id.page_files)
+            .forEach { tabPages.add(findViewById(it)) }
         tabButtons.forEachIndexed { index, button -> button.setOnClickListener { selectTab(index) } }
-        selectTab(intent.getIntExtra(EXTRA_TAB, TAB_PICTURE).coerceIn(0, 3))
+        selectTab(intent.getIntExtra(EXTRA_TAB, TAB_GRAPHICS).coerceIn(0, tabPages.size - 1))
 
-        // ---- picture ----
+        // ---- graphics: preset, display, image quality ----
+        presets()
         bar(R.id.resolution, R.id.resolution_label, 65, ((prefs.resolutionScale * 100f) - 35f).roundToInt(),
             { getString(R.string.resolution, it + 35) }) { prefs.resolutionScale = (it + 35) / 100f }
-        bar(R.id.render_scale, R.id.render_scale_label, 2, prefs.renderScale - 1,
-            { getString(R.string.render_scale, it + 1) }) { prefs.renderScale = it + 1 }
-        switch(R.id.msaa, prefs.multisampling) { prefs.multisampling = it; presetTouched() }
-        switch(R.id.prefer60, prefs.prefer60Hz) { prefs.prefer60Hz = it }
         switch(R.id.widescreen, prefs.widescreen) { prefs.widescreen = it }
-
-        // ---- match performance (the runtime's own switches) ----
-        presets()
+        bar(R.id.ball_scale, R.id.ball_scale_label, 20, (prefs.ballScalePercent - 100) / 10,
+            { getString(R.string.ball_scale, 100 + it * 10) }) { prefs.ballScalePercent = 100 + it * 10 }
         bar(R.id.scene_scale, R.id.scene_scale_label, 10, (prefs.sceneScalePercent - 50) / 5,
             { getString(R.string.scene_scale, 50 + it * 5) }) { prefs.sceneScalePercent = 50 + it * 5; presetTouched() }
-        switch(R.id.heat_scale, prefs.heatScale) { prefs.heatScale = it; presetTouched() }
-        switch(R.id.load_scale, prefs.loadScale) { prefs.loadScale = it; presetTouched() }
+        switch(R.id.msaa, prefs.multisampling) { prefs.multisampling = it; presetTouched() }
         switch(R.id.fsr, prefs.fsr) { prefs.fsr = it; presetTouched() }
         bar(R.id.fsr_sharp, R.id.fsr_sharp_label, 20, (prefs.fsrSharpness * 10f).roundToInt(),
             { getString(R.string.fsr_sharp, it / 10f) }) { prefs.fsrSharpness = it / 10f }
+
+        // ---- performance: frame rate, heat and battery ----
         bar(R.id.fps_limit, R.id.fps_limit_label, 6, (prefs.fpsLimit - 30) / 5,
             { if (it == 6) getString(R.string.fps_limit_off) else getString(R.string.fps_limit, 30 + it * 5) }) {
             prefs.fpsLimit = 30 + it * 5; presetTouched()
         }
-        switch(R.id.low_memory, prefs.lowMemory) { prefs.lowMemory = it; presetTouched() }
+        switch(R.id.prefer60, prefs.prefer60Hz) { prefs.prefer60Hz = it }
+        bar(R.id.hud_level, R.id.hud_level_label, Prefs.HUD_DETAILED, prefs.hudLevel,
+            { getString(hudLevelNames[it]) }) { prefs.hudLevel = it }
+        switch(R.id.heat_scale, prefs.heatScale) { prefs.heatScale = it; presetTouched() }
         switch(R.id.perf_hint, prefs.perfHint) { prefs.perfHint = it }
+
+        // ---- controls and sound ----
+        switch(R.id.touch, prefs.touchControls) { prefs.touchControls = it }
+        switch(R.id.gamepad, prefs.gamepadEnabled) { prefs.gamepadEnabled = it }
+        switch(R.id.vibration, prefs.vibration) { prefs.vibration = it }
+        val buttonStyle: android.widget.RadioGroup = findViewById(R.id.button_style)
+        buttonStyle.check(if (prefs.playStationButtons) R.id.button_style_playstation else R.id.button_style_xbox)
+        buttonStyle.setOnCheckedChangeListener { _, id -> prefs.playStationButtons = id == R.id.button_style_playstation }
+        findViewById<Button>(R.id.arrange_controls).setOnClickListener {
+            startActivity(Intent(this, ControlsEditorActivity::class.java))
+        }
+        switch(R.id.audio, prefs.audioEnabled) { prefs.audioEnabled = it }
+
+        // ---- advanced: rendering, memory, testing ----
+        bar(R.id.render_scale, R.id.render_scale_label, 2, prefs.renderScale - 1,
+            { getString(R.string.render_scale, it + 1) }) { prefs.renderScale = it + 1 }
+        switch(R.id.load_scale, prefs.loadScale) { prefs.loadScale = it; presetTouched() }
+        switch(R.id.low_memory, prefs.lowMemory) { prefs.lowMemory = it; presetTouched() }
         // 0 means "let the runtime decide"; then 128 MB steps to 2 GB.
         bar(R.id.texture_budget, R.id.texture_label, 15,
             if (prefs.textureBudgetMB <= 0) 0 else (prefs.textureBudgetMB / 128).coerceIn(1, 15),
             { textureText(it) }) { prefs.textureBudgetMB = if (it == 0) 0 else it * 128 }
         switch(R.id.prewarm_all, prefs.prewarmAllShaders) { prefs.prewarmAllShaders = it }
-        switch(R.id.stats, prefs.showStats) { prefs.showStats = it }
-
-        // ---- sound and controls ----
-        switch(R.id.audio, prefs.audioEnabled) { prefs.audioEnabled = it }
-        switch(R.id.touch, prefs.touchControls) { prefs.touchControls = it }
-        switch(R.id.gamepad, prefs.gamepadEnabled) { prefs.gamepadEnabled = it }
         switch(R.id.gamepad_p2, prefs.padAsPlayer2) { prefs.padAsPlayer2 = it }
-        switch(R.id.vibration, prefs.vibration) { prefs.vibration = it }
+        // The test options only exist for someone who turned the developer tools on.
+        val testing = listOf<android.view.View>(findViewById(R.id.testing_heading), findViewById(R.id.testing_group))
+        fun showTesting(on: Boolean) = testing.forEach { it.visibility = if (on) android.view.View.VISIBLE else android.view.View.GONE }
+        showTesting(prefs.developerTools)
+        switch(R.id.developer_tools, prefs.developerTools) { prefs.developerTools = it; showTesting(it) }
 
         // ---- the game files ----
         val paths: TextView = findViewById(R.id.paths)
@@ -195,13 +208,17 @@ class SettingsActivity : AppCompatActivity() {
         ).forEach { (id, tier) ->
             findViewById<Button>(id).setOnClickListener {
                 DeviceProfile.apply(prefs, tier)
-                intent.putExtra(EXTRA_TAB, TAB_PORT)
+                intent.putExtra(EXTRA_TAB, TAB_GRAPHICS)
                 recreate()
             }
         }
     }
 
     private lateinit var presetLabel: TextView
+
+    private val hudLevelNames = intArrayOf(
+        R.string.hud_level_off, R.string.hud_level_minimal, R.string.hud_level_standard, R.string.hud_level_detailed,
+    )
 
     /** One of a preset's settings moved by hand: it is the player's own now. */
     private fun presetTouched() {

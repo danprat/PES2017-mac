@@ -23,6 +23,3 @@ Android 14 and Android 15 introduce support for 16 KB physical memory page sizes
 - All native memory allocations, mmap mappings, and guest physical address space reservations must be aligned to 16,384 bytes (`0x4000`).
 - Builds compiled with `-Wl,-z,max-page-size=16384` ensure seamless compatibility on Google Pixel 8/9 and newer flagships.
 
-### 3. Cutscene Streaming Heap Bounds
-- Campaign Bink cutscenes are streamed directly into an audio/video decode ring buffer bounded to <15 MB.
-- This prevents spike allocations during pre-rendered mission transitions.

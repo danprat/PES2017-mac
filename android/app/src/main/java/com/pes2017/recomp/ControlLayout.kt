@@ -4,6 +4,8 @@ import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import kotlin.math.max
+import kotlin.math.min
 
 /** What a control does when it is touched. */
 enum class ControlKind {
@@ -12,9 +14,6 @@ enum class ControlKind {
 
     /** A round button that holds a trigger down (0..255). */
     TRIGGER,
-
-    /** Four-way pad: the bit depends on which quarter is touched. */
-    DPAD,
 
     /** The left stick: a base with a knob that follows the finger. */
     STICK,
@@ -54,18 +53,23 @@ data class ControlElement(
  * update, and one bad file never stops the game starting -- it falls back to
  * the defaults instead.
  */
-class ControlLayout private constructor(val elements: MutableList<ControlElement>) {
+class ControlLayout private constructor(
+    val elements: MutableList<ControlElement>,
+    /** The window the defaults were laid out for, so a reset puts things back there. */
+    private val widthDp: Float,
+    private val heightDp: Float,
+) {
 
     fun find(id: String): ControlElement? = elements.firstOrNull { it.id == id }
 
     fun resetAll() {
-        val fresh = defaults()
+        val fresh = defaults(widthDp, heightDp)
         elements.clear()
         elements.addAll(fresh.elements)
     }
 
     fun reset(id: String) {
-        val fresh = defaults().find(id) ?: return
+        val fresh = defaults(widthDp, heightDp).find(id) ?: return
         val index = elements.indexOfFirst { it.id == id }
         if (index >= 0) elements[index] = fresh
     }
@@ -109,17 +113,33 @@ class ControlLayout private constructor(val elements: MutableList<ControlElement
 
     companion object {
         private const val FILE_NAME = "controls.json"
-        private const val FORMAT_VERSION = 3
+        private const val FORMAT_VERSION = 5
 
         fun load(context: Context): ControlLayout {
-            val layout = defaults()
+            // The whole screen (the match is full screen, into the cutout), in
+            // landscape whichever way the phone was held when asked.
+            val metrics = context.resources.displayMetrics
+            var widthPx = metrics.widthPixels
+            var heightPx = metrics.heightPixels
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                try {
+                    val bounds = context.getSystemService(android.view.WindowManager::class.java)
+                        .maximumWindowMetrics.bounds
+                    widthPx = bounds.width()
+                    heightPx = bounds.height()
+                } catch (_: Throwable) {
+                }
+            }
+            val widthDp = max(widthPx, heightPx) / metrics.density
+            val heightDp = min(widthPx, heightPx) / metrics.density
+            val layout = defaults(widthDp, heightDp)
             val file = File(context.filesDir, FILE_NAME)
             if (!file.exists()) return layout
             try {
                 val root = JSONObject(file.readText())
                 val version = root.optInt("version", 1)
                 if (version < FORMAT_VERSION) {
-                    // An older layout has the shooter's look area and labels: start over.
+                    // An older layout (the shooter's look area, the d-pad, the old places): start over.
                     try { file.delete() } catch (_: Throwable) {}
                     return layout
                 }
@@ -142,52 +162,100 @@ class ControlLayout private constructor(val elements: MutableList<ControlElement
                     element.toggle = item.optBoolean("toggle", element.toggle)
                 }
             } catch (_: Throwable) {
-                return defaults()
+                return defaults(widthDp, heightDp)
             }
             return layout
         }
 
         /**
-         * Where everything starts: a football pad. The left thumb runs the
-         * player; the right thumb has the four actions in the diamond the
-         * game's own prompts use (A, B, X, Y), each captioned with what it does
-         * on the ball and, smaller, what it does off it. The right stick is the
-         * skill stick, so there is no camera to drag and no look area.
+         * Where everything starts: a football pad laid out for thumbs, the way
+         * PES is played on a phone. The left thumb has only the move stick. The
+         * right thumb has everything else in an arc around the four actions:
          *
-         * The captions follow the game's default Xbox layout: A pass / change
-         * player, B shoot / slide tackle, X lob or cross / pressure, Y through
-         * pass / second-man pressure, RB sprint. Change them here if a build
-         * of the game binds them otherwise.
+         *  - Cross / A (pass) at the bottom, where the thumb rests, with
+         *    Square / X (lob, cross) beside it: close enough to roll between,
+         *    with a gap a thumb does not bridge by accident.
+         *  - R1 / RB (sprint, "run") bigger and left of the actions, so the
+         *    thumb can hold it and slide onto pass or shoot.
+         *  - L1 / LB (change player) above the actions, the next thing the thumb
+         *    reaches for when defending.
+         *  - The skill stick above the sprint button; L2 / R2 small, under the
+         *    HUD and the MENU button at the top; pause and share top centre.
+         *
+         * Positions are in dp from the nearest edge, so the thumb distances are
+         * the same on every phone and a wider screen only opens up the middle.
+         * Nothing touches (with the touch slack) from a 592 x 336 dp window up.
+         *
+         * The game's default binding, for reference: Cross pass, Circle shoot,
+         * Square lob / cross, Triangle through pass, R1 sprint, L1 change player.
          */
-        fun defaults(): ControlLayout = ControlLayout(
-            mutableListOf(
-                // Movement (left stick) and the skill stick (right stick).
-                ControlElement("stick", ControlKind.STICK, 0, "MOVE", 0.14f, 0.72f, 150f, 0.40f),
-                ControlElement("right_stick", ControlKind.STICK, 1, "SKILL", 0.60f, 0.78f, 120f, 0.40f),
+        fun defaults(widthDp: Float = 800f, heightDp: Float = 360f): ControlLayout {
+            val w = max(widthDp, 320f)
+            val h = max(heightDp, 240f)
 
-                // Team tactics.
-                ControlElement("dpad", ControlKind.DPAD, 0, "TACTICS", 0.10f, 0.28f, 120f, 0.40f),
-
-                // The four actions, in the console pad's diamond.
-                ControlElement("a", ControlKind.BUTTON, NativeBridge.A, "A", 0.905f, 0.78f, 70f, sub = "PASS", sub2 = "SWITCH"),
-                ControlElement("b", ControlKind.BUTTON, NativeBridge.B, "B", 0.975f, 0.60f, 70f, sub = "SHOOT", sub2 = "SLIDE"),
-                ControlElement("x", ControlKind.BUTTON, NativeBridge.X, "X", 0.835f, 0.60f, 70f, sub = "LOB", sub2 = "PRESS"),
-                ControlElement("y", ControlKind.BUTTON, NativeBridge.Y, "Y", 0.905f, 0.42f, 70f, sub = "THROUGH", sub2 = "MATE"),
-
-                // Shoulders, where a phone's index fingers already are.
-                ControlElement("rb", ControlKind.BUTTON, NativeBridge.RB, "RB", 0.845f, 0.16f, 64f, sub = "SPRINT"),
-                ControlElement("rt", ControlKind.TRIGGER, 1, "RT", 0.945f, 0.16f, 78f, 0.45f, sub = "PLAYER RUN"),
-                ControlElement("lb", ControlKind.BUTTON, NativeBridge.LB, "LB", 0.155f, 0.16f, 64f, sub = "PACE"),
-                ControlElement("lt", ControlKind.TRIGGER, 0, "LT", 0.055f, 0.16f, 78f, 0.45f, sub = "SKILL"),
-
-                // Stick clicks: kept for the editor, hidden until wanted.
-                ControlElement("l3", ControlKind.BUTTON, NativeBridge.L3, "L3", 0.285f, 0.83f, 56f, visible = false),
-                ControlElement("r3", ControlKind.BUTTON, NativeBridge.R3, "R3", 0.76f, 0.92f, 56f, visible = false),
-
-                // Menus have to be found at a glance in a football game.
-                ControlElement("start", ControlKind.BUTTON, NativeBridge.START, "START", 0.60f, 0.08f, 58f, 0.75f, sub = "PAUSE"),
-                ControlElement("back", ControlKind.BUTTON, NativeBridge.BACK, "BACK", 0.40f, 0.08f, 58f, 0.75f),
+            /** A control at x, y dp: positive from the left / top, negative from the right / bottom. */
+            fun place(
+                id: String, kind: ControlKind, value: Int, label: String,
+                x: Float, y: Float, size: Float, alpha: Float = 0.45f, visible: Boolean = true,
+            ) = ControlElement(
+                id, kind, value, label,
+                (if (x >= 0f) x else w + x) / w, (if (y >= 0f) y else h + y) / h,
+                size, alpha, visible,
             )
-        )
+
+            val centre = w / 2f
+            return ControlLayout(
+                mutableListOf(
+                    // Left thumb: movement.
+                    place("stick", ControlKind.STICK, 0, "LS", 95f, -95f, 150f, 0.40f),
+
+                    // Right thumb: the four actions as the pad's diamond.
+                    place("a", ControlKind.BUTTON, NativeBridge.A, "A", -110f, -52f, 68f),
+                    place("b", ControlKind.BUTTON, NativeBridge.B, "B", -52f, -110f, 68f),
+                    place("x", ControlKind.BUTTON, NativeBridge.X, "X", -168f, -110f, 68f),
+                    place("y", ControlKind.BUTTON, NativeBridge.Y, "Y", -110f, -168f, 68f),
+
+                    // Sprint beside the actions; change player above them.
+                    place("rb", ControlKind.BUTTON, NativeBridge.RB, "RB", -235f, -52f, 72f),
+                    place("lb", ControlKind.BUTTON, NativeBridge.LB, "LB", -44f, -210f, 64f),
+
+                    // The skill stick, above sprint.
+                    place("right_stick", ControlKind.STICK, 1, "RS", -250f, -170f, 100f, 0.40f),
+
+                    // The triggers, used less: small, up top.
+                    place("rt", ControlKind.TRIGGER, 1, "RT", -130f, 84f, 56f),
+                    place("lt", ControlKind.TRIGGER, 0, "LT", 50f, 84f, 56f),
+
+                    // Stick clicks: kept for the editor, hidden until wanted.
+                    place("l3", ControlKind.BUTTON, NativeBridge.L3, "L3", 200f, -40f, 52f, visible = false),
+                    place("r3", ControlKind.BUTTON, NativeBridge.R3, "R3", -320f, -45f, 52f, visible = false),
+
+                    // Menus have to be found at a glance in a football game.
+                    place("start", ControlKind.BUTTON, NativeBridge.START, "START", centre + 60f, 37f, 54f, 0.75f),
+                    place("back", ControlKind.BUTTON, NativeBridge.BACK, "BACK", centre - 40f, 37f, 54f, 0.75f),
+                ),
+                widthDp, heightDp,
+            )
+        }
+
+        /** The name printed on a control: its Xbox name, or the PlayStation one. */
+        fun labelFor(element: ControlElement, playStation: Boolean): String {
+            if (!playStation) return element.label
+            return when (element.id) {
+                "a" -> "CROSS"
+                "b" -> "CIRCLE"
+                "x" -> "SQUARE"
+                "y" -> "TRIANGLE"
+                "lb" -> "L1"
+                "rb" -> "R1"
+                "lt" -> "L2"
+                "rt" -> "R2"
+                "stick" -> "L"
+                "right_stick" -> "R"
+                "start" -> "OPTIONS"
+                "back" -> "SHARE"
+                else -> element.label
+            }
+        }
     }
 }

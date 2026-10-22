@@ -53,12 +53,6 @@ __pycache__/
 # ---- saved games the runtime writes beside the binary ----
 /saves/
 
-# ---- the multiplayer executable's derived files (TITLE=mp ./build.sh) ----
-/ppc_mp/
-/build-mp/
-/build-mp-release/
-config/pes17mp_switch_tables.toml
-
 # ---- the Android app's build output ----
 android/build/
 /build-android/
@@ -103,12 +97,5 @@ rad_installer.exe
 /*.png
 /*.spv
 
-
-# ---- iw4L port ----
-iw4L/
-/iw4L/
-iw4L-cpp/build/
-/build-android/
-/iw4L-cpp/build/
-/build-android/
-build-iw4l*/
+# ---- Claude session notes ----
+.claude/

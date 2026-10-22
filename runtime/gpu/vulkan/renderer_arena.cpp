@@ -130,7 +130,7 @@ namespace vk::renderer::detail
                                    const shader::Translation& program,
                                    const shader::Translation& pixelProgram,
                                    uint32_t lowestVertex, uint32_t highestVertex,
-                                   uint32_t rectangles)
+                                   uint32_t rectangles, float modelScale)
     {
         const uint32_t (&subs)[3] = program.vertexFetchSubs;
         ConstantOffsets out{ 0, 0, 0, 0, 0, false };
@@ -138,6 +138,20 @@ namespace vk::renderer::detail
         out.vertexFloats = WriteConstantWindow(r, gpu::SQ_VS_CONST, 0,
                                                ConstantsNeeded(program));
         if (out.vertexFloats == UINT32_MAX) return out;
+        if (modelScale != 1.0f)
+        {
+            // A model's world matrix is c0..c2 (three rows, translation in w). Its
+            // rotation part scaled grows the model about its own centre. The shared
+            // window is cached for other draws, so the scaled one is a copy.
+            constexpr uint32_t bytes = bindings::kBlockBytes[bindings::kVertexFloats];
+            const uint32_t at = Allocate(bytes, kArenaConstants);
+            if (at == UINT32_MAX) { out.vertexFloats = UINT32_MAX; return out; }
+            std::memcpy(g.arenaMapped + at, g.arenaMapped + out.vertexFloats, bytes);
+            float* rows = reinterpret_cast<float*>(g.arenaMapped + at);
+            for (uint32_t row = 0; row < 3; row++)
+                for (uint32_t k = 0; k < 3; k++) rows[row * 4 + k] *= modelScale;
+            out.vertexFloats = at;
+        }
         out.pixelFloats = WriteConstantWindow(r, gpu::SQ_PS_CONST, 1,
                                               ConstantsNeeded(pixelProgram));
         if (out.pixelFloats == UINT32_MAX) return out;

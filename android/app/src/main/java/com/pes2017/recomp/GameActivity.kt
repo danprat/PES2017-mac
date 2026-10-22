@@ -73,7 +73,7 @@ class GameActivity : AppCompatActivity(), NativeListener {
     private var hudIsExpanded = false
     private lateinit var menuButton: Button
     private lateinit var captureButton: Button
-    private var editPanel: EditPanel? = null
+    private var editPanel: ControlEditPanel? = null
 
     private val pads = GamepadInput()
     private val handler = Handler(Looper.getMainLooper())
@@ -266,11 +266,18 @@ class GameActivity : AppCompatActivity(), NativeListener {
                     String.format(Locale.US, "  •  ⚡ Shaders %d%% (%d/%d)", pct, warmupCompleted, warmupQueued)
                 } else ""
 
-                statsText.text = String.format(
-                    Locale.US,
-                    "%d FPS%s  •  CPU %s%s%s  •  Tex %dMB%s%s  [▼ HUD]",
-                    fps, ftPart, cpuStr, tempPart, ramPart, texMb, warmupPart, ""
-                )
+                // As much as the player asked for (Prefs.hudLevel), kept to two short
+                // lines so it stays clear of the shoulder buttons beneath it.
+                val level = prefs.hudLevel
+                val expand = if (prefs.developerTools) "  [▼]" else ""
+                statsText.text = when (level) {
+                    Prefs.HUD_MINIMAL -> String.format(Locale.US, "%d FPS%s", fps, expand)
+                    Prefs.HUD_STANDARD -> String.format(Locale.US, "%d FPS%s%s%s", fps, ftPart, tempPart, expand)
+                    else -> String.format(
+                        Locale.US, "%d FPS%s%s%s\nCPU %s%s · Tex %dMB%s",
+                        fps, ftPart, tempPart, expand, cpuStr, ramPart, texMb, warmupPart,
+                    )
+                }
 
                 if (hudIsExpanded) {
                     val parts = cachedRendererInfo.split("|")
@@ -395,7 +402,7 @@ class GameActivity : AppCompatActivity(), NativeListener {
         // load again (GameService.kt).
         GameService.start(this)
         Trail.clear(this)
-        pads.firstSlot = if (prefs.padAsPlayer2) 1 else 0
+        pads.firstSlot = if (prefs.padAsPlayer2 && prefs.developerTools) 1 else 0
         pads.setEnabled(prefs.gamepadEnabled)
         pads.refreshDevices()
         startHardwareMonitor()
@@ -456,6 +463,7 @@ class GameActivity : AppCompatActivity(), NativeListener {
 
         hudContainer = FrameLayout(this)
         hudContainer.visibility = if (prefs.showStats) View.VISIBLE else View.GONE
+        overlay.playStation = prefs.playStationButtons
 
         statsText = TextView(this)
         statsText.setTextColor(Color.argb(245, 224, 242, 254))
@@ -469,6 +477,8 @@ class GameActivity : AppCompatActivity(), NativeListener {
         }
         statsText.background = pillBg
         statsText.setOnClickListener {
+            // The detail card and its console are developer tools.
+            if (!prefs.developerTools) return@setOnClickListener
             hudIsExpanded = true
             statsText.visibility = View.GONE
             hudExpandedCard.visibility = View.VISIBLE
@@ -574,6 +584,7 @@ class GameActivity : AppCompatActivity(), NativeListener {
                 Gravity.TOP or Gravity.END,
             ).apply { topMargin = pad(6); marginEnd = pad(76) }
         )
+        applyDeveloperTools()
 
         setContentView(root)
     }
@@ -718,6 +729,7 @@ class GameActivity : AppCompatActivity(), NativeListener {
         // The port's own switches, from Settings > Performance. Always given,
         // so a player's choice wins over the runtime's per-device defaults.
         NativeBridge.nativeSetOption("PES17_SCENE_SCALE", String.format(Locale.US, "%.4f", prefs.sceneScalePercent / 100.0))
+        NativeBridge.nativeSetOption("PES17_BALL_SCALE", String.format(Locale.US, "%.2f", prefs.ballScalePercent / 100.0))
         NativeBridge.nativeSetOption("PES17_HEAT_SCALE", if (prefs.heatScale) "1" else "")
         NativeBridge.nativeSetOption("PES17_LOAD_SCALE", if (prefs.loadScale) "1" else "")
         NativeBridge.nativeSetOption("PES17_HINT", if (prefs.perfHint) "" else "0")
@@ -842,11 +854,14 @@ class GameActivity : AppCompatActivity(), NativeListener {
         val labels = mutableListOf(
             getString(R.string.resume) to { _: android.content.DialogInterface -> },
             getString(R.string.edit_controls) to { _: android.content.DialogInterface -> beginEditing() },
-            getString(if (Macro.recording) R.string.macro_stop_record else R.string.macro_record) to { _: android.content.DialogInterface -> toggleRecording() },
-            getString(if (Macro.playing) R.string.macro_stop_play else R.string.macro_play) to { _: android.content.DialogInterface ->
-                if (Macro.playing) Macro.stopPlayback() else pickMacro()
-            },
         )
+        // Macros are a test tool: only with developer tools on (Settings > Advanced).
+        if (prefs.developerTools || Macro.recording || Macro.playing) {
+            labels.add(getString(if (Macro.recording) R.string.macro_stop_record else R.string.macro_record) to { _: android.content.DialogInterface -> toggleRecording() })
+            labels.add(getString(if (Macro.playing) R.string.macro_stop_play else R.string.macro_play) to { _: android.content.DialogInterface ->
+                if (Macro.playing) Macro.stopPlayback() else pickMacro()
+            })
+        }
         labels.add(getString(if (prefs.touchControls) R.string.hide_touch_controls else R.string.show_touch_controls) to { _: android.content.DialogInterface -> setTouchControls(!prefs.touchControls) })
         labels.add(getString(if (prefs.gamepadEnabled) R.string.disable_gamepad else R.string.enable_gamepad) to { _: android.content.DialogInterface -> setGamepad(!prefs.gamepadEnabled) })
         labels.add(getString(if (prefs.showStats) R.string.hide_stats else R.string.show_stats) to { _: android.content.DialogInterface -> setStats(!prefs.showStats) })
@@ -916,7 +931,9 @@ class GameActivity : AppCompatActivity(), NativeListener {
         overlay.select(null)
         menuButton.visibility = View.GONE
         captureButton.visibility = View.GONE
-        if (editPanel == null) editPanel = EditPanel()
+        if (editPanel == null) {
+            editPanel = ControlEditPanel(this, root, overlay) { endEditing(save = true) }
+        }
         editPanel?.attach()
         NativeBridge.nativeSetPaused(true)
     }
@@ -926,136 +943,10 @@ class GameActivity : AppCompatActivity(), NativeListener {
         overlay.select(null)
         editPanel?.detach()
         menuButton.visibility = View.VISIBLE
-        captureButton.visibility = View.VISIBLE
+        applyDeveloperTools()
         if (save) overlay.layout.save(this)
         NativeBridge.nativeSetPaused(false)
         goFullscreen()
-    }
-
-    /**
-     * The editor's own strip along the bottom. Everything on it acts on
-     * whichever control is selected; dragging and pinching happen on the
-     * control itself.
-     */
-    private inner class EditPanel {
-        private val view: View = layoutInflater.inflate(R.layout.edit_panel, root, false)
-        private val title: TextView = view.findViewById(R.id.edit_title)
-        private val size: SeekBar = view.findViewById(R.id.edit_size)
-        private val opacity: SeekBar = view.findViewById(R.id.edit_opacity)
-        private val visible: SwitchCompat = view.findViewById(R.id.edit_visible)
-        private val toggle: SwitchCompat = view.findViewById(R.id.edit_toggle)
-        private val snap: SwitchCompat = view.findViewById(R.id.edit_snap)
-        private var current: ControlElement? = null
-        private var attached = false
-
-        init {
-            size.max = 100
-            opacity.max = 100
-            size.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(bar: SeekBar, value: Int, fromUser: Boolean) {
-                    if (!fromUser) return
-                    val element = current ?: return
-                    val smallest = if (element.kind == ControlKind.LOOK) 120f else 36f
-                    val largest = if (element.kind == ControlKind.LOOK) 900f else 200f
-                    element.sizeDp = smallest + (largest - smallest) * (value / 100f)
-                    overlay.refresh()
-                }
-
-                override fun onStartTrackingTouch(bar: SeekBar) = Unit
-                override fun onStopTrackingTouch(bar: SeekBar) {
-                    overlay.layout.save(this@GameActivity)
-                }
-            })
-            opacity.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(bar: SeekBar, value: Int, fromUser: Boolean) {
-                    if (!fromUser) return
-                    val element = current ?: return
-                    element.alpha = (value / 100f).coerceIn(0.05f, 1f)
-                    overlay.refresh()
-                }
-
-                override fun onStartTrackingTouch(bar: SeekBar) = Unit
-                override fun onStopTrackingTouch(bar: SeekBar) {
-                    overlay.layout.save(this@GameActivity)
-                }
-            })
-            visible.setOnCheckedChangeListener { _, checked ->
-                val element = current ?: return@setOnCheckedChangeListener
-                element.visible = checked
-                overlay.refresh()
-                overlay.layout.save(this@GameActivity)
-            }
-            toggle.setOnCheckedChangeListener { _, checked ->
-                val element = current ?: return@setOnCheckedChangeListener
-                element.toggle = checked
-                overlay.layout.save(this@GameActivity)
-            }
-            snap.setOnCheckedChangeListener { _, checked -> overlay.snapToGrid = checked }
-            view.findViewById<Button>(R.id.edit_reset_one).setOnClickListener {
-                val element = current ?: return@setOnClickListener
-                overlay.layout.reset(element.id)
-                overlay.select(overlay.layout.find(element.id))
-                overlay.refresh()
-                overlay.layout.save(this@GameActivity)
-            }
-            view.findViewById<Button>(R.id.edit_reset_all).setOnClickListener {
-                AlertDialog.Builder(this@GameActivity)
-                    .setTitle(R.string.reset_all)
-                    .setMessage(R.string.reset_all_explained)
-                    .setNegativeButton(R.string.cancel, null)
-                    .setPositiveButton(R.string.reset) { _, _ ->
-                        overlay.layout.resetAll()
-                        overlay.select(null)
-                        overlay.refresh()
-                        overlay.layout.save(this@GameActivity)
-                    }
-                    .show()
-            }
-            view.findViewById<Button>(R.id.edit_done).setOnClickListener { endEditing(save = true) }
-        }
-
-        fun attach() {
-            if (attached) return
-            root.addView(
-                view,
-                FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
-                    Gravity.BOTTOM,
-                )
-            )
-            attached = true
-            show(null)
-        }
-
-        fun detach() {
-            if (!attached) return
-            root.removeView(view)
-            attached = false
-        }
-
-        fun show(element: ControlElement?) {
-            current = element
-            if (element == null) {
-                title.setText(R.string.edit_pick_one)
-                size.isEnabled = false
-                opacity.isEnabled = false
-                visible.isEnabled = false
-                toggle.isEnabled = false
-                return
-            }
-            title.text = getString(R.string.edit_selected, element.label)
-            size.isEnabled = true
-            opacity.isEnabled = true
-            visible.isEnabled = true
-            toggle.isEnabled = element.kind == ControlKind.BUTTON || element.kind == ControlKind.TRIGGER
-            val smallest = if (element.kind == ControlKind.LOOK) 120f else 36f
-            val largest = if (element.kind == ControlKind.LOOK) 900f else 200f
-            size.progress = (((element.sizeDp - smallest) / (largest - smallest)) * 100f)
-                .roundToInt().coerceIn(0, 100)
-            opacity.progress = (element.alpha * 100f).roundToInt().coerceIn(0, 100)
-            visible.isChecked = element.visible
-            toggle.isChecked = element.toggle
-        }
     }
 
     // ---- input ------------------------------------------------------------------------
@@ -1084,9 +975,15 @@ class GameActivity : AppCompatActivity(), NativeListener {
         // Without this it stays cut, and every texture is uploaded again on
         // every draw for the rest of the run.
         NativeBridge.nativeRestoreMemory()
-        pads.firstSlot = if (prefs.padAsPlayer2) 1 else 0
+        pads.firstSlot = if (prefs.padAsPlayer2 && prefs.developerTools) 1 else 0
         pads.setEnabled(prefs.gamepadEnabled)
         pads.refreshDevices()
+        // The pad may have been arranged in Settings meanwhile (ControlsEditorActivity,
+        // another process): this run saved its own copy on the way out, so read it back.
+        if (!overlay.editing) overlay.layout = ControlLayout.load(this)
+        overlay.playStation = prefs.playStationButtons
+        hudContainer.visibility = if (prefs.showStats) View.VISIBLE else View.GONE
+        applyDeveloperTools()
         handler.post(statsTick)
     }
 
@@ -1215,6 +1112,20 @@ class GameActivity : AppCompatActivity(), NativeListener {
                 if (folder != null) getString(R.string.capture_saved, folder.name)
                 else getString(R.string.capture_failed, message),
             )
+        }
+    }
+
+    /**
+     * The debug-only views follow Settings > Advanced > Developer tools. A capture
+     * already running keeps its button, so it can still be stopped.
+     */
+    private fun applyDeveloperTools() {
+        val show = prefs.developerTools || capture.active
+        captureButton.visibility = if (show && !overlay.editing) View.VISIBLE else View.GONE
+        if (!prefs.developerTools && hudIsExpanded) {
+            hudIsExpanded = false
+            hudExpandedCard.visibility = View.GONE
+            statsText.visibility = View.VISIBLE
         }
     }
 

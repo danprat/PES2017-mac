@@ -101,6 +101,15 @@
             tools:ignore="DiscouragedApi,LockedOrientationActivity" />
 
         <activity
+            android:name=".ControlsEditorActivity"
+            android:exported="false"
+            android:parentActivityName=".SettingsActivity"
+            android:theme="@style/Theme.PES17.Game"
+            android:screenOrientation="sensorLandscape"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode|density"
+            tools:ignore="DiscouragedApi,LockedOrientationActivity" />
+
+        <activity
             android:name=".DriverActivity"
             android:exported="false"
             android:parentActivityName=".MainActivity"

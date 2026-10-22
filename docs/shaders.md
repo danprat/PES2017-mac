@@ -1,6 +1,6 @@
 # Shaders
 
-MW2's shaders are Xenos microcode produced by Microsoft's offline compiler. The
+The title's shaders are Xenos microcode produced by Microsoft's offline compiler. The
 title compiles nothing at run time: it hands the GPU microcode through the
 command stream, so the runtime translates each program to SPIR-V as it is
 loaded. When shaders are compiled and cached is covered in
@@ -15,7 +15,6 @@ translation.
 | Resource interface | `runtime/gpu/vulkan/bindings.h` |
 | Offline translator | `tools/translate_shader.cpp` (target `translate-shader`) |
 | Disassembler | `tools/xenos_shader.py` (control flow), `tools/xenos_isa.py` (ALU and fetch) |
-| Fastfile extractor | `tools/extract_shaders.py` |
 
 ## How shaders reach the GPU
 
@@ -34,34 +33,10 @@ payload is command buffer rather than microcode.
 
 A shader is identified by a hash of its microcode. With diagnostics compiled in
 (the default; `-DPES17_DIAGNOSTICS=OFF` removes them, see
-[building.md](building.md)), `PES17_DUMP_SHADERS=<dir>` writes each distinct
+`runtime/CMakeLists.txt`), `PES17_DUMP_SHADERS=<dir>` writes each distinct
 program as
 `vertex_<hash>.ucode` / `pixel_<hash>.ucode`, big-endian as the guest holds it
 (see [switches.md](switches.md)).
-
-## Shaders in the fastfiles
-
-`tools/extract_shaders.py` recovers the programs offline from the fastfiles,
-for testing the translator against the whole corpus without running the game.
-
-- A fastfile is `IWffu100` followed by one zlib stream.
-- Compiled shaders sit in Microsoft's shader containers, tagged `0x102A1100`
-  (pixel) and `0x102A1101` (vertex). The constant table inside confirms which.
-- The zone is packed without alignment, so tags must be searched at every byte
-  offset, not every dword.
-- The container holds the constant table, debug record and name, not the
-  program. D3D9's shader constructor `sub_820B8B90` copies `container[+0x04]`
-  bytes of container, then `container[+0x08]` bytes of microcode from past the
-  container. The microcode is stored raw.
-- Between container and program lies the rest of the IW4 asset (pointer
-  placeholders, the name string), of variable length. The extractor searches
-  forward for a blob of exactly the declared length that decodes as a program
-  *and* whose every full vertex fetch names a defined vertex format. All three
-  conditions are required: control flow alone decodes from arbitrary data,
-  since every 4-bit control-flow opcode is defined.
-
-The `*packed` suffix in a container's debug name (`trivial_vertcol_simple.hlsl*packed`)
-is part of the shader's name, not a storage format.
 
 ## Microcode encoding
 
@@ -217,9 +192,7 @@ move.
 
 Memory export has nowhere to land: set 2 is the frame arena, holding copies of
 the vertex data each draw reads, not guest memory. The geometry such a program
-draws is still drawn. The one memory export MW2 depends on, the image pool's
-block copy, is performed on the CPU at that draw (see
-[textures.md](textures.md#the-image-pools-block-copy)).
+draws is still drawn.
 
 ### Vertex fetch
 
@@ -311,7 +284,7 @@ the sampler comes from the fetch constant alone.
   emits window coordinates (D3D9 XYZRHW); Vulkan would clip those away. The
   vertex shader applies `xy = xy * scale + offset * w` from push constants —
   the identity when the viewport transform is on, `2 * window / size - 1`
-  otherwise. MW2's EDRAM clears depend on this.
+  otherwise. The title's EDRAM clears depend on this.
 
 ## Validating a translation
 
@@ -343,13 +316,8 @@ loop { switch (pc) { case 0: ...; case 19: ...; default: break; } }
 ### The Mali Driver Optimizer Pathology
 While desktop drivers (NVIDIA, AMD) and Qualcomm Adreno/Turnip simplify this construct in ~50–100 ms, ARM Mali drivers (Bifrost/Valhall on Dimensity SoCs) encounter a severe compiler optimizer pathology. The driver attempts loop unrolling and full CFG convergence analysis across all cases in `OpSwitch`, locking compilation in `vkCreateGraphicsPipelines` for **300 to 450 seconds per shader**.
 
-### Structured Acyclic Forward Jumps
-Static analysis of MW2's complete shader corpus revealed:
-1. **203 of 207 shaders** are strictly linear straight-line code.
-2. Exactly **4 shaders** contain branch instructions (`70A21AB18663D4DD`, `73B3571D97C99594`, `99724088FD84BC3D`, and `B43C5FC2AEE46DFE`).
-3. **Zero shaders contain backwards loops or subroutine calls**. Every `CondJmp` instruction in MW2 is strictly forward (`target > self`).
-
-Because forward jumps with no backward loops are acyclic DAGs, they map directly to structured `if/else` control flow. By structuring forward jumps via `OpSelectionMerge` / `OpBranchConditional` without emitting `OpLoopMerge`, Mali driver compile times drop from **>400,000 ms to <30 ms**.
+### Structured Forward Jumps
+Forward jumps with no backward loops are acyclic DAGs, so they map directly to structured `if/else` control flow. By structuring forward jumps via `OpSelectionMerge` / `OpBranchConditional` without emitting `OpLoopMerge`, Mali driver compile times drop from **>400,000 ms to <30 ms**.
 
 For fallback compatibility where loops may occur, `OpLoopMerge` specifies loop control parameter `kLoopControlDontUnroll = 0x2` to forbid driver unrolling.
 

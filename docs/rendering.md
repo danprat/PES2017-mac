@@ -18,21 +18,20 @@ threads compile shaders and optimised pipelines.
 
 ## Render targets: an image per EDRAM surface
 
-EDRAM is not emulated. MW2 neither aliases surfaces nor renders in tiles, so a
+EDRAM is not emulated. The title neither aliases surfaces nor renders in tiles, so a
 surface is a Vulkan image keyed by `TargetKey { baseTile, pitch, host format,
 samples, depth }`. The key comes from `RB_COLOR_INFO` / `RB_DEPTH_INFO` and
 `RB_SURFACE_INFO` (pitch in bits 0-13, samples in bits 16-17).
 
 - **Depth keys have no pitch.** EDRAM has one depth buffer per base tile, and
-  MW2 tests world depth in a pass that describes it at another pitch than the
+  the title tests world depth in a pass that describes it at another pitch than the
   pass that wrote it. Depth keys keep the sample count, which must match the
   colour image beside them.
 - **Keys hold the host format**, so `8_8_8_8` and `8_8_8_8_GAMMA` at one tile
   are one image, as the title's resolves expect.
 - A target is as wide as its pitch and as tall as the bottom of the window
   scissor, each at most 4096. A target that must grow is rebuilt.
-- A new target is cleared once. Depth goes to 0 (MW2 tests `GEQUAL` and
-  clears to 0). Colour goes to dark blue-grey, so an undrawn surface is not
+- A new target is cleared once. Depth goes to 0. Colour goes to dark blue-grey, so an undrawn surface is not
   mistaken for black.
 - Only render target 0 is bound.
 
@@ -54,7 +53,7 @@ dependencies.
 
 - **With a resolve.** `RB_COPY_CONTROL` bits 8/9 clear what the resolve read:
   `RB_COLOR_CLEAR` is ARGB, and `RB_DEPTH_CLEAR` is depth << 8 | stencil.
-- **The EDRAM clear idiom.** MW2 draws a rectangle list with depth writes on,
+- **The EDRAM clear idiom.** The title draws a rectangle list with depth writes on,
   `ZFunc` `ALWAYS`, and the X/Y viewport scale off. The rectangles come in pairs:
   most of a row at half pitch and twice the samples, then the leftover columns,
   because a surface is not a whole number of 80-sample tiles.
@@ -159,7 +158,7 @@ write faults once, which marks the page and makes it writable again.
 The texture cache uses the same watch. `PES17_NO_SHADOW=1` turns the shadow off,
 and it is read by every build rather than only a diagnostics one, because it is
 512 MB of resident memory before the first frame is drawn: the Android runtime
-sets it on a phone of six gigabytes or less ([android.md](android.md)).
+sets it on a phone of six gigabytes or less.
 
 ## Resolves
 
@@ -195,7 +194,7 @@ A resolve does not end the submission unless the slot's arena share is half used
 ## Gamma
 
 - **Encode on write.** Xenos applies a piecewise-linear gamma curve to RGB
-  written into an `8_8_8_8_GAMMA` target, where MW2 draws the world. The pixel
+  written into an `8_8_8_8_GAMMA` target, where the title draws the world. The pixel
   shader does the same (Xenia's `LinearToPWLGamma`) when its push-constant flag
   is set.
 - **Linearise on read.** A fetch whose component signs say `gamma` samples
@@ -266,8 +265,7 @@ draws have finished, it may reuse the memory they read, which the console's GPU
 had already read. So `BeforeCompletion` closes the segment:
 `vk::textures::EndSegment` re-reads the segment's watched textures, and the
 draws end in a command buffer of their own. Each segment is submitted as its
-uploads followed by its draws. `BeforeStreamWrite` also closes a segment before
-the image pool's copy overwrites memory the segment binds.
+uploads followed by its draws.
 
 Before an image a submission may use is destroyed (a target that grows, or a
 resolve image that is replaced), `RetireBeforeDestroy` submits and waits,
@@ -386,7 +384,7 @@ Without pipeline libraries, or under `PES17_NO_PIPELINE_LIBRARIES=1`, whole
 pipelines are built at their first draw.
 
 `PES17_SHADER_CACHE=<file>` records every pipeline a run builds: microcode,
-formats and state (`SMW2`, version 3). The next run rebuilds them at start-up.
+formats and state (version 3). The next run rebuilds them at start-up.
 It has to be recorded, because the state a shader pair is drawn with exists
 only in a previous run. The file is written back as a union, so it never
 shrinks. `PES17_PIPELINE_CACHE=<file>` persists the driver's `VkPipelineCache`.
@@ -394,7 +392,6 @@ shrinks. `PES17_PIPELINE_CACHE=<file>` persists the driver's `VkPipelineCache`.
 ## Not implemented
 
 - Resolve write-back: the CPU cannot read resolved pixels from guest memory.
-- Memory export in shaders. Its one use, the image pool's block copy, is made
-  on the CPU at its draw (`runtime/image_move.cpp`).
+- Memory export in shaders.
 - Multiple render targets, the console's sample positions, and alpha to
-  coverage (MW2 never sets `RB_COLORCONTROL`'s alpha-to-mask bit).
+  coverage (`RB_COLORCONTROL`'s alpha-to-mask bit).

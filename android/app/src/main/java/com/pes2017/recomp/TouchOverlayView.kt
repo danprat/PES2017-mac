@@ -59,6 +59,14 @@ class TouchOverlayView @JvmOverloads constructor(
     var selected: ControlElement? = null
         private set
 
+    /** PlayStation names and symbols (Cross, Circle, L1, OPTIONS) instead of Xbox ones (A, B, LB, START). */
+    var playStation: Boolean = true
+        set(value) {
+            if (field == value) return
+            field = value
+            invalidate()
+        }
+
     /** Snapping makes a tidy row possible with a thumb; the editor offers it. */
     var snapToGrid: Boolean = false
 
@@ -70,7 +78,6 @@ class TouchOverlayView @JvmOverloads constructor(
     // every phone shooter does, and what a player expects.
     private val claims = HashMap<Int, ControlElement>()
     private val stickPositions = HashMap<String, FloatArray>()   // id -> normalised x, y
-    private val dpadBits = HashMap<String, Int>()
     private val held = HashSet<String>()
     private val toggled = HashSet<String>()
     private var lookPointer = -1
@@ -186,7 +193,6 @@ class TouchOverlayView @JvmOverloads constructor(
                 ControlKind.TRIGGER -> if (on) {
                     if (element.value == 0) leftTrigger = 255 else rightTrigger = 255
                 }
-                ControlKind.DPAD -> buttons = buttons or (dpadBits[element.id] ?: 0)
                 ControlKind.STICK -> {
                     val position = stickPositions[element.id]
                     if (position != null) {
@@ -214,7 +220,6 @@ class TouchOverlayView @JvmOverloads constructor(
     fun releaseEverything() {
         claims.clear()
         stickPositions.clear()
-        dpadBits.clear()
         held.clear()
         // Toggles survive a pause -- a player who was aiming down sights
         // before the phone rang is still aiming when they come back -- but
@@ -261,7 +266,6 @@ class TouchOverlayView @JvmOverloads constructor(
                     val element = claims[id] ?: continue
                     when (element.kind) {
                         ControlKind.STICK -> { moveStick(element, x, y); changed = true }
-                        ControlKind.DPAD -> { moveDpad(element, x, y); changed = true }
                         else -> Unit
                     }
                 }
@@ -306,7 +310,6 @@ class TouchOverlayView @JvmOverloads constructor(
         claims[pointerId] = element
         when (element.kind) {
             ControlKind.STICK -> moveStick(element, x, y)
-            ControlKind.DPAD -> moveDpad(element, x, y)
             ControlKind.BUTTON, ControlKind.TRIGGER -> {
                 if (element.toggle) {
                     if (!toggled.remove(element.id)) toggled.add(element.id)
@@ -328,7 +331,6 @@ class TouchOverlayView @JvmOverloads constructor(
         val element = claims.remove(pointerId) ?: return false
         when (element.kind) {
             ControlKind.STICK -> stickPositions.remove(element.id)
-            ControlKind.DPAD -> dpadBits.remove(element.id)
             else -> held.remove(element.id)
         }
         return true
@@ -350,25 +352,6 @@ class TouchOverlayView @JvmOverloads constructor(
         val length = hypot(dx, dy)
         if (length > 1f) { dx /= length; dy /= length }
         stickPositions[element.id] = floatArrayOf(dx, dy)
-    }
-
-    private fun moveDpad(element: ControlElement, x: Float, y: Float) {
-        val r = radius(element)
-        val dx = (x - centreX(element)) / r
-        val dy = (y - centreY(element)) / r
-        // A dead centre press means nothing; past a third of the way out it
-        // is a direction, and both axes can be on at once for the diagonals.
-        val threshold = 0.32f
-        val oldBits = dpadBits[element.id] ?: 0
-        var bits = 0
-        if (dy < -threshold) bits = bits or NativeBridge.UP
-        if (dy > threshold) bits = bits or NativeBridge.DOWN
-        if (dx < -threshold) bits = bits or NativeBridge.LEFT
-        if (dx > threshold) bits = bits or NativeBridge.RIGHT
-        dpadBits[element.id] = bits
-        if (bits != 0 && bits != oldBits) {
-            triggerHaptic()
-        }
     }
 
     // ---- editing ----------------------------------------------------------------
@@ -445,7 +428,11 @@ class TouchOverlayView @JvmOverloads constructor(
             }
 
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                if (dragMoved) onLayoutEdited?.invoke()
+                if (dragMoved) {
+                    // Dropped on (or grown into) a neighbour: step it aside.
+                    (dragElement ?: selected)?.let { keepApart(it) }
+                    onLayoutEdited?.invoke()
+                }
                 dragPointer = -1
                 dragElement = null
                 pinching = false
@@ -453,6 +440,45 @@ class TouchOverlayView @JvmOverloads constructor(
             }
         }
         return true
+    }
+
+    /**
+     * Moves [element] off any shown control it covers, so two controls never
+     * share a touch: each pass pushes it straight away from the nearest overlap
+     * until there is a small gap (more than the touch slack in [hit]), keeping it
+     * on screen. A crowded spot can leave it touching after the last pass; that
+     * is rare, and the player can still move it by hand.
+     */
+    fun keepApart(element: ControlElement) {
+        if (width == 0 || height == 0 || element.kind == ControlKind.LOOK) return
+        val gap = 14f * density
+        val margin = 8f * density
+        repeat(24) {
+            var moved = false
+            for (other in layout.elements) {
+                if (other === element || !other.visible || other.kind == ControlKind.LOOK) continue
+                val dx = centreX(element) - centreX(other)
+                val dy = centreY(element) - centreY(other)
+                val distance = hypot(dx, dy)
+                val needed = radius(element) + radius(other) + gap
+                if (distance >= needed) continue
+                // Exactly on top: push towards the screen's middle, which has room.
+                val ux = if (distance > 0.5f) dx / distance else if (centreX(element) > width / 2f) -1f else 1f
+                val uy = if (distance > 0.5f) dy / distance else 0f
+                val push = needed - distance
+                val r = radius(element) + margin
+                val x = (centreX(element) + ux * push).coerceIn(r, max(r, width - r))
+                val y = (centreY(element) + uy * push).coerceIn(r, max(r, height - r))
+                element.xFrac = x / width
+                element.yFrac = y / height
+                moved = true
+            }
+            if (!moved) {
+                invalidate()
+                return
+            }
+        }
+        invalidate()
     }
 
     private fun minimumSize(element: ControlElement): Float =
@@ -476,7 +502,6 @@ class TouchOverlayView @JvmOverloads constructor(
             when (element.kind) {
                 ControlKind.LOOK -> drawLook(canvas, element, faded)
                 ControlKind.STICK -> drawStick(canvas, element, alpha, faded)
-                ControlKind.DPAD -> drawDpad(canvas, element, alpha, faded)
                 ControlKind.BUTTON, ControlKind.TRIGGER -> drawButton(canvas, element, alpha, faded)
             }
             if (editing && element === selected) drawSelection(canvas, element)
@@ -507,6 +532,16 @@ class TouchOverlayView @JvmOverloads constructor(
         private const val COLOR_LT = 0xFF0EA5E9.toInt()     // Left trigger
         private const val COLOR_LT_GLOW = 0xFF38BDF8.toInt()
         private const val COLOR_BUMPER_GLOW = 0xFF94A3B8.toInt()
+
+        // The PlayStation symbol colours: blue cross, red circle, pink square, green triangle
+        private const val PS_CROSS = 0xFF3B5BA9.toInt()
+        private const val PS_CROSS_GLOW = 0xFF7DA2F0.toInt()
+        private const val PS_CIRCLE = 0xFFB4232F.toInt()
+        private const val PS_CIRCLE_GLOW = 0xFFF0626C.toInt()
+        private const val PS_SQUARE = 0xFF9D3F8C.toInt()
+        private const val PS_SQUARE_GLOW = 0xFFE58FD2.toInt()
+        private const val PS_TRIANGLE = 0xFF1E8C6B.toInt()
+        private const val PS_TRIANGLE_GLOW = 0xFF4FD1A5.toInt()
     }
 
     private fun drawButton(canvas: Canvas, element: ControlElement, alpha: Float, faded: Boolean) {
@@ -528,11 +563,12 @@ class TouchOverlayView @JvmOverloads constructor(
         val isThumbClick = id == "l3" || id == "r3"
         val isMenu = id == "start" || id == "back"
 
+        val label = ControlLayout.labelFor(element, playStation)
         val coreColor = when {
-            isA -> COLOR_A
-            isB -> COLOR_B
-            isX -> COLOR_X
-            isY -> COLOR_Y
+            isA -> if (playStation) PS_CROSS else COLOR_A
+            isB -> if (playStation) PS_CIRCLE else COLOR_B
+            isX -> if (playStation) PS_SQUARE else COLOR_X
+            isY -> if (playStation) PS_TRIANGLE else COLOR_Y
             isRT -> COLOR_RT
             isLT -> COLOR_LT
             isBumper -> 0xFF334155.toInt()
@@ -540,10 +576,10 @@ class TouchOverlayView @JvmOverloads constructor(
         }
 
         val glowColor = when {
-            isA -> COLOR_A_GLOW
-            isB -> COLOR_B_GLOW
-            isX -> COLOR_X_GLOW
-            isY -> COLOR_Y_GLOW
+            isA -> if (playStation) PS_CROSS_GLOW else COLOR_A_GLOW
+            isB -> if (playStation) PS_CIRCLE_GLOW else COLOR_B_GLOW
+            isX -> if (playStation) PS_SQUARE_GLOW else COLOR_X_GLOW
+            isY -> if (playStation) PS_TRIANGLE_GLOW else COLOR_Y_GLOW
             isRT -> COLOR_RT_GLOW
             isLT -> COLOR_LT_GLOW
             isBumper -> COLOR_BUMPER_GLOW
@@ -603,25 +639,21 @@ class TouchOverlayView @JvmOverloads constructor(
             tempRect.set(cx - jewelR + arcInset, cy - jewelR + arcInset * 0.6f, cx + jewelR - arcInset, cy + jewelR - arcInset * 1.4f)
             canvas.drawArc(tempRect, -145f, 110f, false, highlightPaint)
 
-            // 4. The action in words, with the pad letter above it and what the
-            //    button does without the ball beneath.
-            val word = element.sub.ifEmpty { element.label }
-            text.textSize = jewelR * (if (word.length > 5) 0.34f else 0.40f)
-            val wordY = cy - (text.descent() + text.ascent()) * 0.5f
-            text.color = Color.argb((alpha * fadeFactor * 160).toInt().coerceIn(0, 255), 0, 0, 0)
-            canvas.drawText(word, cx, wordY + 1.2f * density, text)
-            text.color = Color.argb((alpha * fadeFactor * 255).toInt().coerceIn(0, 255), 255, 255, 255)
-            canvas.drawText(word, cx, wordY, text)
-
-            if (element.sub.isNotEmpty()) {
-                subText.textSize = jewelR * 0.26f
-                subText.color = Color.argb((alpha * fadeFactor * 200).toInt().coerceIn(0, 255), 255, 255, 255)
-                canvas.drawText(element.label, cx, cy - jewelR * 0.50f, subText)
-                if (element.sub2.isNotEmpty()) {
-                    subText.textSize = jewelR * 0.24f
-                    subText.color = Color.argb((alpha * fadeFactor * 175).toInt().coerceIn(0, 255), 226, 232, 240)
-                    canvas.drawText(element.sub2, cx, cy + jewelR * 0.68f, subText)
-                }
+            // 4. Just the pad's own name, as on a real controller: the
+            //    PlayStation symbol, or the Xbox letter.
+            val ink = Color.argb((alpha * fadeFactor * 255).toInt().coerceIn(0, 255), 255, 255, 255)
+            val shadow = Color.argb((alpha * fadeFactor * 140).toInt().coerceIn(0, 255), 0, 0, 0)
+            if (playStation) {
+                val size = jewelR * 0.40f
+                drawPsSymbol(canvas, id, cx, cy + 1.2f * density, size, shadow)
+                drawPsSymbol(canvas, id, cx, cy, size, ink)
+            } else {
+                text.textSize = jewelR * 0.95f
+                val letterY = cy - (text.descent() + text.ascent()) * 0.5f
+                text.color = shadow
+                canvas.drawText(label, cx, letterY + 1.2f * density, text)
+                text.color = ink
+                canvas.drawText(label, cx, letterY, text)
             }
         } else if (isRT || isLT) {
             // Xbox Ergonomic Trigger (RT / LT)
@@ -636,16 +668,9 @@ class TouchOverlayView @JvmOverloads constructor(
             stroke.strokeWidth = max(2f, r * 0.065f)
             canvas.drawCircle(cx, cy, r - stroke.strokeWidth * 0.5f, stroke)
 
-            val triggerLabel = element.label
-            val subLabel = element.sub
-
             text.textSize = r * 0.58f
             text.color = Color.WHITE
-            canvas.drawText(triggerLabel, cx, cy - r * 0.05f, text)
-
-            subText.textSize = r * 0.26f
-            subText.color = Color.argb((alpha * fadeFactor * 220).toInt().coerceIn(0, 255), 226, 232, 240)
-            canvas.drawText(subLabel, cx, cy + r * 0.42f, subText)
+            canvas.drawText(label, cx, cy - (text.descent() + text.ascent()) * 0.5f, text)
 
             if (element.toggle && toggled.contains(element.id)) {
                 fill.color = Color.argb(255, 56, 189, 248)
@@ -667,7 +692,7 @@ class TouchOverlayView @JvmOverloads constructor(
             text.textSize = r * (if (element.sub.isEmpty()) 0.52f else 0.46f)
             text.color = Color.WHITE
             val labelY = if (element.sub.isEmpty()) cy - (text.descent() + text.ascent()) * 0.5f else cy - r * 0.06f
-            canvas.drawText(element.label, cx, labelY, text)
+            canvas.drawText(label, cx, labelY, text)
             if (element.sub.isNotEmpty()) {
                 subText.textSize = r * 0.27f
                 subText.color = Color.argb((alpha * fadeFactor * 220).toInt().coerceIn(0, 255), 226, 232, 240)
@@ -687,15 +712,10 @@ class TouchOverlayView @JvmOverloads constructor(
             canvas.drawCircle(cx, cy, r - stroke.strokeWidth * 0.5f, stroke)
 
             val tag = element.label
-            val sub = element.sub
 
             text.textSize = r * 0.50f
             text.color = Color.WHITE
-            canvas.drawText(tag, cx, cy - r * 0.06f, text)
-
-            subText.textSize = r * 0.25f
-            subText.color = Color.argb((alpha * fadeFactor * 210).toInt().coerceIn(0, 255), 148, 163, 184)
-            canvas.drawText(sub, cx, cy + r * 0.40f, subText)
+            canvas.drawText(tag, cx, cy - (text.descent() + text.ascent()) * 0.5f, text)
         } else if (isMenu) {
             // Start (▶) / Back (◀◀)
             val fillA = (alpha * fadeFactor * (if (pressed) 180 else 75)).toInt().coerceIn(0, 255)
@@ -709,9 +729,9 @@ class TouchOverlayView @JvmOverloads constructor(
             stroke.strokeWidth = max(1.5f, r * 0.045f)
             canvas.drawCircle(cx, cy, r - stroke.strokeWidth * 0.5f, stroke)
 
-            text.textSize = r * 0.32f
+            text.textSize = r * (if (label.length > 5) 0.26f else 0.32f)
             text.color = Color.WHITE
-            canvas.drawText(element.label, cx, cy - (text.descent() + text.ascent()) * (if (element.sub.isEmpty()) 0.5f else 1.1f), text)
+            canvas.drawText(label, cx, cy - (text.descent() + text.ascent()) * (if (element.sub.isEmpty()) 0.5f else 1.1f), text)
             if (element.sub.isNotEmpty()) {
                 subText.textSize = r * 0.24f
                 subText.color = Color.argb((alpha * fadeFactor * 200).toInt().coerceIn(0, 255), 148, 163, 184)
@@ -727,6 +747,28 @@ class TouchOverlayView @JvmOverloads constructor(
             text.color = shade(alpha, pressed, faded)
             text.textSize = r * (if (element.label.length > 2) 0.52f else 0.8f)
             canvas.drawText(element.label, cx, cy - (text.descent() + text.ascent()) * 0.5f, text)
+        }
+    }
+
+    /** The PlayStation face symbol for a face button's id, drawn as lines so no font is needed. */
+    private fun drawPsSymbol(canvas: Canvas, id: String, cx: Float, cy: Float, size: Float, color: Int) {
+        highlightPaint.color = color
+        highlightPaint.strokeWidth = max(1.5f, size * 0.32f)
+        when (id) {
+            "a" -> {
+                canvas.drawLine(cx - size, cy - size, cx + size, cy + size, highlightPaint)
+                canvas.drawLine(cx - size, cy + size, cx + size, cy - size, highlightPaint)
+            }
+            "b" -> canvas.drawCircle(cx, cy, size, highlightPaint)
+            "x" -> canvas.drawRect(cx - size * 0.9f, cy - size * 0.9f, cx + size * 0.9f, cy + size * 0.9f, highlightPaint)
+            "y" -> {
+                path.reset()
+                path.moveTo(cx, cy - size * 1.05f)
+                path.lineTo(cx + size * 1.1f, cy + size * 0.85f)
+                path.lineTo(cx - size * 1.1f, cy + size * 0.85f)
+                path.close()
+                canvas.drawPath(path, highlightPaint)
+            }
         }
     }
 
@@ -802,7 +844,7 @@ class TouchOverlayView @JvmOverloads constructor(
         if (!isDeflected) {
             subText.textSize = dishR * 0.34f
             subText.color = Color.argb((alpha * fadeFactor * 130).toInt().coerceIn(0, 255), 148, 163, 184)
-            canvas.drawText(element.label, knobX, knobY - (subText.descent() + subText.ascent()) * 0.5f, subText)
+            canvas.drawText(ControlLayout.labelFor(element, playStation), knobX, knobY - (subText.descent() + subText.ascent()) * 0.5f, subText)
         }
 
         // 5. The 4 Signature Xbox Rubber Grip Dimples/Dots (Top, Bottom, Left, Right)
@@ -820,86 +862,6 @@ class TouchOverlayView @JvmOverloads constructor(
         canvas.drawCircle(knobX - dotOffset, knobY, dotRadius, dimplePaint)
         // Right dot
         canvas.drawCircle(knobX + dotOffset, knobY, dotRadius, dimplePaint)
-    }
-
-    private fun drawDpad(canvas: Canvas, element: ControlElement, alpha: Float, faded: Boolean) {
-        val r = radius(element)
-        val arm = r * 0.40f
-        val cx = centreX(element)
-        val cy = centreY(element)
-        val bits = dpadBits[element.id] ?: 0
-        val fadeFactor = if (faded) 0.45f else 1f
-
-        // 1. Metallic circular disc base behind the cross
-        fill.color = Color.argb((alpha * fadeFactor * 85).toInt().coerceIn(0, 255), 16, 20, 26)
-        canvas.drawCircle(cx, cy, r * 0.95f, fill)
-        stroke.color = Color.argb((alpha * fadeFactor * 110).toInt().coerceIn(0, 255), 45, 55, 68)
-        stroke.strokeWidth = max(1.5f, 1.8f * density)
-        canvas.drawCircle(cx, cy, r * 0.95f, stroke)
-
-        // 2. Xbox 360 Cross Path
-        path.reset()
-        path.moveTo(cx - arm, cy - r)
-        path.lineTo(cx + arm, cy - r)
-        path.lineTo(cx + arm, cy - arm)
-        path.lineTo(cx + r, cy - arm)
-        path.lineTo(cx + r, cy + arm)
-        path.lineTo(cx + arm, cy + arm)
-        path.lineTo(cx + arm, cy + r)
-        path.lineTo(cx - arm, cy + r)
-        path.lineTo(cx - arm, cy + arm)
-        path.lineTo(cx - r, cy + arm)
-        path.lineTo(cx - r, cy - arm)
-        path.lineTo(cx - arm, cy - arm)
-        path.close()
-
-        // Metallic charcoal fill
-        fill.color = Color.argb((alpha * fadeFactor * 160).toInt().coerceIn(0, 255), 26, 32, 42)
-        canvas.drawPath(path, fill)
-
-        // Outer beveled stroke
-        stroke.color = Color.argb((alpha * fadeFactor * 190).toInt().coerceIn(0, 255), 65, 78, 96)
-        stroke.strokeWidth = max(1.5f, r * 0.045f)
-        canvas.drawPath(path, stroke)
-
-        // 3. Active Quadrants (illuminated with Xbox Emerald Green)
-        val upOn = bits and NativeBridge.UP != 0
-        val downOn = bits and NativeBridge.DOWN != 0
-        val leftOn = bits and NativeBridge.LEFT != 0
-        val rightOn = bits and NativeBridge.RIGHT != 0
-
-        fill.color = Color.argb((alpha * fadeFactor * 220).toInt().coerceIn(0, 255), 16, 124, 16)
-        if (upOn) canvas.drawRect(cx - arm, cy - r, cx + arm, cy - arm, fill)
-        if (downOn) canvas.drawRect(cx - arm, cy + arm, cx + arm, cy + r, fill)
-        if (leftOn) canvas.drawRect(cx - r, cy - arm, cx - arm, cy + arm, fill)
-        if (rightOn) canvas.drawRect(cx + arm, cy - arm, cx + r, cy + arm, fill)
-
-        // 4. Directional Chevrons / Arrows
-        text.textSize = r * 0.28f
-        val arrowYOffset = (text.descent() + text.ascent()) * 0.5f
-
-        // Up arrow
-        text.color = if (upOn) Color.WHITE else Color.argb((alpha * fadeFactor * 180).toInt().coerceIn(0, 255), 148, 163, 184)
-        canvas.drawText("▲", cx, cy - r * 0.65f - arrowYOffset, text)
-
-        // Down arrow
-        text.color = if (downOn) Color.WHITE else Color.argb((alpha * fadeFactor * 180).toInt().coerceIn(0, 255), 148, 163, 184)
-        canvas.drawText("▼", cx, cy + r * 0.65f - arrowYOffset, text)
-
-        // Left arrow
-        text.color = if (leftOn) Color.WHITE else Color.argb((alpha * fadeFactor * 180).toInt().coerceIn(0, 255), 148, 163, 184)
-        canvas.drawText("◀", cx - r * 0.65f, cy - arrowYOffset, text)
-
-        // Right arrow
-        text.color = if (rightOn) Color.WHITE else Color.argb((alpha * fadeFactor * 180).toInt().coerceIn(0, 255), 148, 163, 184)
-        canvas.drawText("▶", cx + r * 0.65f, cy - arrowYOffset, text)
-
-        // 5. Center pivot dish
-        fill.color = Color.argb((alpha * fadeFactor * 230).toInt().coerceIn(0, 255), 18, 22, 28)
-        canvas.drawCircle(cx, cy, arm * 0.55f, fill)
-        stroke.color = Color.argb((alpha * fadeFactor * 140).toInt().coerceIn(0, 255), 50, 60, 75)
-        stroke.strokeWidth = max(1f, 1.5f * density)
-        canvas.drawCircle(cx, cy, arm * 0.55f, stroke)
     }
 
     private fun drawLook(canvas: Canvas, element: ControlElement, faded: Boolean) {

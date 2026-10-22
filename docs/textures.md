@@ -12,7 +12,6 @@ would sample at the moment a draw executes.
 | Converted (BC to ASTC) textures kept on disk between sessions | `runtime/gpu/vulkan/texture_store.{h,cpp}` |
 | The images' memory, in blocks | `runtime/gpu/vulkan/image_memory.{h,cpp}` |
 | Write watch on guest pages | `runtime/gpu/memory_watch.{h,cpp}` |
-| The image pool's block copy | `runtime/image_move.{h,cpp}` |
 | Upload round-trip test | `tools/upload_texture.cpp` (target `upload-texture`) |
 
 ## The fetch constant
@@ -237,8 +236,7 @@ formats on the software path for the rest.
 - **DXT3A** is sixteen explicit four-bit values per block (the alpha block of
   DXT2/3), not BC4's endpoints and indices. Both are eight bytes a block, so
   treating one as the other passes every size check and decodes to noise.
-  `ReadTexture` expands it to one byte a texel. MW2 stores the world's light
-  map in it.
+  `ReadTexture` expands it to one byte a texel.
 - **Gamma.** A fetch constant whose colour components are signed `gamma` asks
   the sampler to linearise. The image view uses the sRGB counterpart
   (`SrgbFormatFor`: R8G8B8A8, BC1, BC2, BC3); Xenos' piecewise curve and sRGB
@@ -319,8 +317,7 @@ describes, uploading it the first time it is seen.
 ## Keeping images in step with guest memory
 
 A fetch constant always names the same image. A title that rewrites a texture in
-place (MW2 rewrites its model-lighting table, a `512x256x4 8_8_8_8` volume in
-which each model owns a 4x4 patch) leaves the fetch constant unchanged, so the
+place leaves the fetch constant unchanged, so the
 bytes themselves must be watched.
 
 **Write watch.** Where the texture's pages are in the physical bank,
@@ -382,45 +379,6 @@ re-read at segment end until it drops to 25% or less. With diagnostics,
 `PES17_MARK_EMPTY=1` binds flat magenta in place of such a texture in the world
 pass for 60 frames after it is first seen empty, and textures still empty at
 segment end are logged with the pool copies around them.
-
-## The image pool's block copy
-
-MW2 keeps streamed images in a compacting pool. To relocate a block, the pool
-(in the campaign build, `sub_823A5CB8`) allocates the new home, queues the move
-(`sub_823A5780`) and points the image record at the new address. The move is
-flushed through `T_Image_FlushMove` (`runtime/title.h`), which builds a surface
-header over the two blocks and has the **GPU** copy them: one draw whose vertex
-shader fetches the source and memory-exports it to the destination, with the
-export stream constant in `c0.x`:
-
-```
-c0.x = 0x40000000 | (destination physical address / 4)
-```
-
-The translator drops memory exports ([shaders.md](shaders.md#exports)), so
-`runtime/image_move.cpp` makes the copy on the CPU, at that draw:
-
-1. A hook on `T_Image_FlushMove` records `{destination, source, size, stream
-   constant}` before the title's own call writes the draw, so the parse never
-   meets the draw first.
-2. At every draw while copies are pending, the command processor calls
-   `imagepool::AtDraw(c0.x, vertex shader hash)`. A match makes the copy there:
-   every draw queued before it sees the old bytes, every one after the new.
-   Once the copy shader is known, a matching `c0.x` under another shader is not
-   a copy, because `c0` outlives the draw that set it.
-3. `imagepool::AtFrameEnd` makes any copy whose frame the parse has left
-   without meeting its draw, so a block is never left uncopied. With nothing
-   consuming the command stream the copy is made immediately.
-
-Before copying, `vk::renderer::BeforeStreamWrite` ends the current segment if
-it samples the destination, so draws before the copy keep the old texture. The
-copy uses `gpu::watch::WillWrite` to unprotect the range in one call and then
-`vk::textures::MemoryWritten`.
-
-The copy must be made at its draw. Made when the pool asks, it lands ahead of
-draws the title has already queued that still name the block, and those draw
-whatever the pool lays there next. Not made at all, the destination keeps
-whatever it held before, since the image is not streamed again.
 
 ## Checking the path
 

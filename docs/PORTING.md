@@ -9,7 +9,7 @@ files and starts the native library. The second example, `pinyon-shift`
 (Forza Horizon on ReXGlue), is the other route to the same end.
 
 This is **not** a finished, playable port. It is the complete, reproducible
-front half of one, and a runtime with its MW2-specific code removed.
+front half of one, and a PES 2017 runtime.
 
 ## Done (and reproducible with `./build.sh`)
 
@@ -21,7 +21,7 @@ front half of one, and a runtime with its MW2-specific code removed.
 | Function bounds | 205 leaf functions whose jump tables XenonAnalyse ended early (`tools/fixbounds.py`) plus one `bdzf` ladder (`tools/fix_ladders.py`); `build.sh` loops recompile → fix until nothing changes |
 | Recompile | `ppc/`: 0 switch-table errors; 44 undecodable words at the tail of `.text` (data after the last function, `0x83D76674`…) |
 | Kernel imports | 281 used by the game; 168 implemented by the runtime, 113 stubbed with a log-once stub (`ppc/stubs_generated.cpp`) |
-| Runtime | MW2's engine patches (IW4 netcode fixes, engine log, FOV, etc.) moved to `_pes17_specific/`; `runtime/title.h` rewritten for PES; every runtime source compiles for arm64 |
+| Runtime | `runtime/title.h` written for PES; every runtime source compiles for arm64 |
 | Install filter | the installer copies `*.cpk` and `nxeart` from the disc (PES's archives) |
 | App | Gradle project: one app, `com.pes2017.recomp`, "PES 2017" |
 
@@ -51,11 +51,11 @@ Fixed on the way, each found from the device log:
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| indirect calls to functions that exist | the 51 MB function table overlapped the heap (MW2's base 0x84600000) | table moved to 0x10000000 (outside the bank), `static_assert`s |
+| indirect calls to functions that exist | the 51 MB function table overlapped the heap | table moved to 0x10000000 (outside the bank), `static_assert`s |
 | `NtAllocateVirtualMemory: out of guest heap (512 MB)` | PES reserves 512 MB at once | far heap 0x20000000-0x80000000, backed on touch |
 | critical section at `000101C1` (main thread stuck in D3D init) | kernel data imports left as import records | `ResolveDataImports()`: every variable gets a block, function slots get thunks |
 | `KeBugCheck(0)` after a thread exits | `ExTerminateThread` returned | it now unwinds to the thread's entry |
-| 42 stubbed imports the boot reaches | not needed by MW2 | `runtime/kernel/pes_imports.cpp` (semaphores, printf family, DPCs, XEX header fields, time, SHA-1, UI) |
+| 42 stubbed imports the boot reaches | not previously implemented | `runtime/kernel/pes_imports.cpp` (semaphores, printf family, DPCs, XEX header fields, time, SHA-1, UI) |
 | garbage image; 3 shaders "control flow does not terminate" (their microcode read as zeros) | heap and physical arena were separate memory, and the GPU's physical addresses were guessed back to the wrong one once both held data at the same offset | one 512 MB bank mapped at 0x80000000, 0xA0000000 and 0xC0000000 with a single allocator over physical offsets, as on the console |
 | loading stops after ~26 MB, black screen | the XAudio render callback was passed its argument, not a pointer to it; it read the engine object's vtable as the object and waited on garbage | the argument is wrapped in a guest word, as the kernel (and Xenia) do |
 
@@ -73,11 +73,11 @@ Fixed on the way, each found from the device log:
    are not wired. Candidates found by walking up from the `VdSwap` call:
    `sub_823F98E0` (calls `VdSwap`) ← `sub_82409870` (likely D3D's swap/present)
    ← `sub_83861FA0`/`sub_83863380` (engine side). The device-structure offsets
-   MW2's hooks use (`13596`, `10896`) belong to MW2's XDK build and must be
+   a D3D9 hook would use (`13596`, `10896`) are XDK-build specific and must be
    re-derived for PES's before enabling the hooks.
 3. **Xenos GPU coverage.** `runtime/gpu/` translates the PM4 stream and Xenos
    shaders to Vulkan/SPIR-V. It was exercised by one engine; PES (Fox Engine)
-   will hit formats, resolves and shader opcodes MW2 never used. Budget the
+   will hit formats, resolves and shader opcodes the runtime has not yet seen. Budget the
    most time here.
 4. **Game I/O.** PES reads `dtNN_*.cpk` archives through the kernel file API.
    `runtime/kernel/files.cpp` maps `game:\` onto the installed folder; verify
@@ -88,14 +88,12 @@ Fixed on the way, each found from the device log:
    the 4 GiB guest reservation on 16 KB-page devices.
 6. **Audio.** XMA decode is in `runtime/apu` (FFmpeg-derived); PES's `.cpk`
    audio and its use of XAudio2 are untested.
-7. **Input, saves, UI.** The touch pad and launcher are MW2's FPS layout; PES
-   needs a football layout (pass/shoot/through/sprint) and its own save/profile
+7. **Input, saves, UI.** The touch pad and launcher use a football layout
+   (pass/shoot/through/sprint); PES still needs its own save/profile
    handling (`kernel/content.cpp`, `T_Memcard_*` hook is compiled out).
 8. **Apk.** `./gradlew :app:assembleRelease` from `android/` once `libpes17.so`
    builds. Needs a Gradle install/wrapper jar, `ANDROID_HOME`, and
    `android/fetch_deps.sh` if you want the custom-driver loader.
-9. **Optional:** the multi-title launcher text and strings still say MW2
-   in places (`res/values/strings.xml`, Kotlin UI); rename as you go.
 
 ## Findings: the front-end text (October 2026)
 
@@ -176,7 +174,7 @@ The Exhibition kick-off runs the 512 MB bank dry ("MmAllocatePhysicalMemoryEx: o
 physical heap"). The fixes so far:
 
 1. **Physical page size follows the protect flags** (`runtime/kernel/memory.cpp`), as in
-   Xenia: 64 KB only with `MEM_LARGE_PAGES`, 16 MB with `0x80000000`, else 4 KB. MW2's
+   Xenia: 64 KB only with `MEM_LARGE_PAGES`, 16 MB with `0x80000000`, else 4 KB. A flat
    64 KB rule ran the bank out at the team select (thousands of 320-byte text meshes).
 2. **The cached window is the bank too** on Linux/Android (`MapPhysicalAperture`). Only the
    physical and aperture windows were mapped from the bank descriptor, so the image and every
@@ -204,7 +202,7 @@ physical heap"). The fixes so far:
 `report_memory` also lists the 30 biggest holders by guest call chain (three return
 addresses up the back chain).
 
-Not the fix: sending `NtAllocateVirtualMemory` to the far heap (see `docs/HANDOFF.md`).
+Not the fix: sending `NtAllocateVirtualMemory` to the far heap (see `.claude/docs/HANDOFF.md`).
 `touch files/report_memory` prints live bytes per API and per heap.
 
 ## The match: a stack the recompiled code left unbalanced (October 2026)
@@ -307,7 +305,7 @@ GAME=../GAME ./build.sh                 # generate ppc/ and build libpes17.so
 RECOMPILE_ONLY=1 GAME=../GAME ./build.sh  # generate ppc/ only
 ```
 
-If the executable ever changes (another region or a title update), delete
+If the executable ever changes (another region or a new version), delete
 the two generated blocks in `config/PES.toml` (`fixbounds`, `fix_ladders`) and
 run `build.sh` again; it re-derives them.
 

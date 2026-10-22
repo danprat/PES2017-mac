@@ -935,10 +935,16 @@ void vk::renderer::Draw(const gpu::RegisterFile& r, const DrawCall& call)
     highestVertex += vertexBias;
     if (call.primitive == 8 && !rectangles) { Skip("rectangle list this pass cannot expand"); return; }
 
+    // The match ball: 4020 indices, in the colour pass (vs 5867DE0B52B6EFCE) and in
+    // the depth/shadow passes (vs EA544757ADDA275A); found with files/dump_frame.
+    // Drawn larger so it reads on a phone's screen.
+    const bool isBall = g.ballScale != 1.0f && call.indexCount == 4020 &&
+                        (call.vertexHash == 0x5867DE0B52B6EFCEull || call.vertexHash == 0xEA544757ADDA275Aull);
     const ConstantOffsets constants =
         [&] { Stopwatch watch(g.constantsNanoseconds);
               return WriteConstants(r, vertex->translation, pixel->translation,
-                                    lowestVertex, highestVertex, rectangles); }();
+                                    lowestVertex, highestVertex, rectangles,
+                                    isBall ? g.ballScale : 1.0f); }();
     if (!constants.ok) { Skip("frame arena full"); return; }
     // From here to the first command recorded: the pipeline key, the texture
     // descriptor set and the viewport.

@@ -19,7 +19,7 @@ object. Inside the callback the title mixes and calls
 FC LFE BL BR). These are interleaved and pushed to an SDL3 audio stream opened
 as 5.1 float at 48 kHz; SDL converts to whatever the device is.
 
-The callback receives the context value itself, not a pointer to it: MW2's
+The callback receives the context value itself, not a pointer to it: the title's
 callback tests a "started" flag inside that object and returns without mixing
 when it is clear.
 

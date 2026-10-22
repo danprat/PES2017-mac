@@ -49,6 +49,14 @@ class Prefs(context: Context) {
         set(value) = store.edit().putInt(KEY_SCENE_SCALE, value.coerceIn(50, 100)).apply()
 
     /**
+     * How much larger the match ball is drawn, in percent (PES17_BALL_SCALE, 100 to 300): the ball
+     * is a few pixels on a phone's screen, so it defaults to 150.
+     */
+    var ballScalePercent: Int
+        get() = store.getInt(KEY_BALL_SCALE, 150).coerceIn(100, 300)
+        set(value) = store.edit().putInt(KEY_BALL_SCALE, value.coerceIn(100, 300)).apply()
+
+    /**
      * Lower the picture when the phone gets hot (PES17_HEAT_SCALE): the match's render quality
      * above is the most it will be, and the runtime takes it down as the phone's thermal status
      * rises (a quarter of the way to 50% at MODERATE, half at SEVERE, all of it from CRITICAL),
@@ -158,9 +166,33 @@ class Prefs(context: Context) {
         get() = store.getInt(KEY_TEXTURE_MB, 0)
         set(value) = store.edit().putInt(KEY_TEXTURE_MB, value).apply()
 
+    /**
+     * How much the performance HUD shows: HUD_OFF, HUD_MINIMAL (frame rate),
+     * HUD_STANDARD (adds frame time and temperature) or HUD_DETAILED (adds CPU,
+     * memory and textures on a second line). Before there were levels it was
+     * on or off, so an old "on" reads as Standard.
+     */
+    var hudLevel: Int
+        get() = store.getInt(KEY_HUD_LEVEL, if (store.getBoolean(KEY_SHOW_STATS, true)) HUD_STANDARD else HUD_OFF)
+            .coerceIn(HUD_OFF, HUD_DETAILED)
+        set(value) = store.edit().putInt(KEY_HUD_LEVEL, value.coerceIn(HUD_OFF, HUD_DETAILED)).apply()
+
+    /** The HUD on or off; turning it on from off brings back Standard. */
     var showStats: Boolean
-        get() = store.getBoolean(KEY_SHOW_STATS, true)
-        set(value) = store.edit().putBoolean(KEY_SHOW_STATS, value).apply()
+        get() = hudLevel != HUD_OFF
+        set(value) {
+            if (value == showStats) return
+            hudLevel = if (value) HUD_STANDARD else HUD_OFF
+        }
+
+    /**
+     * Debug-only tools in the match: the CAPTURE button, macro record and play
+     * in the pause menu, the HUD's detail card and console, and the controller
+     * as player 2. Off for players; the adb macro control works either way.
+     */
+    var developerTools: Boolean
+        get() = store.getBoolean(KEY_DEV_TOOLS, false)
+        set(value) = store.edit().putBoolean(KEY_DEV_TOOLS, value).apply()
 
     /**
      * Lock the display and presentation pipeline to 60 FPS.
@@ -205,6 +237,11 @@ class Prefs(context: Context) {
     var vibration: Boolean
         get() = store.getBoolean(KEY_VIBRATION, true)
         set(value) = store.edit().putBoolean(KEY_VIBRATION, value).apply()
+
+    /** On-screen button names: PlayStation (Cross, Circle, L1) by default, or Xbox (A, B, LB). */
+    var playStationButtons: Boolean
+        get() = store.getString(KEY_BUTTON_STYLE, STYLE_PLAYSTATION) != STYLE_XBOX
+        set(value) = store.edit().putString(KEY_BUTTON_STYLE, if (value) STYLE_PLAYSTATION else STYLE_XBOX).apply()
 
     var lookSensitivityX: Float
         get() = store.getFloat(KEY_LOOK_X, 1.0f)
@@ -282,6 +319,7 @@ class Prefs(context: Context) {
     companion object {
         private const val KEY_RESOLUTION = "resolutionScale"
         private const val KEY_SCENE_SCALE = "sceneScale"
+        private const val KEY_BALL_SCALE = "ballScale"
         private const val KEY_FSR = "fsr"
         private const val KEY_DYNAMIC_SCALE = "dynamicScale"   // the first, single adaptive switch
         private const val KEY_HEAT_SCALE = "heatScale"
@@ -293,16 +331,26 @@ class Prefs(context: Context) {
         private const val KEY_WIDESCREEN = "widescreen"
         private const val KEY_LOW_MEMORY = "lowMemory"
         private const val KEY_PENDING_FOLDER = "pendingFolder"
+        const val HUD_OFF = 0
+        const val HUD_MINIMAL = 1
+        const val HUD_STANDARD = 2
+        const val HUD_DETAILED = 3
+
         private const val KEY_RENDER_SCALE = "renderScale"
         private const val KEY_MSAA = "multisampling"
         private const val KEY_TEXTURE_MB = "textureBudgetMB"
         private const val KEY_SHOW_STATS = "showStats"
+        private const val KEY_HUD_LEVEL = "hudLevel"
+        private const val KEY_DEV_TOOLS = "developerTools"
         private const val KEY_60HZ = "prefer60Hz"
         private const val KEY_AUDIO = "audio"
         private const val KEY_TOUCH = "touchControls"
         private const val KEY_GAMEPAD = "gamepad"
         private const val KEY_PAD_P2 = "padAsPlayer2"
         private const val KEY_VIBRATION = "vibration"
+        private const val KEY_BUTTON_STYLE = "buttonStyle"
+        private const val STYLE_PLAYSTATION = "playstation"
+        private const val STYLE_XBOX = "xbox"
         private const val KEY_LOOK_X = "lookX"
         private const val KEY_LOOK_Y = "lookY"
         private const val KEY_LOOK_SMOOTH = "lookSmoothing"

@@ -1,6 +1,6 @@
 # The D3D9 seam
 
-MW2 links Direct3D 9 statically (LTCG, no symbols), so there is no API
+The title links Direct3D 9 statically (LTCG, no symbols), so there is no API
 boundary to intercept. The library runs as recompiled guest code. It builds
 PM4 command streams in guest memory and submits them through a ring buffer and
 the `Vd*` kernel imports. The runtime stands in for the GPU: it executes that
@@ -10,26 +10,18 @@ become Vulkan work is covered in [rendering.md](rendering.md).
 
 ## The library
 
-In the campaign executable the library spans `820B6098..820D4C54`: 281
-functions, with 101 entry points called from 228 engine sites
-(`tools/d3d_region.py`; `tools/classify_d3d.py` lists the device fields each
-entry point touches). It is not inlined, so any entry point can be hooked on its
-own with `GUEST_HOOK`. The multiplayer contains the same build at other
-addresses. Device offsets: `+10548` render-state shadow, `+13520/13524/13528`
-command buffer base/cursor/end, `+10896` arena progress block, `+13596`
-`D3DRS_PRESENTINTERVAL`.
+The library is not inlined, so any entry point can be hooked on its own with
+`GUEST_HOOK` (`tools/d3d_region.py` finds the library's extent;
+`tools/classify_d3d.py` lists the device fields each entry point touches). The
+hook currently defined for PES is `T_D3D_BlockOnFence` (`823F70F8`, `runtime/title.h`),
+the wait for the GPU to pass a fence; the present, arena-wait and shader-initialiser
+hooks are not yet located ([PORTING.md](PORTING.md)). Until the present is found,
+the frame is retired from the kernel's `VdSwap` path.
 
 The engine reads fields of D3D resource objects itself; texture headers, for
 example, are built in the title's own memory (`tools/resource_audit.py`).
 Resource creation must therefore keep running the title's code. A host backend
 can adopt the guest structs but cannot replace them.
-
-| Hook (`title.h`) | Campaign | MP | Purpose |
-|---|---|---|---|
-| `T_D3D_Present` | `820C3390` | `820DFD10` | notes the present for pacing and stutter tracking; under `PES17_FPS_LIMIT`, sets the present interval |
-| `T_D3D_ArenaWait` | `820B9800` | `820E1E70` | learns the arena progress block from `[r3+10896]` |
-| `T_D3D_ReplayRecording` | `820C6130` | `820E4848` | diagnostics: warns of a recorded chunk list (`[object+116]`: next +0, count +4) with a zero count or a cycle, which the do-while replay loop would never leave |
-| `T_D3D_InitPixelShader`, `T_D3D_InitVertexShader` | `820B8B58`, `820B8E78` | `820D7268`, `820D7588` | hand shader microcode to the renderer at load (`shader_preload.cpp`, [rendering.md](rendering.md#pipelines)) |
 
 ## The `Vd*` imports (`runtime/kernel/video.cpp`)
 
@@ -110,9 +102,7 @@ The runtime ignores other known opcodes. It skips unknown ones and logs them.
 identified by an FNV-1a hash of the microcode. Its initiator goes to
 `VGT_DRAW_INITIATOR`, and source select 0 means indexed with a physical DMA
 base. If `RB_MODECONTROL & 7` is 6 (`Copy`) the draw is a resolve; otherwise
-it is a draw. While the image pool has block copies pending, each draw's `c0.x`
-is checked against them. Those copies are memory-export draws, and the runtime
-makes each one on the CPU at its draw (`runtime/image_move.cpp`).
+it is a draw.
 
 **Scratch write-back.** A write to `SCRATCH_REG0..7` (`0x578`+n) whose bit is
 set in `SCRATCH_UMSK` (`0x1DC`) is also stored at `SCRATCH_ADDR` (`0x1DD`) +
@@ -184,7 +174,7 @@ Frames are retired by D3D9's own handshake in the command stream:
    which counts the swap, calls the title's block callback, and retires the
    frame or queues it for the vblank. Which of the two is in the request:
    bits 8-11 hold how many blanks apart frames are shown, from the device's
-   `D3DRS_PRESENTINTERVAL` (`+13596`): 1 as the title leaves it, and 0, for
+   `D3DRS_PRESENTINTERVAL`: 1 as the title leaves it, and 0, for
    `D3DPRESENT_INTERVAL_IMMEDIATE`, retires at once. `PES17_FPS_LIMIT` sets that
    state ([rendering.md](rendering.md#more-than-60-frames-a-second)).
 4. `WAIT_REG_MEM` waits for the request to clear.
@@ -197,7 +187,7 @@ difference.
 ## The command-buffer arena (`runtime/gpu/arena.cpp`)
 
 D3D9's command segments come from an arena that is a ring of its own. Before
-overwriting any of it, the title polls the progress block at `[device+10896]`
+overwriting any of it, the title polls the device's progress block
 until the command processor has read past:
 
     +0  sequence counter, +2 per report

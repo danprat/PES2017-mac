@@ -221,6 +221,19 @@ bool vk::renderer::Initialise()
         if (g.scale > 1)
             LOGI("renderer: drawing at %ux the title's sizes, a %ux%u frame", g.scale,
                  g.presentWidth, g.presentHeight);
+        // PES17_BALL_SCALE: the ball model drawn this many times larger (1 = off).
+        double ballAsked = env::Real("PES17_BALL_SCALE", 1.0);
+#ifdef PES17_ANDROID
+        // files/ball_scale overrides it, for debugging (a huge ball shows whether the draw is the right one).
+        if (FILE* f = std::fopen((android::GetPaths().external + "/ball_scale").c_str(), "r"))
+        {
+            double value = 0;
+            if (std::fscanf(f, "%lf", &value) == 1 && value > 0) ballAsked = value;
+            std::fclose(f);
+        }
+#endif
+        g.ballScale = float(std::clamp(ballAsked, 1.0, 10.0));
+        if (g.ballScale != 1.0f) LOGI("renderer: the ball is drawn %.2gx larger", g.ballScale);
         // PES17_SCENE_SCALE: the full-frame surfaces drawn smaller (renderer_state.h
         // SceneScaleFor). Rounded to a sixteenth, so 1280 lands on whole pixels.
         g.sceneScale = 1.0f;
