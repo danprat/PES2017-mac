@@ -321,6 +321,7 @@ class GameActivity : AppCompatActivity(), NativeListener {
         super.onCreate(savedInstanceState)
         prefs = Prefs(this)
 
+        registerMacroControl()
         Trail.note(this, "game: starting")
         if (!NativeBridge.load()) {
             fail(getString(R.string.error_library, NativeBridge.loadError() ?: "?"))
@@ -561,13 +562,9 @@ class GameActivity : AppCompatActivity(), NativeListener {
             ).apply { topMargin = pad(6); marginEnd = pad(6) }
         )
 
-        // Debug: asks the renderer to print what it did in the last few seconds and
-        // to dump the next frame, so a glitch just seen can be analysed from the log.
-        captureButton = smallButton("CAPTURE") {
-            val dir = getExternalFilesDir(null)
-            if (dir != null) java.io.File(dir, "capture_request").writeText("1")
-            android.widget.Toast.makeText(this, "Captured: tell Claude", android.widget.Toast.LENGTH_SHORT).show()
-        }
+        // Debug: one press starts a capture, the next stops it and saves a folder with
+        // everything needed to look at what went wrong (CaptureSession).
+        captureButton = smallButton("CAPTURE") { toggleCapture() }
         root.addView(
             captureButton,
             FrameLayout.LayoutParams(
@@ -810,6 +807,10 @@ class GameActivity : AppCompatActivity(), NativeListener {
         val labels = mutableListOf(
             getString(R.string.resume) to { _: android.content.DialogInterface -> },
             getString(R.string.edit_controls) to { _: android.content.DialogInterface -> beginEditing() },
+            getString(if (Macro.recording) R.string.macro_stop_record else R.string.macro_record) to { _: android.content.DialogInterface -> toggleRecording() },
+            getString(if (Macro.playing) R.string.macro_stop_play else R.string.macro_play) to { _: android.content.DialogInterface ->
+                if (Macro.playing) Macro.stopPlayback() else pickMacro()
+            },
         )
         labels.add(getString(if (prefs.touchControls) R.string.hide_touch_controls else R.string.show_touch_controls) to { _: android.content.DialogInterface -> setTouchControls(!prefs.touchControls) })
         labels.add(getString(if (prefs.gamepadEnabled) R.string.disable_gamepad else R.string.enable_gamepad) to { _: android.content.DialogInterface -> setGamepad(!prefs.gamepadEnabled) })
@@ -1089,7 +1090,162 @@ class GameActivity : AppCompatActivity(), NativeListener {
         }
     }
 
+    // ---- controller macros ----------------------------------------------------
+
+    private val macroControl = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: android.content.Context, intent: Intent) {
+            // Remote control is opt-in: it exists only while a file says so
+            // (adb shell touch .../files/macros/.remote_control).
+            if (!java.io.File(Macro.directory(this@GameActivity), ".remote_control").exists()) return
+            val name = intent.getStringExtra("name") ?: "last"
+            val log = { text: String -> android.util.Log.i("PES17.Macro", text) }
+            when (intent.getStringExtra("cmd")) {
+                "record" -> { Macro.startRecording(); log("recording") }
+                "stop" -> log("saved ${Macro.stopRecording(this@GameActivity, name)} events as $name")
+                "play" -> Macro.play(this@GameActivity, name, intent.getIntExtra("loops", 1)) { log("play $name: $it") }
+                "stopplay" -> Macro.stopPlayback()
+                "list" -> log("macros: ${Macro.names(this@GameActivity)}")
+                "capture_start" -> runOnUiThread { if (!capture.active) toggleCapture() }
+                "capture_stop" -> runOnUiThread {
+                    if (capture.active) {
+                        captureButton.text = getString(R.string.capture_saving)
+                        capture.stop(surfaceView, name, intent.getStringExtra("note") ?: "") { folder, message ->
+                            resetCaptureButton()
+                            log("capture ${folder?.name ?: message}")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun registerMacroControl() {
+        androidx.core.content.ContextCompat.registerReceiver(
+            this, macroControl,
+            android.content.IntentFilter("com.pes2017.recomp.MACRO"),
+            androidx.core.content.ContextCompat.RECEIVER_EXPORTED,
+        )
+    }
+
+    private val capture by lazy { CaptureSession(this, prefs) }
+
+    private fun toggleCapture() {
+        if (!capture.active) {
+            capture.onTick = { seconds ->
+                captureButton.text = "\u25A0 STOP %d:%02d".format(seconds / 60, seconds % 60)
+            }
+            capture.start()
+            captureButton.alpha = 1f
+            captureButton.setTextColor(Color.rgb(255, 90, 90))
+            captureButton.text = "\u25A0 STOP 0:00"
+            toast(getString(R.string.capture_started))
+            return
+        }
+        // Stopping: say what to call it and what went wrong, then save.
+        val name = EditText(this).apply {
+            hint = getString(R.string.capture_name_hint)
+            setSingleLine()
+        }
+        val note = EditText(this).apply {
+            hint = getString(R.string.capture_note_hint)
+            minLines = 2
+        }
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(pad(20), pad(8), pad(20), 0)
+            addView(name)
+            addView(note)
+        }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.capture_stop_title)
+            .setView(box)
+            .setCancelable(false)
+            .setPositiveButton(R.string.capture_save) { _, _ ->
+                finishCapture(name.text.toString(), note.text.toString())
+            }
+            .setNegativeButton(R.string.capture_discard) { _, _ ->
+                capture.cancel()
+                resetCaptureButton()
+            }
+            .setOnDismissListener { goFullscreen() }
+            .show()
+    }
+
+    private fun finishCapture(name: String, note: String) {
+        captureButton.text = getString(R.string.capture_saving)
+        capture.stop(surfaceView, name, note) { folder, message ->
+            resetCaptureButton()
+            toast(
+                if (folder != null) getString(R.string.capture_saved, folder.name)
+                else getString(R.string.capture_failed, message),
+            )
+        }
+    }
+
+    private fun resetCaptureButton() {
+        captureButton.text = "CAPTURE"
+        captureButton.alpha = 0.55f
+        captureButton.setTextColor(Color.WHITE)
+    }
+
+    private fun toggleRecording() {
+        if (!Macro.recording) {
+            Macro.startRecording()
+            toast(getString(R.string.macro_recording))
+            return
+        }
+        // Stopping: ask what to call it, so a particular macro can be named later.
+        val input = EditText(this).apply {
+            hint = getString(R.string.macro_name_hint)
+            setText(suggestedMacroName())
+            setSelectAllOnFocus(true)
+            setSingleLine()
+        }
+        val box = LinearLayout(this).apply {
+            setPadding(pad(20), pad(8), pad(20), 0)
+            addView(input, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.macro_name_title)
+            .setMessage(getString(R.string.macro_existing, Macro.names(this).joinToString(", ").ifEmpty { "-" }))
+            .setView(box)
+            .setCancelable(false)
+            .setPositiveButton(R.string.macro_save) { _, _ ->
+                val name = input.text.toString().ifBlank { "last" }
+                val count = Macro.stopRecording(this, name)
+                toast(if (count < 0) getString(R.string.macro_nothing) else getString(R.string.macro_saved, count, name))
+            }
+            .setNegativeButton(R.string.capture_discard) { _, _ ->
+                Macro.stopRecording(this, "discarded")
+                java.io.File(Macro.directory(this), "discarded.macro").delete()
+            }
+            .setOnDismissListener { goFullscreen() }
+            .show()
+    }
+
+    /** macro1, macro2 ... the first not yet used. */
+    private fun suggestedMacroName(): String {
+        val taken = Macro.names(this).toSet()
+        return generateSequence(1) { it + 1 }.map { "macro$it" }.first { it !in taken }
+    }
+
+    private fun pickMacro() {
+        val names = Macro.names(this)
+        if (names.isEmpty()) { toast(getString(R.string.macro_none)); return }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.macro_play)
+            .setItems(names.toTypedArray()) { _, which ->
+                Macro.play(this, names[which]) { handler.post { toast(getString(R.string.macro_done, it)) } }
+            }
+            .setOnDismissListener { goFullscreen() }
+            .show()
+    }
+
+    private fun toast(text: String) = android.widget.Toast.makeText(this, text, android.widget.Toast.LENGTH_SHORT).show()
+
     override fun onDestroy() {
+        try { unregisterReceiver(macroControl) } catch (_: Throwable) {}
+        Macro.stopPlayback()
         super.onDestroy()
         monitoringActive = false
         monitorThread?.interrupt()

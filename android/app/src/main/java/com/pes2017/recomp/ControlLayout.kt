@@ -40,8 +40,12 @@ data class ControlElement(
     var sizeDp: Float,
     var alpha: Float = 0.45f,
     var visible: Boolean = true,
-    /** Tap to hold, tap again to let go. For aiming down sights and crouch. */
+    /** Tap to hold, tap again to let go. */
     var toggle: Boolean = false,
+    /** What it does on the ball (or, for a stick, a short name), drawn on the control. */
+    val sub: String = "",
+    /** What it does without the ball -- defending -- drawn smaller beneath. */
+    val sub2: String = "",
 )
 
 /**
@@ -105,7 +109,7 @@ class ControlLayout private constructor(val elements: MutableList<ControlElement
 
     companion object {
         private const val FILE_NAME = "controls.json"
-        private const val FORMAT_VERSION = 2
+        private const val FORMAT_VERSION = 3
 
         fun load(context: Context): ControlLayout {
             val layout = defaults()
@@ -115,7 +119,7 @@ class ControlLayout private constructor(val elements: MutableList<ControlElement
                 val root = JSONObject(file.readText())
                 val version = root.optInt("version", 1)
                 if (version < FORMAT_VERSION) {
-                    // Automatically upgrade to authentic dual joystick layout
+                    // An older layout has the shooter's look area and labels: start over.
                     try { file.delete() } catch (_: Throwable) {}
                     return layout
                 }
@@ -144,47 +148,45 @@ class ControlLayout private constructor(val elements: MutableList<ControlElement
         }
 
         /**
-         * Where everything starts. Thumbs reach the bottom corners, so
-         * movement and aiming live there; the face buttons sit above the
-         * right thumb in the diamond a controller has, because that is the
-         * shape the muscle memory of anyone who played this game has. (The defaults
-         * follow the Xbox 360 pad; Start/Back and the trigger labels are PES 2017's.)
+         * Where everything starts: a football pad. The left thumb runs the
+         * player; the right thumb has the four actions in the diamond the
+         * game's own prompts use (A, B, X, Y), each captioned with what it does
+         * on the ball and, smaller, what it does off it. The right stick is the
+         * skill stick, so there is no camera to drag and no look area.
+         *
+         * The captions follow the game's default Xbox layout: A pass / change
+         * player, B shoot / slide tackle, X lob or cross / pressure, Y through
+         * pass / second-man pressure, RB sprint. Change them here if a build
+         * of the game binds them otherwise.
          */
         fun defaults(): ControlLayout = ControlLayout(
             mutableListOf(
-                // The whole right half is the look area, under the buttons:
-                // it is hit-tested last, so a finger that lands on a button
-                // presses the button and a finger anywhere else turns the view.
-                ControlElement("look", ControlKind.LOOK, 0, "Look", 0.72f, 0.5f, 560f, 0.0f),
+                // Movement (left stick) and the skill stick (right stick).
+                ControlElement("stick", ControlKind.STICK, 0, "MOVE", 0.14f, 0.72f, 150f, 0.40f),
+                ControlElement("right_stick", ControlKind.STICK, 1, "SKILL", 0.60f, 0.78f, 120f, 0.40f),
 
-                // Left Stick (LS) - Movement
-                ControlElement("stick", ControlKind.STICK, 0, "LS", 0.14f, 0.72f, 150f, 0.40f),
-                // Right Stick (RS) - Camera Look
-                ControlElement("right_stick", ControlKind.STICK, 1, "RS", 0.72f, 0.74f, 145f, 0.40f),
+                // Team tactics.
+                ControlElement("dpad", ControlKind.DPAD, 0, "TACTICS", 0.10f, 0.28f, 120f, 0.40f),
 
-                ControlElement("dpad", ControlKind.DPAD, 0, "D-pad", 0.10f, 0.28f, 120f, 0.40f),
+                // The four actions, in the console pad's diamond.
+                ControlElement("a", ControlKind.BUTTON, NativeBridge.A, "A", 0.905f, 0.78f, 70f, sub = "PASS", sub2 = "SWITCH"),
+                ControlElement("b", ControlKind.BUTTON, NativeBridge.B, "B", 0.975f, 0.60f, 70f, sub = "SHOOT", sub2 = "SLIDE"),
+                ControlElement("x", ControlKind.BUTTON, NativeBridge.X, "X", 0.835f, 0.60f, 70f, sub = "LOB", sub2 = "PRESS"),
+                ControlElement("y", ControlKind.BUTTON, NativeBridge.Y, "Y", 0.905f, 0.42f, 70f, sub = "THROUGH", sub2 = "MATE"),
 
-                // Face Buttons (ABXY Diamond above and right of RS)
-                ControlElement("a", ControlKind.BUTTON, NativeBridge.A, "A", 0.905f, 0.78f, 62f),
-                ControlElement("b", ControlKind.BUTTON, NativeBridge.B, "B", 0.965f, 0.63f, 62f),
-                ControlElement("x", ControlKind.BUTTON, NativeBridge.X, "X", 0.845f, 0.63f, 62f),
-                ControlElement("y", ControlKind.BUTTON, NativeBridge.Y, "Y", 0.905f, 0.48f, 62f),
+                // Shoulders, where a phone's index fingers already are.
+                ControlElement("rb", ControlKind.BUTTON, NativeBridge.RB, "RB", 0.845f, 0.16f, 64f, sub = "SPRINT"),
+                ControlElement("rt", ControlKind.TRIGGER, 1, "RT", 0.945f, 0.16f, 78f, 0.45f, sub = "PLAYER RUN"),
+                ControlElement("lb", ControlKind.BUTTON, NativeBridge.LB, "LB", 0.155f, 0.16f, 64f, sub = "PACE"),
+                ControlElement("lt", ControlKind.TRIGGER, 0, "LT", 0.055f, 0.16f, 78f, 0.45f, sub = "SKILL"),
 
-                // The triggers, where a phone's index fingers already are. PES uses
-                // them as modifiers, held with another button, so neither toggles.
-                ControlElement("rt", ControlKind.TRIGGER, 1, "RT", 0.945f, 0.18f, 86f, 0.45f),
-                ControlElement("lt", ControlKind.TRIGGER, 0, "LT", 0.055f, 0.18f, 86f, 0.45f),
-                ControlElement("rb", ControlKind.BUTTON, NativeBridge.RB, "RB", 0.845f, 0.18f, 60f),
-                ControlElement("lb", ControlKind.BUTTON, NativeBridge.LB, "LB", 0.155f, 0.18f, 60f),
+                // Stick clicks: kept for the editor, hidden until wanted.
+                ControlElement("l3", ControlKind.BUTTON, NativeBridge.L3, "L3", 0.285f, 0.83f, 56f, visible = false),
+                ControlElement("r3", ControlKind.BUTTON, NativeBridge.R3, "R3", 0.76f, 0.92f, 56f, visible = false),
 
-                // The stick clicks
-                ControlElement("l3", ControlKind.BUTTON, NativeBridge.L3, "L3", 0.285f, 0.83f, 56f),
-                ControlElement("r3", ControlKind.BUTTON, NativeBridge.R3, "R3", 0.885f, 0.92f, 56f),
-
-                // A football game is driven from its menus: Start and Back have to be
-                // found at a glance, not left as faint icons as in a shooter.
-                ControlElement("start", ControlKind.BUTTON, NativeBridge.START, "Start", 0.60f, 0.08f, 58f, 0.75f),
-                ControlElement("back", ControlKind.BUTTON, NativeBridge.BACK, "Back", 0.40f, 0.08f, 58f, 0.75f),
+                // Menus have to be found at a glance in a football game.
+                ControlElement("start", ControlKind.BUTTON, NativeBridge.START, "START", 0.56f, 0.08f, 58f, 0.75f, sub = "PAUSE"),
+                ControlElement("back", ControlKind.BUTTON, NativeBridge.BACK, "BACK", 0.44f, 0.08f, 58f, 0.75f),
             )
         )
     }

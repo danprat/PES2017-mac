@@ -58,6 +58,44 @@ object GameFolder {
         null
     }
 
+    /**
+     * Looks for the game without being told, the app's own storage first (it
+     * needs no permission and is where an install lands), then the usual
+     * places a player puts an extracted copy -- only those the app may read.
+     * Null means the player has to choose the folder.
+     */
+    fun autoDetect(context: Context): File? {
+        val own = context.getExternalFilesDir(null)
+        val candidates = linkedSetOf<File>()
+        if (own != null) {
+            candidates += File(own, "game")
+            candidates += own
+            candidates += File(own, "import")
+        }
+        candidates += File(context.filesDir, "game")
+        val names = listOf("PES2017", "PES 2017", "PES17", "pes2017", "pes17", "PES_2017", "Pro Evolution Soccer 2017")
+        if (hasAccess(context)) {
+            val roots = listOf(
+                Environment.getExternalStorageDirectory(),
+                File(Environment.getExternalStorageDirectory(), "Download"),
+                File(Environment.getExternalStorageDirectory(), "Games"),
+                File(Environment.getExternalStorageDirectory(), "Android/obb"),
+            )
+            for (root in roots) for (name in names) candidates += File(root, name)
+            // A phone's SD card, if there is one.
+            File("/storage").listFiles()?.filter { it.name != "emulated" && it.name != "self" }?.forEach { card ->
+                for (name in names) candidates += File(card, name)
+            }
+        }
+        for (candidate in candidates) {
+            try {
+                if (candidate.isDirectory) locate(candidate)?.let { return it }
+            } catch (_: Throwable) {
+            }
+        }
+        return null
+    }
+
     /** The folder holding default.xex: this one, or one directly inside it. */
     fun locate(folder: File): File? {
         if (File(folder, XEX).isFile) return folder

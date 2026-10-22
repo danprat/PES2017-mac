@@ -374,12 +374,17 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
+        // The chosen folder first; when there is none, or it has gone, look for
+        // the game ourselves. Only when that finds nothing does the player
+        // have to point at it.
         var gameDirectory = prefs.gameDirectory
-        if (gameDirectory.isEmpty()) {
-            val defaultGameDir = File(getExternalFilesDir(null) ?: filesDir, "game")
-            if (defaultGameDir.exists() && safely(false) { NativeBridge.nativeGameInstalled(defaultGameDir.absolutePath) }) {
-                gameDirectory = defaultGameDir.absolutePath
-                prefs.gameDirectory = gameDirectory
+        var autoFound = false
+        if (gameDirectory.isEmpty() || !safely(false) { NativeBridge.nativeGameInstalled(gameDirectory) }) {
+            val found = GameFolder.autoDetect(this)?.absolutePath
+            if (found != null && safely(false) { NativeBridge.nativeGameInstalled(found) }) {
+                gameDirectory = found
+                prefs.gameDirectory = found
+                autoFound = true
             }
         }
         val installed = gameDirectory.isNotEmpty() && safely(false) {
@@ -389,7 +394,7 @@ class MainActivity : AppCompatActivity() {
         if (installed) {
             play.isEnabled = true
             play.text = getString(R.string.play)
-            status.text = getString(R.string.status_ready, gameDirectory)
+            status.text = getString(if (autoFound) R.string.status_ready_auto else R.string.status_ready, gameDirectory)
             installButton.visibility = android.view.View.GONE
             directLaunchSwitch.visibility = android.view.View.VISIBLE
 

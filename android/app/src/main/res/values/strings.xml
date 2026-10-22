@@ -141,12 +141,13 @@
     <string name="entry_install">INSTALL FROM DISC IMAGE</string>
     <string name="entry_settings">SETTINGS</string>
     <string name="direct_launch">Kick off straight away when the app opens</string>
-    <string name="select_folder_hint">Point the app at the folder that holds your PES 2017 files (default.xex and the .cpk archives). If Android has not yet let the app read that part of the storage, it asks first.</string>
+    <string name="select_folder_hint">The app first looks for the game on this phone by itself. If it cannot find it, point it at the folder that holds your PES 2017 files (default.xex and the .cpk archives). If Android has not yet let the app read that part of the storage, it asks first.</string>
     <string name="settings_hint">Picture, performance, controls and game files for this port.</string>
     <string name="install_game">Install the game files</string>
     <string name="install_hint">Point this at a disc image (.iso) of your own PES 2017 copy, or at the folder its files were extracted to (default.xex and the .cpk archives). Only the files the game needs are copied into the app\'s own storage; about 7 GB of free space is wanted.</string>
     <string name="status_not_installed">No game folder chosen yet.\n\nThis app contains no game data. Choose the folder with your own copy of PES 2017, or install from a disc image.</string>
     <string name="status_ready">Match ready.\nGame folder: %1$s</string>
+    <string name="status_ready_auto">Match ready. The game files were found on this phone:\n%1$s</string>
     <string name="status_folder_missing">The chosen game folder is gone or unreadable:\n%1$s\n\nChoose it again.</string>
     <string name="status_needs_access">The game folder is set, but Android has not given the app access to read it:\n%1$s</string>
 
@@ -211,7 +212,34 @@
     <string name="vibration">Vibration</string>
     <string name="edit_controls_where">The on-screen pad is edited in the match: pause and choose \u201cEdit controls\u201d.</string>
     <string name="forget_install">Forget the game folder</string>
-    <string name="forget_explained">The files stay on the phone; the app simply stops using them, and a new folder can be chosen.</string>
+    <string name="forget_explained">The files stay on the phone; the app simply stops using them, and a new folder can be chosen. If the files are still in a place the app searches, it will find them again on its own.</string>
     <string name="paths_line">Game folder:\n%1$s</string>
     <string name="paths_none">No game folder chosen yet.</string>
+
+    <!-- controller macros -->
+    <string name="macro_record">Record controller macro</string>
+    <string name="macro_stop_record">Stop recording</string>
+    <string name="macro_play">Play macro</string>
+    <string name="macro_stop_play">Stop macro</string>
+    <string name="macro_recording">Recording the controller\u2026 open the menu to stop.</string>
+    <string name="macro_saved">Saved %1$d events as \u201c%2$s\u201d.</string>
+    <string name="macro_nothing">Nothing was recorded: press something on the controller first.</string>
+    <string name="macro_none">No macros recorded yet.</string>
+    <string name="macro_done">Macro: %1$s</string>
+
+    <string name="macro_name_title">Name this macro</string>
+    <string name="macro_name_hint">Macro name</string>
+    <string name="macro_existing">Already saved: %1$s</string>
+    <string name="macro_save">Save</string>
+
+    <!-- capture button -->
+    <string name="capture_started">Capture started: play, and press STOP when the problem has happened.</string>
+    <string name="capture_stop_title">Save the capture</string>
+    <string name="capture_name_hint">Name (for example flicker-kickoff)</string>
+    <string name="capture_note_hint">What went wrong?</string>
+    <string name="capture_save">Save</string>
+    <string name="capture_discard">Discard</string>
+    <string name="capture_saving">Saving\u2026</string>
+    <string name="capture_saved">Saved: captures/%1$s. Tell Claude its name.</string>
+    <string name="capture_failed">Capture failed: %1$s</string>
 </resources>

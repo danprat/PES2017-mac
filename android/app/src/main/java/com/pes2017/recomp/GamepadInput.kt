@@ -94,6 +94,8 @@ class GamepadInput {
     /** True when the event was a pad's and has been dealt with. */
     fun onKey(event: KeyEvent): Boolean {
         if (!enabled) return false
+        // A macro is being played: the pad is not heard, so a run repeats exactly.
+        if (Macro.playing) return false
         val source = event.source
         val fromPad = source and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD ||
             source and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK
@@ -112,6 +114,7 @@ class GamepadInput {
 
     fun onMotion(event: MotionEvent): Boolean {
         if (!enabled) return false
+        if (Macro.playing) return false
         if (event.source and InputDevice.SOURCE_JOYSTICK != InputDevice.SOURCE_JOYSTICK) return false
         if (event.action != MotionEvent.ACTION_MOVE) return false
         val slot = slotFor(event.deviceId)
@@ -170,6 +173,10 @@ class GamepadInput {
     }
 
     private fun push(slot: Int) {
+        Macro.record(
+            slot, buttons[slot], triggers[slot][0], triggers[slot][1],
+            axes[slot][0], axes[slot][1], axes[slot][2], axes[slot][3],
+        )
         NativeBridge.nativePadState(
             slot, buttons[slot], triggers[slot][0], triggers[slot][1],
             axes[slot][0], axes[slot][1], axes[slot][2], axes[slot][3],

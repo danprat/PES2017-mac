@@ -492,7 +492,7 @@ class TouchOverlayView @JvmOverloads constructor(
         held.contains(element.id) || toggled.contains(element.id)
 
     companion object {
-        // Authentic Xbox 360 Color Palette
+        // The Xbox 360 pad colours, because the game's own prompts use them
         private const val COLOR_A = 0xFF107C10.toInt()      // Emerald Green
         private const val COLOR_A_GLOW = 0xFF22C55E.toInt()
         private const val COLOR_B = 0xFFB91C1C.toInt()      // Ruby Red
@@ -501,9 +501,9 @@ class TouchOverlayView @JvmOverloads constructor(
         private const val COLOR_X_GLOW = 0xFF3B82F6.toInt()
         private const val COLOR_Y = 0xFFD97706.toInt()      // Amber Yellow
         private const val COLOR_Y_GLOW = 0xFFF59E0B.toInt()
-        private const val COLOR_RT = 0xFFE11D48.toInt()     // Trigger Fire
+        private const val COLOR_RT = 0xFFE11D48.toInt()     // Right trigger
         private const val COLOR_RT_GLOW = 0xFFFB7185.toInt()
-        private const val COLOR_LT = 0xFF0EA5E9.toInt()     // Trigger Aim
+        private const val COLOR_LT = 0xFF0EA5E9.toInt()     // Left trigger
         private const val COLOR_LT_GLOW = 0xFF38BDF8.toInt()
         private const val COLOR_BUMPER_GLOW = 0xFF94A3B8.toInt()
     }
@@ -602,18 +602,26 @@ class TouchOverlayView @JvmOverloads constructor(
             tempRect.set(cx - jewelR + arcInset, cy - jewelR + arcInset * 0.6f, cx + jewelR - arcInset, cy + jewelR - arcInset * 1.4f)
             canvas.drawArc(tempRect, -145f, 110f, false, highlightPaint)
 
-            // 4. White bold embossed letter
-            val label = element.label
-            text.textSize = jewelR * 0.88f
-            val textY = cy - (text.descent() + text.ascent()) * 0.5f
-
-            // Shadow
+            // 4. The action in words, with the pad letter above it and what the
+            //    button does without the ball beneath.
+            val word = element.sub.ifEmpty { element.label }
+            text.textSize = jewelR * (if (word.length > 5) 0.34f else 0.40f)
+            val wordY = cy - (text.descent() + text.ascent()) * 0.5f
             text.color = Color.argb((alpha * fadeFactor * 160).toInt().coerceIn(0, 255), 0, 0, 0)
-            canvas.drawText(label, cx, textY + 1.5f * density, text)
-
-            // Main letter
+            canvas.drawText(word, cx, wordY + 1.2f * density, text)
             text.color = Color.argb((alpha * fadeFactor * 255).toInt().coerceIn(0, 255), 255, 255, 255)
-            canvas.drawText(label, cx, textY, text)
+            canvas.drawText(word, cx, wordY, text)
+
+            if (element.sub.isNotEmpty()) {
+                subText.textSize = jewelR * 0.26f
+                subText.color = Color.argb((alpha * fadeFactor * 200).toInt().coerceIn(0, 255), 255, 255, 255)
+                canvas.drawText(element.label, cx, cy - jewelR * 0.50f, subText)
+                if (element.sub2.isNotEmpty()) {
+                    subText.textSize = jewelR * 0.24f
+                    subText.color = Color.argb((alpha * fadeFactor * 175).toInt().coerceIn(0, 255), 226, 232, 240)
+                    canvas.drawText(element.sub2, cx, cy + jewelR * 0.68f, subText)
+                }
+            }
         } else if (isRT || isLT) {
             // Xbox Ergonomic Trigger (RT / LT)
             val fillA = (alpha * fadeFactor * (if (pressed) 190 else 95)).toInt().coerceIn(0, 255)
@@ -627,8 +635,8 @@ class TouchOverlayView @JvmOverloads constructor(
             stroke.strokeWidth = max(2f, r * 0.065f)
             canvas.drawCircle(cx, cy, r - stroke.strokeWidth * 0.5f, stroke)
 
-            val triggerLabel = if (isRT) "RT" else "LT"
-            val subLabel = if (isRT) "FIRE" else "AIM"
+            val triggerLabel = element.label
+            val subLabel = element.sub
 
             text.textSize = r * 0.58f
             text.color = Color.WHITE
@@ -655,9 +663,15 @@ class TouchOverlayView @JvmOverloads constructor(
             stroke.strokeWidth = max(1.5f, r * 0.055f)
             canvas.drawCircle(cx, cy, r - stroke.strokeWidth * 0.5f, stroke)
 
-            text.textSize = r * 0.52f
+            text.textSize = r * (if (element.sub.isEmpty()) 0.52f else 0.46f)
             text.color = Color.WHITE
-            canvas.drawText(element.label, cx, cy - (text.descent() + text.ascent()) * 0.5f, text)
+            val labelY = if (element.sub.isEmpty()) cy - (text.descent() + text.ascent()) * 0.5f else cy - r * 0.06f
+            canvas.drawText(element.label, cx, labelY, text)
+            if (element.sub.isNotEmpty()) {
+                subText.textSize = r * 0.27f
+                subText.color = Color.argb((alpha * fadeFactor * 220).toInt().coerceIn(0, 255), 226, 232, 240)
+                canvas.drawText(element.sub, cx, cy + r * 0.44f, subText)
+            }
         } else if (isThumbClick) {
             // Thumbstick Click (L3 / R3)
             val fillA = (alpha * fadeFactor * (if (pressed) 180 else 80)).toInt().coerceIn(0, 255)
@@ -671,8 +685,8 @@ class TouchOverlayView @JvmOverloads constructor(
             stroke.strokeWidth = max(1.5f, r * 0.05f)
             canvas.drawCircle(cx, cy, r - stroke.strokeWidth * 0.5f, stroke)
 
-            val tag = if (id == "l3") "LS" else "RS"
-            val sub = if (id == "l3") "RUN" else "MELEE"
+            val tag = element.label
+            val sub = element.sub
 
             text.textSize = r * 0.50f
             text.color = Color.WHITE
@@ -694,10 +708,14 @@ class TouchOverlayView @JvmOverloads constructor(
             stroke.strokeWidth = max(1.5f, r * 0.045f)
             canvas.drawCircle(cx, cy, r - stroke.strokeWidth * 0.5f, stroke)
 
-            val icon = if (id == "start") "START" else "BACK"
-            text.textSize = r * 0.36f
+            text.textSize = r * 0.32f
             text.color = Color.WHITE
-            canvas.drawText(icon, cx, cy - (text.descent() + text.ascent()) * 0.5f, text)
+            canvas.drawText(element.label, cx, cy - (text.descent() + text.ascent()) * (if (element.sub.isEmpty()) 0.5f else 1.1f), text)
+            if (element.sub.isNotEmpty()) {
+                subText.textSize = r * 0.24f
+                subText.color = Color.argb((alpha * fadeFactor * 200).toInt().coerceIn(0, 255), 148, 163, 184)
+                canvas.drawText(element.sub, cx, cy + r * 0.45f, subText)
+            }
         } else {
             // Fallback general button
             fill.color = Color.argb((alpha * fadeFactor * (if (pressed) 160 else 75)).toInt().coerceIn(0, 255), 18, 22, 28)
@@ -781,10 +799,9 @@ class TouchOverlayView @JvmOverloads constructor(
 
         // 4. Center label when idle ("LS" or "RS")
         if (!isDeflected) {
-            subText.textSize = dishR * 0.45f
+            subText.textSize = dishR * 0.34f
             subText.color = Color.argb((alpha * fadeFactor * 130).toInt().coerceIn(0, 255), 148, 163, 184)
-            val stickLabel = if (element.value == 1 || element.id.contains("right")) "RS" else "LS"
-            canvas.drawText(stickLabel, knobX, knobY - (subText.descent() + subText.ascent()) * 0.5f, subText)
+            canvas.drawText(element.label, knobX, knobY - (subText.descent() + subText.ascent()) * 0.5f, subText)
         }
 
         // 5. The 4 Signature Xbox Rubber Grip Dimples/Dots (Top, Bottom, Left, Right)
