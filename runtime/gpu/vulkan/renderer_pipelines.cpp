@@ -262,10 +262,21 @@ namespace vk::renderer::detail
             VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK, VK_DYNAMIC_STATE_STENCIL_WRITE_MASK,
             VK_DYNAMIC_STATE_STENCIL_REFERENCE };
 
-        if (vk::pipeline::LegacyMode())
+        if (vk::pipeline::StaticStates())
         {
             dynamic.dynamicStateCount = uint32_t(std::size(kDynamicLegacy));
             dynamic.pDynamicStates = kDynamicLegacy;
+
+            if (!vk::pipeline::LegacyMode())
+            {
+                // Dynamic rendering with the tests built in: the formats stand where a
+                // render pass would.
+                colourFormat = VkFormat(key.colourFormat);
+                rendering.colorAttachmentCount = (key.colourFormat != VK_FORMAT_UNDEFINED) ? 1 : 0;
+                rendering.pColorAttachmentFormats = (key.colourFormat != VK_FORMAT_UNDEFINED) ? &colourFormat : nullptr;
+                rendering.depthAttachmentFormat = VkFormat(key.depthFormat);
+                rendering.stencilAttachmentFormat = VkFormat(key.depthFormat);
+            }
 
             FacesFor(key.modeCntl, raster.cullMode, raster.frontFace);
 
@@ -523,7 +534,7 @@ namespace vk::renderer::detail
                 key.blendControl = item.recorded.blendControl;
                 key.colourMask = item.recorded.colourMask;
                 key.samples = item.recorded.samples;
-                if (vk::pipeline::LegacyMode())
+                if (vk::pipeline::StaticStates())
                 {
                     key.depthControl = item.recorded.depthControl;
                     key.modeCntl = item.recorded.modeCntl;
@@ -923,7 +934,7 @@ namespace vk::renderer::detail
             key.blendControl = want.blendControl;
             key.colourMask = want.colourMask;
             key.samples = want.samples;
-            if (vk::pipeline::LegacyMode())
+            if (vk::pipeline::StaticStates())
             {
                 key.depthControl = want.depthControl;
                 key.modeCntl = want.modeCntl;

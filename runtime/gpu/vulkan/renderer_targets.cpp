@@ -785,13 +785,17 @@ namespace vk::renderer::detail
                 VkRenderingAttachmentInfoKHR depthAttachment = colourAttachment;
                 depthAttachment.imageView = depthView;
                 depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+                // What the pass has, and no more: a pipeline made for a colour-only or
+                // depth-only target names no attachment of the other kind, and a render
+                // pass instance that lists one (a null view) does not match it. A driver
+                // that checks, as Adreno 740's does, draws tile-shaped garbage.
                 VkRenderingInfoKHR info{ VK_STRUCTURE_TYPE_RENDERING_INFO_KHR };
                 info.renderArea.extent = area;
                 info.layerCount = 1;
-                info.colorAttachmentCount = 1;
-                info.pColorAttachments = &colourAttachment;
-                info.pDepthAttachment = &depthAttachment;
-                info.pStencilAttachment = &depthAttachment;
+                info.colorAttachmentCount = colourView ? 1 : 0;
+                info.pColorAttachments = colourView ? &colourAttachment : nullptr;
+                info.pDepthAttachment = depthView ? &depthAttachment : nullptr;
+                info.pStencilAttachment = depthView ? &depthAttachment : nullptr;
                 dispatch.beginRendering(command, &info);
             }
         });

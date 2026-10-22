@@ -27,6 +27,7 @@ bool     vk::pipeline::PipelineLibraries() { return false; }
 bool     vk::pipeline::HasDynamicRendering() { return false; }
 bool     vk::pipeline::HasExtendedDynamicState() { return false; }
 bool     vk::pipeline::LegacyMode() { return false; }
+bool     vk::pipeline::StaticStates() { return true; }
 bool     vk::pipeline::TextureCompressionBC() { return false; }
 bool     vk::pipeline::BcFormatSampled(uint32_t) { return false; }
 bool     vk::pipeline::AstcSampled() { return false; }
@@ -90,6 +91,8 @@ namespace
         bool hasDynamicRendering = false;
         bool hasExtendedDynamicState = false;
         bool legacyMode = false;
+        // Culling and the depth and stencil tests built into each pipeline instead of set per draw.
+        bool staticStates = false;
         bool textureCompressionBC = false;
         // BC1, BC2, BC3, BC4, BC5: whether the driver samples each (with linear filtering and as a
         // copy destination), which is what Xenia asks of each format before using it.
@@ -363,6 +366,15 @@ bool vk::pipeline::CreateDevice(void* physicalDevice, uint32_t family,
     g.hasDynamicRendering = hasDynamicRendering && !forceLegacy;
     g.hasExtendedDynamicState = hasDynamicState && !forceLegacy;
     g.legacyMode = !hasDynamicRendering || !hasDynamicState || forceLegacy;
+    // The tests and culling baked into the pipelines, as the legacy path does, with dynamic
+    // rendering kept: PES17_STATIC_DEPTH_STATE=1.
+    // On by default for Qualcomm GPUs: an Adreno 740 (Retroid Pocket 6) drew the menus with
+    // tile-shaped blocks missing and wrong while culling and the depth/stencil tests were set
+    // per draw, and drew them right with the same dynamic rendering and the tests in the
+    // pipelines. PES17_DYNAMIC_DEPTH_STATE=1 puts per-draw state back there.
+    const bool qualcomm = physicalProperties.vendorID == 0x5143;
+    g.staticStates = g.legacyMode || env::Flag("PES17_STATIC_DEPTH_STATE") ||
+                     (qualcomm && !env::Flag("PES17_DYNAMIC_DEPTH_STATE"));
 
     LOGI("vulkan: device reports Vulkan %u.%u.%u; dynamic rendering %s (extension %s),"
          " extended dynamic state %s (extension %s)",
@@ -383,7 +395,7 @@ bool vk::pipeline::CreateDevice(void* physicalDevice, uint32_t family,
     if (dynamicRenderingExtension) extensions.push_back(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
     if (dynamicStateExtension) extensions.push_back(VK_EXT_EXTENDED_DYNAMIC_STATE_EXTENSION_NAME);
     g.pipelineLibraries =
-        !g.legacyMode &&
+        !g.staticStates &&
         DeviceHasExtension(physical, VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME) &&
         DeviceHasExtension(physical, VK_EXT_GRAPHICS_PIPELINE_LIBRARY_EXTENSION_NAME) &&
         libraries.graphicsPipelineLibrary;
@@ -906,6 +918,7 @@ bool     vk::pipeline::PipelineLibraries()
 bool     vk::pipeline::HasDynamicRendering() { return g.hasDynamicRendering; }
 bool     vk::pipeline::HasExtendedDynamicState() { return g.hasExtendedDynamicState; }
 bool     vk::pipeline::LegacyMode() { return g.legacyMode; }
+bool     vk::pipeline::StaticStates() { return g.staticStates; }
 bool     vk::pipeline::TextureCompressionBC() { return g.textureCompressionBC; }
 bool     vk::pipeline::AstcSampled() { return g.astcSampled; }
 bool     vk::pipeline::BcFormatSampled(uint32_t xenosFormat)

@@ -1080,7 +1080,7 @@ void vk::renderer::Draw(const gpu::RegisterFile& r, const DrawCall& call)
     key.blendControl = r[gpu::RB_BLENDCONTROL0];
     key.colourMask = r[gpu::RB_COLOR_MASK];
     key.samples = colourTarget->samples;
-    if (vk::pipeline::LegacyMode())
+    if (vk::pipeline::StaticStates())
     {
         key.depthControl = depthControl;
         key.modeCntl = modeCntl;
@@ -1358,14 +1358,14 @@ void vk::renderer::Draw(const gpu::RegisterFile& r, const DrawCall& call)
     // Culling and winding, and the depth and stencil tests: dynamic state, so
     // one pipeline serves every combination the title draws a pair of shaders
     // with, and a shader compiled on its own fits them all.
-    if (!bound.facesValid || bound.modeCntl != modeCntl)
+    if (!vk::pipeline::StaticStates() && (!bound.facesValid || bound.modeCntl != modeCntl))
     {
         op.set |= DrawOp::kFaces;
         FacesFor(modeCntl, op.cullMode, op.frontFace);
         bound.modeCntl = modeCntl;
         bound.facesValid = true;
     }
-    if (!bound.depthTestsValid || bound.depthControl != depthControl)
+    if (!vk::pipeline::StaticStates() && (!bound.depthTestsValid || bound.depthControl != depthControl))
     {
         op.set |= DrawOp::kDepthTests;
         op.depthTests = DepthTestsFor(depthControl);

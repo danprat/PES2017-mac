@@ -56,6 +56,9 @@ namespace vk::pipeline
     bool     HasExtendedDynamicState();
     // Whether the device runs under the legacy Vulkan 1.1 fallback path (traditional VkRenderPass/VkFramebuffer).
     bool     LegacyMode();
+    // Culling and the depth/stencil tests are part of each pipeline (legacy mode, or
+    // PES17_STATIC_DEPTH_STATE), not dynamic state set per draw.
+    bool     StaticStates();
     // Whether the device supports BC texture compression (BC1..BC5).
     bool     TextureCompressionBC();
     // Whether the driver samples this Xenos BC format (linear filtering, copy destination).
