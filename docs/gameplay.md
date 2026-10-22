@@ -5,7 +5,7 @@ additional needs (network link, sessions) are in [multiplayer.md](multiplayer.md
 
 ## Game data
 
-The title reads its fastfiles from the game root (`mw2/game` for a developer
+The title reads its fastfiles from the game root (`pes17/game` for a developer
 build; see [building.md](building.md)). File paths resolve case-insensitively
 onto that one flat directory.
 
@@ -30,21 +30,21 @@ When the load finishes, `UI_SetActiveMenu` opens the `pregame` menu, whose item
 starts when the briefing ends. With `ui_autoContinue` set it starts as soon as
 the load finishes, which a scripted run wants:
 
-    MW2_CONSOLE="1:set ui_autoContinue 1;2:map trainer"
+    PES17_CONSOLE="1:set ui_autoContinue 1;2:map trainer"
 
 With a movie's file missing the title logs it, skips it, and the level starts
 when it is loaded.
 
 ## Loading a level from the command line
 
-`MW2_CONSOLE` queues commands into the engine's own console command buffer,
+`PES17_CONSOLE` queues commands into the engine's own console command buffer,
 which is the shortest path to a level:
 
-    MW2_CONSOLE="30:map trainer"            # one command at 30 s
-    MW2_CONSOLE="30:map af_caves;45:god"    # several, separated by ';'
+    PES17_CONSOLE="30:map trainer"            # one command at 30 s
+    PES17_CONSOLE="30:map af_caves;45:god"    # several, separated by ';'
 
 The time is wall-clock seconds since the runtime started (the clock
-`MW2_INPUT_SCRIPT` uses). Only `;` separates entries and only the first `:`
+`PES17_INPUT_SCRIPT` uses). Only `;` separates entries and only the first `:`
 separates the time, so a command may contain spaces. It is kept in release
 builds.
 
@@ -80,8 +80,8 @@ names the first rumble per controller, or that the pad cannot rumble.
 The title sends zero speeds unless the profile's rumble option is on (byte 67
 of its per-controller profile record, on by default) and the local player is in
 play: while spectating (`pm_type` 5) or following another player it clears every
-rumble each frame. A headless test has to spawn first (`MW2_WALK_PATH`) and then
-fire (`MW2_INPUT_SCRIPT`).
+rumble each frame. A headless test has to spawn first (`PES17_WALK_PATH`) and then
+fire (`PES17_INPUT_SCRIPT`).
 
 ## Signing in
 
@@ -90,7 +90,7 @@ twelve hexadecimal digits -- the number the title knows him by -- and a name
 (`runtime/signin.cpp`).
 
 The first controller's profile is signed in from the start. It is made the
-first time the game runs, named after the login (or `MW2_NAME`), and is the
+first time the game runs, named after the login (or `PES17_NAME`), and is the
 same every run: the file's `first` line names it, and the launcher's PROFILES
 screen puts another there. The online service is not who the player is. Steam
 gives him the name other players see and brings his friends; the lan gives
@@ -135,7 +135,7 @@ controller, on which the title reads the new profile, stopping for a second.
 
 The picture is drawn on the CPU with the launcher's fonts and laid over the
 middle of the frame by the presenter, as a copy: it is opaque.
-`MW2_DUMP_FRAMES` writes each state of it as `signin_<n>.ppm`.
+`PES17_DUMP_FRAMES` writes each state of it as `signin_<n>.ppm`.
 
 ## The save-device prompt
 
@@ -145,7 +145,7 @@ controller, and zero means "not chosen". On the console the choice lives in the
 profile and is made once; here the table starts empty every launch. The runtime
 hooks `Memcard_InitializeSystem` (`runtime/kernel/content.cpp`) and, after it
 returns, writes the hard disk's device id into every empty slot, so the prompt
-does not appear. `MW2_NO_AUTO_SAVE_DEVICE=1` leaves the prompt to the title.
+does not appear. `PES17_NO_AUTO_SAVE_DEVICE=1` leaves the prompt to the title.
 The table's address is known only for the campaign (`T_DATA_DeviceTable` is zero
 in the multiplayer build). Saves themselves are in [saves.md](saves.md).
 
@@ -172,7 +172,7 @@ mapped over the same pages ([runtime.md](runtime.md)).
 **Packed vertex formats.** Level geometry is packed and unpacked on the CPU
 (skinning among others) with the VMX128 `vpkd3d128`/`vupkd3d128` instructions,
 in formats upstream XenonRecomp does not implement.
-`patches/xenonrecomp-mw2.patch` adds type 2 -- three 10-bit signed normalised
+`patches/xenonrecomp-pes17.patch` adds type 2 -- three 10-bit signed normalised
 components with `w` in the top two bits, laid out like D3DCOLOR; like that case
 the instruction only moves each field into the mantissa of `3.0f`, and the
 caller's multiply-add by `(511 * 2^-22, -3.0)` finishes it, which is why full
@@ -180,7 +180,7 @@ scale is 511 -- and the `float16_2` pack.
 
 ## Field of view
 
-`MW2_FOV` (`runtime/field_of_view.cpp`) widens the view. The number is counted
+`PES17_FOV` (`runtime/field_of_view.cpp`) widens the view. The number is counted
 as the title's own `cg_fov` is: the angle across a 4:3 picture, 65 by default.
 The title makes the 16:9 picture as tall as the 4:3 one and wider (the angle's
 tangent times 0.75 is the half height, and that times the picture's shape the
@@ -196,7 +196,7 @@ walked by `lerp_fovscale_overtime`. A value put in either lasts until the next
 script that writes it.
 
 So the settings are left alone, and the title is made to see `cg_fovScale` as
-what its scripts last wrote times `MW2_FOV / 65`, in the two functions that
+what its scripts last wrote times `PES17_FOV / 65`, in the two functions that
 read it:
 
 | | campaign | multiplayer | |

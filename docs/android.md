@@ -13,7 +13,7 @@ Xbox 360 default.xex  --->  XenonRecomp  --->  Recompiled C++ (ppc/)
                                                      |
                                             Android NDK (Clang 18)
                                                      |
-                                                libmw2.so
+                                                libpes17.so
                                                      |
                +-------------------------------------+------------------------------------+
                |                                                                          |
@@ -27,8 +27,8 @@ Xbox 360 default.xex  --->  XenonRecomp  --->  Recompiled C++ (ppc/)
 
 ### Dual-Process Isolation
 The app is structured into two separate processes in the Android manifest:
-1. **The Launcher Process** (`com.mw2.recomp.sp`): Renders the setup, preferences, driver installer, and log viewer. It stays alive independently of the game run.
-2. **The Game Process** (`com.mw2.recomp.sp:game`): Hosts the recompiled guest runtime and Vulkan presentation context. Because guest Xbox 360 threads cannot be gracefully unwound mid-frame without risking driver faults, exiting the game terminates the `:game` process cleanly without crashing the launcher.
+1. **The Launcher Process** (`com.pes2017.recomp.sp`): Renders the setup, preferences, driver installer, and log viewer. It stays alive independently of the game run.
+2. **The Game Process** (`com.pes2017.recomp.sp:game`): Hosts the recompiled guest runtime and Vulkan presentation context. Because guest Xbox 360 threads cannot be gracefully unwound mid-frame without risking driver faults, exiting the game terminates the `:game` process cleanly without crashing the launcher.
 
 ---
 
@@ -70,8 +70,8 @@ Modern mobile SoCs use heterogeneous CPU clusters (e.g., 1 Prime + 3 Gold + 4 Si
 ### Dynamic Memory Management & Texture Budget
 - **Device-Aware Defaults** (`ApplyMemoryDefaults`, `runtime/android/perf.cpp`): on Unified Memory Architecture the CPU and GPU share one pool, and the desktop defaults are sized for a machine with a separate one. Each default is taken from the memory this phone has, and each is set with overwrite off, so the launcher's own setting or a variable already in the environment wins:
   - **Texture budget**: a sixth of the device's memory, floor **128 MB**, capped at 1 GB and 1.5 GB at 12 GB — not the desktop "half of device-local RAM", which on a 6 GB phone is most of the phone. RSS stays in the low hundreds of megabytes in active gameplay.
-  - **Upload arena** (`MW2_ARENA_MB`): committed up front, so **384 MB** at 8 GB and up, **256 MB** at 6 GB, **192 MB** below. The arena has a floor — a frame that runs out of its share draws nothing from the point it ran out — so unlike the shadow it is not taken below what a heavy frame needs.
-  - **Guest-memory shadow** (`MW2_NO_SHADOW`): 512 MB behind the arena, in the same buffer, and a cache rather than a requirement — without it a draw copies its vertex data again, which is slower and nothing else. On a phone of **6 GB or less** the runtime does without, so nothing asks for a gigabyte before the first frame is drawn.
+  - **Upload arena** (`PES17_ARENA_MB`): committed up front, so **384 MB** at 8 GB and up, **256 MB** at 6 GB, **192 MB** below. The arena has a floor — a frame that runs out of its share draws nothing from the point it ran out — so unlike the shadow it is not taken below what a heavy frame needs.
+  - **Guest-memory shadow** (`PES17_NO_SHADOW`): 512 MB behind the arena, in the same buffer, and a cache rather than a requirement — without it a draw copies its vertex data again, which is slower and nothing else. On a phone of **6 GB or less** the runtime does without, so nothing asks for a gigabyte before the first frame is drawn.
 - **16 MB Memory Slabs (`image_memory.h`)**: Desktop builds allocate texture images in 64 MB blocks (`kBlockBytes`). On Android, block size is reduced to **16 MB** (`16ull << 20`) to eliminate oversized allocations, minimize heap fragmentation, and reduce virtual memory address space pressure.
 - **Two-Pass LMK-Safe Eviction Engine**:
   - The cache inspection interval runs every 32 frames (reduced from 64) with an idle threshold `kUnusedFrames = 120` (2 seconds of inactivity).
@@ -96,7 +96,7 @@ It does not keep the game *running* while it is away: the activity still pauses 
 Compiling SPIR-V shaders and graphics pipelines on mobile drivers causes noticeable in-game frame micro-stutters. The Android port implements a multi-tier caching and non-blocking warmup architecture:
 
 - **Location**: Shader microcode recipes and driver binary pipeline caches are persisted in app-specific external files storage:
-  `/sdcard/Android/data/com.mw2.recomp.sp/files/shader_cache.bin`
+  `/sdcard/Android/data/com.pes2017.recomp.sp/files/shader_cache.bin`
 - **Instant Launcher-to-Title Boot**:
   On startup, `PrewarmFromCache()` operates under a 15-pipeline budget (or 250 ms max deadline). The initial 15 critical title-screen pipelines compile in ~200 ms, presenting the "PRESS START BUTTON" screen at locked 60 FPS within 2 seconds.
 - **Background Warmup Scheduler (`warmup::Worker`)**:
@@ -104,7 +104,7 @@ Compiling SPIR-V shaders and graphics pipelines on mobile drivers causes noticea
 - **Auto-Flush on Pause / Lifecycle Changes**:
   Whenever the surface is destroyed, the user pauses, or memory is trimmed, `vk::pipeline::SaveCache()` commits the driver's native pipeline state blobs alongside the shader recipes.
 - **Signal Safety & Crash Guarding (`runtime/crash.cpp`)**:
-  Bionic libc lacks `pthread_kill` validation for arbitrary guest thread IDs. Long-running compilation stages are protected with Android-specific signal guards (`#ifndef MW2_ANDROID`), preventing spurious `SIGABRT` crashes.
+  Bionic libc lacks `pthread_kill` validation for arbitrary guest thread IDs. Long-running compilation stages are protected with Android-specific signal guards (`#ifndef PES17_ANDROID`), preventing spurious `SIGABRT` crashes.
 
 ---
 
@@ -181,9 +181,9 @@ The app does not bundle game files. The player provides an Xbox 360 disc image (
 
 - **Automatic Discovery**: Placing `Call of Duty - Modern Warfare 2 (USA, Europe).iso` in `/sdcard/Download/` enables the one-tap **⚡ INSTALL & PLAY** option in the launcher.
 - **Extracted Location**: The installer unpacks verified game assets into:
-  `/sdcard/Android/data/com.mw2.recomp.sp/files/game/`
+  `/sdcard/Android/data/com.pes2017.recomp.sp/files/game/`
 - **Saves Location**: Campaign and profile saves are stored in:
-  `/sdcard/Android/data/com.mw2.recomp.sp/files/saves/`
+  `/sdcard/Android/data/com.pes2017.recomp.sp/files/saves/`
 
 ---
 
@@ -194,4 +194,4 @@ The app does not bundle game files. The player provides an Xbox 360 disc image (
 | **"Renderer Notice: GPU lacks Vulkan 1.3..."** | Device stock driver is Vulkan 1.1 without dynamic rendering. | Check for OEM system software updates. On Adreno devices, import a Turnip driver via the Driver menu. |
 | **"The runtime library would not load"** | Incompatible ABI or 32-bit device. | Ensure device supports 64-bit ARM (`arm64-v8a`). |
 | **Installation fails partway** | Insufficient storage space. | Ensure at least 8 GB of free storage is available on internal storage. |
-| **Log inspection** | Debugging game launch or crashes. | Inspect `/sdcard/Android/data/com.mw2.recomp.sp/files/game.log` via ADB or the in-app Log viewer. |
+| **Log inspection** | Debugging game launch or crashes. | Inspect `/sdcard/Android/data/com.pes2017.recomp.sp/files/game.log` via ADB or the in-app Log viewer. |

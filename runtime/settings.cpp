@@ -12,7 +12,7 @@ std::string settings::Load(const std::filesystem::path& path)
         while (!line.empty() && (line.back() == '\r' || line.back() == ' ')) line.pop_back();
         const size_t equals = line.find('=');
         // The runtime's own switches, not a way to set any variable at all.
-        if (equals == std::string::npos || line.rfind("MW2_", 0) != 0) continue;
+        if (equals == std::string::npos || line.rfind("PES17_", 0) != 0) continue;
         const std::string name = line.substr(0, equals), value = line.substr(equals + 1);
         if (std::getenv(name.c_str())) continue;
 #ifdef _WIN32

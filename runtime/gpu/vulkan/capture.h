@@ -11,7 +11,7 @@
 //
 // Loading RenderDoc is not this file's job. Run the title under
 //
-//     renderdoccmd capture -c <prefix> -- ./build/mw2
+//     renderdoccmd capture -c <prefix> -- ./build/pes17
 //
 // which injects `librenderdoc.so` before the Vulkan instance exists; this only
 // finds the library already in the process and asks it for the frames wanted.

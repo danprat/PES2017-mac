@@ -2,11 +2,11 @@
 // level, or to any setting, is to queue the command the menu would have
 // queued.
 //
-//   MW2_CONSOLE="30:map af_caves"          one command, at 30 seconds
-//   MW2_CONSOLE="30:map af_caves;45:god"   several, separated by ';'
+//   PES17_CONSOLE="30:map af_caves"          one command, at 30 seconds
+//   PES17_CONSOLE="30:map af_caves;45:god"   several, separated by ';'
 //
 // The time is wall-clock seconds since the runtime started, the same clock
-// MW2_INPUT_SCRIPT uses, so the two can be interleaved.
+// PES17_INPUT_SCRIPT uses, so the two can be interleaved.
 //
 // Cbuf_AddText copies the text, so the string only has to survive the call. It
 // goes just below the guest stack pointer of whichever thread is pumping --
@@ -47,7 +47,7 @@ namespace
     {
         g_parsed = true;
         g_start = std::chrono::steady_clock::now();
-        const char* spec = env::Text("MW2_CONSOLE");
+        const char* spec = env::Text("PES17_CONSOLE");
         if (!spec) return;
 
         std::string s = spec;

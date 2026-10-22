@@ -20,11 +20,11 @@ namespace player
     };
 
     // What the autopilot wants pressed this poll: A, and Up only when asked for
-    // on the team selection (MW2_TEAM_UP); see DismissMenus. Left and Fire (the
+    // on the team selection (PES17_TEAM_UP); see DismissMenus. Left and Fire (the
     // right trigger) only where a recorded route says the player did so.
     enum class Press { None, A, Up, Left, Fire };
 
-#if MW2_DIAGNOSTICS
+#if PES17_DIAGNOSTICS
 
     // Whether anything here is switched on, so the input path knows to run even
     // with no pad attached and no script holding a stick.
@@ -34,7 +34,7 @@ namespace player
     // seconds between spawning and the first snapshot.
     bool Locate(Where& out);
 
-    // MW2_WALK_TO="x,y[,radius[,yaw]]" and MW2_WALK_PATH=<route>[,<route>...]
+    // PES17_WALK_TO="x,y[,radius[,yaw]]" and PES17_WALK_PATH=<route>[,<route>...]
     // drive the player: turn until the next corner or the target is ahead, then
     // walk, and on arrival either hold the yaw given or turn slowly on the spot.
     // `axes` is the guest's stick state, taken over only while there is somewhere
@@ -47,9 +47,9 @@ namespace player
     // these rather than on a frame number, which is a guess about how long the
     // walk took and is usually wrong.
     bool Walking();
-    // MW2_RECORD_PATH=<file> writes down where the player goes while someone
-    // plays, one point every MW2_RECORD_SPACING units (110 by default), as
-    // `x y z yaw pitch` a line. MW2_WALK_PATH=<file> walks that route back. A route
+    // PES17_RECORD_PATH=<file> writes down where the player goes while someone
+    // plays, one point every PES17_RECORD_SPACING units (110 by default), as
+    // `x y z yaw pitch` a line. PES17_WALK_PATH=<file> walks that route back. A route
     // someone actually walked is walkable; a handful of points pressed at
     // corners is not, which is how the replays kept ending up inside walls.
     //

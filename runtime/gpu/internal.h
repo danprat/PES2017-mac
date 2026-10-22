@@ -26,7 +26,7 @@ namespace gpu::detail
     // A register the command stream may never have written: then the value the
     // CPU put in the aperture.
     uint32_t RegisterOrAperture(uint32_t index);
-    // False under MW2_RENDER=0: the stream is executed and counted, nothing drawn.
+    // False under PES17_RENDER=0: the stream is executed and counted, nothing drawn.
     bool Rendering();
     void WritePhysical(uint32_t physicalAddress, uint32_t value);
     void ReportCommandProcessor();
@@ -73,14 +73,14 @@ namespace gpu::detail
     bool ArenaProgress(uint32_t address, uint32_t value);
 
     // ---- census.cpp (diagnostics only)
-#if MW2_DIAGNOSTICS
+#if PES17_DIAGNOSTICS
     void CensusDraw(const RegisterFile& r, uint32_t primitive, uint32_t indexCount,
                     bool indexed, EdramMode mode);
     // At each swap packet the parse meets.
     void CensusSwap();
     // At each present the title makes.
     void CensusPresent();
-    // MW2_DUMP_TEXTURES: every distinct texture shape bound, once.
+    // PES17_DUMP_TEXTURES: every distinct texture shape bound, once.
     bool DumpingTextures();
     void DumpBoundTextures(const RegisterFile& r);
     void ReportCensus();

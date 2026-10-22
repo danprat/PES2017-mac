@@ -74,7 +74,7 @@ namespace vk::renderer
 
     // F7, or Y on the pad during a flash hunt: somebody saw a flash. Logged at
     // once; the frames kept before it are written at the next present
-    // (MW2_FLASH_FRAMES, MW2_FLASH_DIR). `how` names the key.
+    // (PES17_FLASH_FRAMES, PES17_FLASH_DIR). `how` names the key.
     void FlashSeen(const char* how);
 
     // The last submission the GPU has finished, for what keeps copies the GPU

@@ -1,4 +1,4 @@
-package com.mw2.recomp
+package com.pes2017.recomp
 
 /**
  * Everything the app says to the runtime and everything the runtime says
@@ -16,7 +16,7 @@ object NativeBridge {
     private var loadError: String? = null
 
     /**
-     * Loads libmw2.so. Called once, late, and allowed to fail: a device whose
+     * Loads libpes17.so. Called once, late, and allowed to fail: a device whose
      * Vulkan is too old, or an apk built for another ABI, still reaches the
      * launcher, which then says what is wrong instead of disappearing.
      */
@@ -29,7 +29,7 @@ object NativeBridge {
         // the CPU is checked first and the launcher says why.
         missingCpuFeature()?.let { loadError = "This phone's CPU lacks $it (ARMv8.2-A is required)"; return false }
         return try {
-            System.loadLibrary("mw2")
+            System.loadLibrary("pes17")
             loaded = true
             true
         } catch (error: Throwable) {
@@ -69,7 +69,7 @@ object NativeBridge {
         listener: NativeListener?,
     ): Boolean
 
-    /** One of the runtime's MW2_* switches (docs/switches.md). */
+    /** One of the runtime's PES17_* switches (docs/switches.md). */
     external fun nativeSetOption(key: String, value: String)
 
     /** The answer to NativeListener.onKeyboard: what was typed, or a cancel. */
@@ -129,18 +129,6 @@ object NativeBridge {
     external fun nativePadConnected(user: Int, connected: Boolean)
     external fun nativePadEnabled(enabled: Boolean)
 
-    /** Invite every network player heard to this player's lobby, if any. */
-    external fun nativeInviteFriends()
-
-    /** Other copies heard on the network right now (0 when offline/alone). */
-    external fun nativeLanPeers(): Int
-
-    /** Joinable peers' names, one per line. */
-    external fun nativeLanPeerNames(): String
-
-    /** Join a heard peer now. False when nobody by that name is heard. */
-    external fun nativeLanJoinPeer(name: String): Boolean
-
     // ---- the graphics driver ----------------------------------------------
 
     /** An unpacked driver folder and the library inside it, or "" for the system's. */
@@ -158,10 +146,6 @@ object NativeBridge {
     external fun nativeInstallProgress(progress: LongArray): String
 
     external fun nativeCancelInstall()
-
-    /** Blocking. Applies the downloaded title update 6 (TU6 builds only).
-     * Returns null when it worked, or a sentence to show when it did not. */
-    external fun nativeApplyTu6(packagePath: String, gameDir: String): String?
 
     // ---- what the overlay shows --------------------------------------------
 

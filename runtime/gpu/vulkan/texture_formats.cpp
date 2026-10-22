@@ -1,6 +1,6 @@
 #include "texture_formats.h"
 
-#ifndef MW2_HAVE_VULKAN
+#ifndef PES17_HAVE_VULKAN
 int vk::formats::VulkanFormatFor(uint32_t) { return 0; }
 int vk::formats::SrgbFormatFor(int) { return 0; }
 const char* vk::formats::VulkanFormatName(int) { return "unsupported"; }
@@ -137,4 +137,4 @@ const char* vk::formats::VulkanFormatName(int format)
     }
 }
 
-#endif  // MW2_HAVE_VULKAN
+#endif  // PES17_HAVE_VULKAN

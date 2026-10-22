@@ -29,14 +29,14 @@ namespace gpu::watch
     // four whole kernel pages on a 4 KB one, which is legal and still lands
     // on a single watch page. Coarser, and on a phone that is no loss --
     // fewer faults and a quarter of the mprotect calls.
-#ifdef MW2_ANDROID
+#ifdef PES17_ANDROID
     constexpr uint32_t kPageBytes = 16384;
 #else
     constexpr uint32_t kPageBytes = 4096;
 #endif
 
     // The copy, as mapped for the CPU: physical address N at `shadow + N`.
-    // Null leaves every draw on the per-draw copy (MW2_NO_SHADOW=1 does that).
+    // Null leaves every draw on the per-draw copy (PES17_NO_SHADOW=1 does that).
     void SetShadow(uint8_t* shadow, uint32_t bytes);
     bool Enabled();
 

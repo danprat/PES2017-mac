@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Post-link checks on libmw2.so (and any apk given as $2), borrowed from the
+# Post-link checks on libpes17.so (and any apk given as $2), borrowed from the
 # Skate3-Port build: a library linked for 4 KB pages does not load on Android 15
 # devices that use 16 KB pages, and it fails at install time on the phone, not here.
 #   usage: verify_android_libs.sh <lib.so> [app.apk]

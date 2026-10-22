@@ -10,7 +10,7 @@
 #include "../log.h"
 #include "../kernel/kernel.h"
 
-#if MW2_DIAGNOSTICS
+#if PES17_DIAGNOSTICS
 #include <algorithm>
 #include <atomic>
 #include <cstdio>
@@ -48,12 +48,12 @@ namespace
         return seconds >= 0 && seconds < kSecondsTracked ? int(seconds) : -1;
     }
 
-    // MW2_TRACE_FRAME=<n>: n frames' surfaces and resolves, in order, from
-    // MW2_TRACE_DRAWS_AFTER presents on: what shape the frame graph has.
+    // PES17_TRACE_FRAME=<n>: n frames' surfaces and resolves, in order, from
+    // PES17_TRACE_DRAWS_AFTER presents on: what shape the frame graph has.
     bool TracingFrame()
     {
-        static const uint64_t frames = diag::Number("MW2_TRACE_FRAME");
-        static const uint64_t after = diag::Number("MW2_TRACE_DRAWS_AFTER");
+        static const uint64_t frames = diag::Number("PES17_TRACE_FRAME");
+        static const uint64_t after = diag::Number("PES17_TRACE_DRAWS_AFTER");
         const uint64_t presents = g.presents.load(std::memory_order_relaxed);
         return frames && presents >= after && presents < after + frames;
     }
@@ -105,12 +105,12 @@ namespace
              control.ClearsDepth() ? ", clears depth" : "");
     }
 
-    // MW2_DUMP_TEXTURES=<dir>: the only way to confirm by eye that untiling,
+    // PES17_DUMP_TEXTURES=<dir>: the only way to confirm by eye that untiling,
     // endianness, format and addressing are all right at once -- a wrong tiling
     // function still produces a plausible buffer, but not a picture.
     const char* DumpTextureDirectory()
     {
-        static const char* dir = diag::Text("MW2_DUMP_TEXTURES");
+        static const char* dir = diag::Text("PES17_DUMP_TEXTURES");
         return dir;
     }
 
@@ -125,10 +125,10 @@ namespace
                  name, fetch.Width(), fetch.Height(), fetch.BaseAddress());
             return;
         }
-        // MW2_DUMP_TEXTURES_RAW=1: the bytes as the guest holds them, before any
+        // PES17_DUMP_TEXTURES_RAW=1: the bytes as the guest holds them, before any
         // untiling, so a layout can be tried offline instead of costing a run per
         // guess. Always for a volume.
-        static const bool raw = diag::Flag("MW2_DUMP_TEXTURES_RAW");
+        static const bool raw = diag::Flag("PES17_DUMP_TEXTURES_RAW");
         if (fetch.Dimension() == gpu::TextureDimension::D3 || raw)
         {
             char path[512];
@@ -245,10 +245,10 @@ bool gpu::detail::DumpingTextures() { return DumpTextureDirectory() != nullptr; 
 // Each distinct texture shape the title binds, once. A texture the title
 // streams in is empty at its first bind and full a second later, which dumping
 // on first sight cannot tell from one that never arrives, so
-// MW2_DUMP_TEXTURES_AFTER=<seconds> waits.
+// PES17_DUMP_TEXTURES_AFTER=<seconds> waits.
 void gpu::detail::DumpBoundTextures(const RegisterFile& r)
 {
-    static const double after = diag::Real("MW2_DUMP_TEXTURES_AFTER");
+    static const double after = diag::Real("PES17_DUMP_TEXTURES_AFTER");
     static std::unordered_set<uint64_t> dumped;
     if (Seconds() < after) return;
     for (uint32_t slot = 0; slot < 32; slot++)

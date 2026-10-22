@@ -6,7 +6,7 @@
 #include "diagnostics.h"
 #include "crash.h"
 
-#if MW2_DIAGNOSTICS && !defined(_WIN32) && defined(__x86_64__)
+#if PES17_DIAGNOSTICS && !defined(_WIN32) && defined(__x86_64__)
 #include <sys/mman.h>
 #include <execinfo.h>
 #include <unistd.h>
@@ -54,8 +54,8 @@ namespace
 
 void watchpoint::Install()
 {
-    g_budget = int(diag::Number("MW2_WATCH_REPORTS", uint64_t(g_budget)));
-    const char* e = diag::Text("MW2_WATCH");
+    g_budget = int(diag::Number("PES17_WATCH_REPORTS", uint64_t(g_budget)));
+    const char* e = diag::Text("PES17_WATCH");
     if (!e) return;
 
     char* end = nullptr;

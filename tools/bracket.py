@@ -8,7 +8,7 @@ For placing explicit function bounds (config/*.toml `functions`) when the
 analyser splits wrongly and the C++ build then fails with "use of undeclared
 label 'loc_XXXXXXXX'". Addresses only, no game bytes.
 
-    MW2_TITLE=mp MW2_VERSION=tu6 python3 tools/bracket.py 0x8241A84C [...]
+    PES17_TITLE=mp PES17_VERSION=tu6 python3 tools/bracket.py 0x8241A84C [...]
 """
 import bisect
 import struct

@@ -21,18 +21,18 @@ using install::Utf8;
 namespace
 {
     // The disc's two executables, and what the update makes of them, by the
-    // SHA-256 of each, which CMake reads from mw2/ at configure time. The game
+    // SHA-256 of each, which CMake reads from pes17/ at configure time. The game
     // executables run only what they were recompiled from, so anything else --
     // another region, another update -- is refused here rather than there.
     struct Title { const char* xex; const char* patch; const char* disc; const char* installed; };
     constexpr Title kTitles[] = {
-        { "default.xex", "default.xexp", MW2_DISC_SHA256_SP, MW2_XEX_SHA256_SP },
-        { "default_mp.xex", "default_mp.xexp", MW2_DISC_SHA256_MP, MW2_XEX_SHA256_MP },
+        { "default.xex", "default.xexp", PES17_DISC_SHA256_SP, PES17_XEX_SHA256_SP },
+        { "default_mp.xex", "default_mp.xexp", PES17_DISC_SHA256_MP, PES17_XEX_SHA256_MP },
     };
     constexpr uint32_t kTitleId = 0x41560817;
     constexpr const char* kGameFolder = "game";
 
-#ifndef MW2_VERSION_TU0
+#ifndef PES17_VERSION_TU0
     // Title update 6, from the CoD Xenon project's archive of title updates
     // (its maintainer's suggestion), at a commit of our choosing so the file
     // cannot change under the checksum.
@@ -43,9 +43,9 @@ namespace
     // The fastfiles it adds, which go beside the disc's.
     struct Added { const char* name; const char* sha256; };
     constexpr Added kAdded[] = {
-        { "patch_mp.ff", MW2_UPDATE_SHA256_PATCH_MP },
-        { "dlc1_ui_mp.ff", MW2_UPDATE_SHA256_DLC1_UI_MP },
-        { "dlc2_ui_mp.ff", MW2_UPDATE_SHA256_DLC2_UI_MP },
+        { "patch_mp.ff", PES17_UPDATE_SHA256_PATCH_MP },
+        { "dlc1_ui_mp.ff", PES17_UPDATE_SHA256_DLC1_UI_MP },
+        { "dlc2_ui_mp.ff", PES17_UPDATE_SHA256_DLC2_UI_MP },
     };
 #endif
 
@@ -178,7 +178,7 @@ namespace
         return setup::Result::Done;
     }
 
-#ifndef MW2_VERSION_TU0
+#ifndef PES17_VERSION_TU0
     // The update's files, by name: from the package the player chose or a
     // folder holding them, from a package left beside the launcher, or
     // downloaded.
@@ -253,7 +253,7 @@ bool setup::SetInstallLocation(const fs::path& folder, std::string& error)
     fs::create_directories(folder, ec);
     if (ec) { error = "Cannot create " + Utf8(folder) + ": " + ec.message(); return false; }
     {
-        const fs::path probe = folder / ".mw2-write-test";
+        const fs::path probe = folder / ".pes17-write-test";
         std::ofstream out(probe, std::ios::binary | std::ios::trunc);
         if (!out) { error = "Cannot write to " + Utf8(folder) + "."; return false; }
         out.close();
@@ -278,7 +278,7 @@ std::string setup::InstallLocationText()
     return text;
 }
 
-#ifdef MW2_VERSION_TU0
+#ifdef PES17_VERSION_TU0
 const char* setup::UpdateUrl() { return ""; }
 bool setup::UsesUpdate() { return false; }
 #else
@@ -344,7 +344,7 @@ setup::Result setup::Run(const fs::path& disc, const fs::path& update, Progress&
         if (!updated[i] && hash != title.disc) { error = WrongDisc(title.xex, executables[i]); return Result::Failed; }
     }
 
-#ifndef MW2_VERSION_TU0
+#ifndef PES17_VERSION_TU0
     // The update, and the executables it makes, before anything is copied: what
     // can fail fails in the first seconds.
     Step(progress, "Getting title update 6");
@@ -388,7 +388,7 @@ setup::Result setup::Run(const fs::path& disc, const fs::path& update, Progress&
     // The executables go last: both present, and the right ones, is what an
     // install that finished looks like.
     Step(progress, "Finishing");
-#ifndef MW2_VERSION_TU0
+#ifndef PES17_VERSION_TU0
     for (const Added& added : kAdded)
         if (!WriteFile(folder / added.name, files[added.name], error)) return Result::Failed;
 #endif

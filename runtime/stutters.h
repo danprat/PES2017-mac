@@ -1,5 +1,5 @@
 #pragma once
-// MW2_STUTTERS=1: a stutter detector for play.
+// PES17_STUTTERS=1: a stutter detector for play.
 //
 // The console shows a new world frame at every blank. A stutter is a blank
 // that shows the same picture again, and it can be lost in two places: the
@@ -31,7 +31,7 @@ namespace stutters
         kCostCount
     };
 
-#if MW2_DIAGNOSTICS
+#if PES17_DIAGNOSTICS
     bool On();
     void Add(Cost cost, uint64_t nanoseconds);
 

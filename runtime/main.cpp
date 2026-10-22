@@ -75,11 +75,11 @@ void crash::RequestExit(const char* why)
 namespace
 {
     // The guest never returns, so the reports at the end of main() are unreachable
-    // and killing the process loses everything measured. MW2_RUN_SECONDS=<n>
+    // and killing the process loses everything measured. PES17_RUN_SECONDS=<n>
     // reports and exits after n seconds.
     void StartDeadline()
     {
-        const unsigned seconds = unsigned(diag::Number("MW2_RUN_SECONDS"));
+        const unsigned seconds = unsigned(diag::Number("PES17_RUN_SECONDS"));
         if (!seconds) return;
         LOGI("run deadline: reporting and exiting after %u seconds", seconds);
         std::thread([seconds] {
@@ -90,19 +90,19 @@ namespace
         }).detach();
     }
 
-    // MW2_QUIT_AFTER_ARRIVAL=<n> ends the run n seconds after MW2_WALK_TO gets
+    // PES17_QUIT_AFTER_ARRIVAL=<n> ends the run n seconds after PES17_WALK_TO gets
     // where it was sent. A walk that takes four minutes and a measurement that
     // takes ten seconds should not be followed by two minutes of standing there.
     void StartArrivalDeadline()
     {
-        if (!diag::Text("MW2_QUIT_AFTER_ARRIVAL")) return;
-        const unsigned seconds = unsigned(diag::Number("MW2_QUIT_AFTER_ARRIVAL"));
+        if (!diag::Text("PES17_QUIT_AFTER_ARRIVAL")) return;
+        const unsigned seconds = unsigned(diag::Number("PES17_QUIT_AFTER_ARRIVAL"));
         LOGI("run deadline: reporting and exiting %u seconds after arriving", seconds);
         // A walk that has stalled against a wall is as finished as one that
         // arrived -- it will take no more measurements. Ending there rather than
         // at the watchdog saves the rest of the run, which is most of it when
         // the route snags early.
-        const double given = diag::Real("MW2_QUIT_IF_STUCK");
+        const double given = diag::Real("PES17_QUIT_IF_STUCK");
         const double stall = given > 0.0 ? given : 45.0;
         LOGI("run deadline: or %0.f seconds after the walk stops getting nearer", stall);
         std::thread([seconds, stall] {
@@ -148,27 +148,27 @@ namespace
     }
 }
 
-int mw2::Run(int argc, char** argv)
+int pes17::Run(int argc, char** argv)
 {
     platform::Initialise();
 
     // Before any switch is read, the log's among them.
     const std::string kept = settings::Load(install::Folder(argc, argv) / ".env");
 
-    // MW2_LOG_FILE=<path> sends the log there instead of the terminal. Every
+    // PES17_LOG_FILE=<path> sends the log there instead of the terminal. Every
     // line this runtime writes goes to stderr, so a plain `> file` redirection
     // catches nothing.
     // Its folder is made first: a run started with a new folder named lost its
     // whole log to the terminal.
-#ifndef MW2_ANDROID
-    if (const char* logPath = env::Text("MW2_LOG_FILE"))
+#ifndef PES17_ANDROID
+    if (const char* logPath = env::Text("PES17_LOG_FILE"))
     {
         std::error_code ignored;
         if (const auto folder = std::filesystem::path(logPath).parent_path(); !folder.empty())
             std::filesystem::create_directories(folder, ignored);
         // A title the other one started (from its menus) carries on in the
         // log of the run it belongs to.
-        if (!std::freopen(logPath, env::Flag("MW2_LOG_APPEND") ? "a" : "w", stderr))
+        if (!std::freopen(logPath, env::Flag("PES17_LOG_APPEND") ? "a" : "w", stderr))
             std::fprintf(stdout, "could not open %s for the log\n", logPath);
         // A line at a time, as stderr is to a terminal: the file is read while
         // the run goes on, and a line held back is a line a watcher never sees.
@@ -181,9 +181,9 @@ int mw2::Run(int argc, char** argv)
             std::setvbuf(stderr, nullptr, _IOLBF, 0);
 #endif
     }
-#endif  // MW2_ANDROID
+#endif  // PES17_ANDROID
 
-    LOGI("--- PES 2017 recompilation runtime (%s) ---", MW2_TITLE_NAME);
+    LOGI("--- PES 2017 recompilation runtime (%s) ---", PES17_TITLE_NAME);
     if (!kept.empty()) LOGI("settings: %s", kept.c_str());
 
     // A player starts the executable with no arguments (runtime/install/); a
@@ -257,6 +257,6 @@ int mw2::Run(int argc, char** argv)
 }
 
 // A desktop build starts here; Android starts the same run from jni.cpp.
-#ifndef MW2_ANDROID
-int main(int argc, char** argv) { return mw2::Run(argc, argv); }
+#ifndef PES17_ANDROID
+int main(int argc, char** argv) { return pes17::Run(argc, argv); }
 #endif

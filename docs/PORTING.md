@@ -2,7 +2,7 @@
 
 PES 2017 (Xbox 360, Europe, `default.xex`, 32 MB) is recompiled ahead of time
 with [XenonRecomp](https://github.com/hedge-dev/XenonRecomp) into C++ that is
-built for arm64 with the Android NDK, on the same architecture as `mw2-android`
+built for arm64 with the Android NDK, on the same architecture as `pes17-android`
 (the reference port in this workspace): a host runtime stands in for the
 console's kernel, GPU (Vulkan) and audio, and the Kotlin app installs the game
 files and starts the native library. The second example, `pinyon-shift`
@@ -21,7 +21,7 @@ front half of one, and a runtime with its MW2-specific code removed.
 | Function bounds | 205 leaf functions whose jump tables XenonAnalyse ended early (`tools/fixbounds.py`) plus one `bdzf` ladder (`tools/fix_ladders.py`); `build.sh` loops recompile → fix until nothing changes |
 | Recompile | `ppc/`: 0 switch-table errors; 44 undecodable words at the tail of `.text` (data after the last function, `0x83D76674`…) |
 | Kernel imports | 281 used by the game; 168 implemented by the runtime, 113 stubbed with a log-once stub (`ppc/stubs_generated.cpp`) |
-| Runtime | MW2's engine patches (IW4 netcode fixes, engine log, FOV, etc.) moved to `_mw2_specific/`; `runtime/title.h` rewritten for PES; every runtime source compiles for arm64 |
+| Runtime | MW2's engine patches (IW4 netcode fixes, engine log, FOV, etc.) moved to `_pes17_specific/`; `runtime/title.h` rewritten for PES; every runtime source compiles for arm64 |
 | Install filter | the installer copies `*.cpk` and `nxeart` from the disc (PES's archives) |
 | App | Gradle project: one app, `com.pes2017.recomp`, "PES 2017" |
 
@@ -91,7 +91,7 @@ Fixed on the way, each found from the device log:
 7. **Input, saves, UI.** The touch pad and launcher are MW2's FPS layout; PES
    needs a football layout (pass/shoot/through/sprint) and its own save/profile
    handling (`kernel/content.cpp`, `T_Memcard_*` hook is compiled out).
-8. **Apk.** `./gradlew :app:assembleRelease` from `android/` once `libmw2.so`
+8. **Apk.** `./gradlew :app:assembleRelease` from `android/` once `libpes17.so`
    builds. Needs a Gradle install/wrapper jar, `ANDROID_HOME`, and
    `android/fetch_deps.sh` if you want the custom-driver loader.
 9. **Optional:** the multi-title launcher text and strings still say MW2
@@ -109,7 +109,7 @@ What made the dialogs and menus draw as empty boxes, and how it was found.
    stale value and the result depended on what ran before it: cos(0) came out
    +-infinity, every UI text matrix got an infinite scale, and the glyphs
    collapsed. The cases are in `XenonRecomp/XenonRecomp/recompiler.cpp` (helpers in
-   `XenonUtils/ppc_context.h`); `patches/xenonrecomp-mw2.patch` is regenerated from
+   `XenonUtils/ppc_context.h`); `patches/xenonrecomp-pes17.patch` is regenerated from
    them. After a recompile, check `grep -c Unrecognized logs-recomp.txt`.
    The same fix made the intro movie draw.
 2. **`VGT_INDX_OFFSET` (register 0x2102) was ignored.** The UI draws a batch of
@@ -303,7 +303,7 @@ The billboards now cover the stands with sensible UVs (verified with a temporary
 ## Reproducing
 
 ```bash
-GAME=../GAME ./build.sh                 # generate ppc/ and build libmw2.so
+GAME=../GAME ./build.sh                 # generate ppc/ and build libpes17.so
 RECOMPILE_ONLY=1 GAME=../GAME ./build.sh  # generate ppc/ only
 ```
 

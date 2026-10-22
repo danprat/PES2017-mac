@@ -33,7 +33,7 @@ wait_for() {
 marker() { adb exec-out "grep '^===== new run' $LOG | tail -1" 2>/dev/null | tr -d '\r'; }
 adb shell am force-stop $PKG
 before=$(marker)
-adb shell am start -n $PKG/com.mw2.recomp.MainActivity >/dev/null
+adb shell am start -n $PKG/com.pes2017.recomp.MainActivity >/dev/null
 for i in $(seq 1 120); do [ "$(marker)" != "$before" ] && break; sleep 0.5; done
 wait_for "PreStartup" 60 || exit 1                     # the title screen comes up after this
 wait_for "SystemDataLoad" 90 START || exit 1           # press START on the title until the load starts

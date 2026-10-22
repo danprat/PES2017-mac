@@ -12,7 +12,7 @@
 // took 40 ms. Displacement alone would turn faster on a device that reports
 // touches more often, which is how touch aiming usually ends up feeling
 // different on every phone.
-#ifdef MW2_ANDROID
+#ifdef PES17_ANDROID
 
 #include "android.h"
 #include "../log.h"
@@ -254,4 +254,4 @@ void android::input::Rumble(uint32_t user, uint16_t low, uint16_t high)
     if (g_rumble) g_rumble(user, low, high);
 }
 
-#endif  // MW2_ANDROID
+#endif  // PES17_ANDROID

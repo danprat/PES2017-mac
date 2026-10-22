@@ -20,5 +20,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "MW2"
+rootProject.name = "PES17"
 include(":app")

@@ -13,7 +13,7 @@
 //   * Bytes round-trip exactly, including sizes that cross block boundaries and
 //     the empty file.
 //
-// Build with -DMW2_TESTS=ON and run; it needs no game files and writes only
+// Build with -DPES17_TESTS=ON and run; it needs no game files and writes only
 // under a temporary directory of its own.
 #include "kernel/durable.h"
 
@@ -153,7 +153,7 @@ namespace
 int main()
 {
     std::error_code ec;
-    const fs::path dir = fs::temp_directory_path(ec) / "mw2_durable_test";
+    const fs::path dir = fs::temp_directory_path(ec) / "pes17_durable_test";
     fs::remove_all(dir, ec);
     if (!fs::create_directories(dir, ec))
     {

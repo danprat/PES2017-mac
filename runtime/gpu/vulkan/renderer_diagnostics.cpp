@@ -5,7 +5,7 @@
 #include <sys/stat.h>
 #include <cstring>
 #include "renderer_state.h"
-#ifdef MW2_ANDROID
+#ifdef PES17_ANDROID
 #include "../../android/android.h"
 #endif
 #include "../../diagnostics.h"
@@ -23,7 +23,7 @@
 #include <filesystem>
 #include <thread>
 
-#ifdef MW2_HAVE_VULKAN
+#ifdef PES17_HAVE_VULKAN
 
 namespace vk::renderer::detail
 {
@@ -31,7 +31,7 @@ namespace vk::renderer::detail
     // prepass from the world from the interface.
     uint64_t TracePasses()
     {
-        static const uint64_t n = diag::Number("MW2_TRACE_PASSES");
+        static const uint64_t n = diag::Number("PES17_TRACE_PASSES");
         return n;
     }
 
@@ -47,20 +47,20 @@ namespace vk::renderer::detail
         }
     }
 
-    const ShaderList& OnlyShaders()  { static const ShaderList l("MW2_ONLY_SHADER"); return l; }
-    const ShaderList& SkipShaders()  { static const ShaderList l("MW2_SKIP_SHADER"); return l; }
-    const ShaderList& TracedShaders() { static const ShaderList l("MW2_TRACE_SHADER_VERTS"); return l; }
+    const ShaderList& OnlyShaders()  { static const ShaderList l("PES17_ONLY_SHADER"); return l; }
+    const ShaderList& SkipShaders()  { static const ShaderList l("PES17_SKIP_SHADER"); return l; }
+    const ShaderList& TracedShaders() { static const ShaderList l("PES17_TRACE_SHADER_VERTS"); return l; }
 
     // The frame the traces start at. The draws before the menu are start-up,
     // which is not what a frame looks like.
     uint64_t TraceAfter()
     {
-        static const uint64_t n = diag::Number("MW2_TRACE_RENDER_AFTER");
+        static const uint64_t n = diag::Number("PES17_TRACE_RENDER_AFTER");
         return n;
     }
 
-    // Where a trace should fire: standing where MW2_WALK_TO asked, or past the
-    // frame MW2_TRACE_RENDER_AFTER names. Either is enough: the walk does not
+    // Where a trace should fire: standing where PES17_WALK_TO asked, or past the
+    // frame PES17_TRACE_RENDER_AFTER names. Either is enough: the walk does not
     // always arrive.
     bool DiagnoseHere()
     {
@@ -72,7 +72,7 @@ namespace vk::renderer::detail
     // is no window, and the only way to compare two runs.
     const char* FrameDumpDirectory()
     {
-        static const char* dir = diag::Text("MW2_DUMP_FRAMES");
+        static const char* dir = diag::Text("PES17_DUMP_FRAMES");
         return dir;
     }
 
@@ -82,7 +82,7 @@ namespace vk::renderer::detail
     // fixed second of the same scripted run is the same moment.
     bool FrameDumpDue()
     {
-        static const double after = diag::Real("MW2_DUMP_FRAMES_AFTER_SECONDS");
+        static const double after = diag::Real("PES17_DUMP_FRAMES_AFTER_SECONDS");
         if (after <= 0.0) return true;
         static const std::chrono::steady_clock::time_point start =
             std::chrono::steady_clock::now();
@@ -92,7 +92,7 @@ namespace vk::renderer::detail
 
     uint64_t FrameDumpEvery()
     {
-        static const uint64_t n = std::max<uint64_t>(diag::Number("MW2_DUMP_FRAME_EVERY", 600), 1);
+        static const uint64_t n = std::max<uint64_t>(diag::Number("PES17_DUMP_FRAME_EVERY", 600), 1);
         return n;
     }
 
@@ -124,7 +124,7 @@ namespace vk::renderer::detail
         }
     }
 
-    // RGBA pixels as a PNM in MW2_DUMP_FRAMES, saying how much of it is not black.
+    // RGBA pixels as a PNM in PES17_DUMP_FRAMES, saying how much of it is not black.
     void WriteDump(const char* name, const uint8_t* rgba, uint32_t width, uint32_t height)
     {
         char path[512];
@@ -301,13 +301,13 @@ namespace vk::renderer::detail
     }
 
     // The flash recorder, for flashes a person sees: the last
-    // MW2_FLASH_FRAMES presented frames are kept, and F7 writes them all to
-    // MW2_FLASH_DIR/mark_NN, named by both frame counters so each can be put
+    // PES17_FLASH_FRAMES presented frames are kept, and F7 writes them all to
+    // PES17_FLASH_DIR/mark_NN, named by both frame counters so each can be put
     // beside the texture lines of the same frame. The key comes a few hundred
     // milliseconds after the flash, which is why it is the frames *before* it.
     //
     // Keeping them reads every frame back and waits for it, which changes the
-    // timing a race depends on; MW2_FLASH_FRAMES=0 keeps only the marks.
+    // timing a race depends on; PES17_FLASH_FRAMES=0 keeps only the marks.
     struct FlashRecorder
     {
         struct Kept
@@ -326,13 +326,13 @@ namespace vk::renderer::detail
 
     uint32_t FlashFramesKept()
     {
-        static const uint32_t keep = uint32_t(diag::Number("MW2_FLASH_FRAMES"));
+        static const uint32_t keep = uint32_t(diag::Number("PES17_FLASH_FRAMES"));
         return keep;
     }
 
     const char* FlashDirectory()
     {
-        static const char* dir = diag::Text("MW2_FLASH_DIR") ?: "diagnosis/flashes";
+        static const char* dir = diag::Text("PES17_FLASH_DIR") ?: "diagnosis/flashes";
         return dir;
     }
 
@@ -354,7 +354,7 @@ namespace vk::renderer::detail
         kept.pixels = std::move(rgba);
         kept.frame = frame;
         kept.textureFrame = vk::textures::FrameNumber();
-        std::snprintf(kept.stamp, sizeof kept.stamp, "%s", mw2log::Stamp());
+        std::snprintf(kept.stamp, sizeof kept.stamp, "%s", pes17log::Stamp());
     }
 
 
@@ -380,7 +380,7 @@ namespace vk::renderer::detail
     bool RecordingDraws()
     {
         static const bool on = FlashFramesKept() > 0 &&
-                               (diag::Flag("MW2_FLASH_HUNT") || diag::Flag("MW2_FLASH_DRAWS"));
+                               (diag::Flag("PES17_FLASH_HUNT") || diag::Flag("PES17_FLASH_DRAWS"));
         return on;
     }
 
@@ -536,7 +536,7 @@ namespace vk::renderer::detail
         }
     }
 
-    // MW2_DUMP_TARGETS: every colour target, depth target and resolve destination
+    // PES17_DUMP_TARGETS: every colour target, depth target and resolve destination
     // beside the frame. A piece of world that does not appear was either never
     // submitted or rejected, and only the targets tell the two apart.
     void DumpTargets()
@@ -637,8 +637,8 @@ namespace vk::renderer::detail
             frame.assign(g.readBackMapped,
                          g.readBackMapped + size_t(g.presentWidth) * g.presentHeight * 4);
 
-        static const bool onlyWorld = diag::Flag("MW2_DUMP_WORLD_FRAMES");
-        static const bool targetsToo = diag::Flag("MW2_DUMP_TARGETS");
+        static const bool onlyWorld = diag::Flag("PES17_DUMP_WORLD_FRAMES");
+        static const bool targetsToo = diag::Flag("PES17_DUMP_TARGETS");
         if (plan.dump && !frame.empty() && (!onlyWorld || worldDrawn))
         {
             char name[64];
@@ -648,16 +648,16 @@ namespace vk::renderer::detail
         }
         if (plan.keep && !frame.empty())
             KeepFlashFrame(std::move(frame), g.presentWidth, g.presentHeight, g.frames);
-        // MW2_FLASH_MARK_AT=<seconds>: a mark nobody pressed, to test the
+        // PES17_FLASH_MARK_AT=<seconds>: a mark nobody pressed, to test the
         // recorder in a run with no one watching.
-        static const double markAt = diag::Real("MW2_FLASH_MARK_AT", 0.0);
+        static const double markAt = diag::Real("PES17_FLASH_MARK_AT", 0.0);
         static const auto started = std::chrono::steady_clock::now();
         static bool marked = false;
         if (markAt > 0 && !marked &&
             std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count() >= markAt)
         {
             marked = true;
-            vk::renderer::FlashSeen("MW2_FLASH_MARK_AT");
+            vk::renderer::FlashSeen("PES17_FLASH_MARK_AT");
         }
         WriteFlashes();
     }
@@ -788,7 +788,7 @@ namespace vk::renderer::detail
             // The whole image as a picture, for the big ones (files/frame_images/).
             if (uint64_t(w) * h >= 32768)
             {
-#ifdef MW2_ANDROID
+#ifdef PES17_ANDROID
                 const std::string dir = android::GetPaths().external + "/frame_images";
                 mkdir(dir.c_str(), 0775);
                 std::string file = what;
@@ -1037,7 +1037,7 @@ void vk::renderer::Report()
                  (unsigned long long)(g.arenaReused[kind] / g.frames >> 10));
     }
     if (g.vertsMatched)
-        LOGI("renderer: %llu draws ran the shader MW2_TRACE_SHADER_VERTS named,"
+        LOGI("renderer: %llu draws ran the shader PES17_TRACE_SHADER_VERTS named,"
              " %llu of them where the dump was asked for",
              (unsigned long long)g.vertsMatched, (unsigned long long)g.vertsTraced);
     if (g.arenaOverflows)
@@ -1050,4 +1050,4 @@ void vk::renderer::Report()
         LOGI("renderer:   %8llu draws skipped: %s", (unsigned long long)count, why);
 }
 
-#endif  // MW2_HAVE_VULKAN
+#endif  // PES17_HAVE_VULKAN

@@ -1,17 +1,17 @@
-package com.mw2.recomp
+package com.pes2017.recomp
 
 import android.content.Context
 import android.content.SharedPreferences
 
 /**
  * Everything the player can change, in one place, with the defaults a weak
- * phone wants. Most of these end up as one of the runtime's MW2_* switches
+ * phone wants. Most of these end up as one of the runtime's PES17_* switches
  * (docs/switches.md) the moment a run starts.
  */
 class Prefs(context: Context) {
 
     private val store: SharedPreferences =
-        context.applicationContext.getSharedPreferences("mw2", Context.MODE_PRIVATE)
+        context.applicationContext.getSharedPreferences("pes17", Context.MODE_PRIVATE)
 
     // ---- graphics ---------------------------------------------------------
 
@@ -33,7 +33,7 @@ class Prefs(context: Context) {
         set(value) = store.edit().putFloat(KEY_RESOLUTION, value.coerceIn(0.35f, 1.0f)).apply()
 
     /**
-     * Internal Vulkan render scale multiplier (MW2_SCALE):
+     * Internal Vulkan render scale multiplier (PES17_SCALE):
      * 1 = 1x native base dimensions, 2 = 2x multiplier, 3 = 3x multiplier.
      */
     var renderScale: Int
@@ -41,9 +41,42 @@ class Prefs(context: Context) {
         set(value) = store.edit().putInt(KEY_RENDER_SCALE, value.coerceIn(1, 3)).apply()
 
     /**
+     * How large the 3D scene is drawn, in percent of 1280x720 (PES17_SCENE_SCALE,
+     * 50 to 100). 75 matches the runtime's own default for a phone.
+     */
+    var sceneScalePercent: Int
+        get() = store.getInt(KEY_SCENE_SCALE, 75).coerceIn(50, 100)
+        set(value) = store.edit().putInt(KEY_SCENE_SCALE, value.coerceIn(50, 100)).apply()
+
+    /** FSR upscale and sharpen instead of a plain stretch (PES17_UPSCALER=fsr). */
+    var fsr: Boolean
+        get() = store.getBoolean(KEY_FSR, false)
+        set(value) = store.edit().putBoolean(KEY_FSR, value).apply()
+
+    /** RCAS sharpness in stops (PES17_FSR_SHARPNESS): 0 is sharpest, 2 is softest. */
+    var fsrSharpness: Float
+        get() = store.getFloat(KEY_FSR_SHARP, 0.2f).coerceIn(0f, 2f)
+        set(value) = store.edit().putFloat(KEY_FSR_SHARP, value.coerceIn(0f, 2f)).apply()
+
+    /** Limit the match to 30 frames a second (PES17_FPS_LIMIT=30), for heat and battery. */
+    var cap30: Boolean
+        get() = store.getBoolean(KEY_CAP30, false)
+        set(value) = store.edit().putBoolean(KEY_CAP30, value).apply()
+
+    /** Skip the large vertex shadow buffer (PES17_NO_SHADOW), for phones with little memory. */
+    var lowMemory: Boolean
+        get() = store.getBoolean(KEY_LOW_MEMORY, false)
+        set(value) = store.edit().putBoolean(KEY_LOW_MEMORY, value).apply()
+
+    /** A game folder the player chose that still waits for the storage permission. */
+    var pendingFolder: String
+        get() = store.getString(KEY_PENDING_FOLDER, "") ?: ""
+        set(value) = store.edit().putString(KEY_PENDING_FOLDER, value).apply()
+
+    /**
      * Multisampling: the title's own 2x/4x world pass. On by default for PES: without it the thin pitch
      * lines break into dashes at the 0.75 scene scale, and on the S20 FE's Adreno 650 it measured no cost
-     * (50 fps with it, about 44 without, Battery Saver on). (The MW2 port found it expensive.)
+     * (50 fps with it, about 44 without, Battery Saver on).
      */
     var multisampling: Boolean
         get() = store.getBoolean(KEY_MSAA, true)
@@ -75,15 +108,6 @@ class Prefs(context: Context) {
     var prefer60Hz: Boolean
         get() = store.getBoolean(KEY_60HZ, true)
         set(value) = store.edit().putBoolean(KEY_60HZ, value).apply()
-
-    /**
-     * Field of View (cg_fov). Modern phones are 20:9 ultrawide,
-     * so 85 FOV gives a natural, wide cinematic view without gun distortion,
-     * compared to the 65 FOV console original.
-     */
-    var fov: Int
-        get() = store.getInt(KEY_FOV, 85).coerceIn(60, 110)
-        set(value) = store.edit().putInt(KEY_FOV, value.coerceIn(60, 110)).apply()
 
     // ---- sound ------------------------------------------------------------
 
@@ -177,52 +201,27 @@ class Prefs(context: Context) {
         set(value) = store.edit().putBoolean(KEY_AUTO_LAUNCH, value).apply()
 
     /**
-     * The split-screen heat warning, shown once when starting the game with a
-     * physical controller attached (player 2). Extra viewports cost frames
-     * and the phone gets hot; nobody needs telling twice.
-     */
-    var seenPadWarning: Boolean
-        get() = store.getBoolean(KEY_PAD_WARNING, false)
-        set(value) = store.edit().putBoolean(KEY_PAD_WARNING, value).apply()
-
-    /**
      * Compile every recorded pipeline synchronously at boot instead of the
-     * small instant-boot budget (MW2_SHADER_PREWARM_ALL). Boot takes minutes
+     * small instant-boot budget (PES17_SHADER_PREWARM_ALL). Boot takes minutes
      * on a cold cache but there is no warmup debt left afterwards.
      */
     var prewarmAllShaders: Boolean
         get() = store.getBoolean(KEY_PREWARM_ALL, false)
         set(value) = store.edit().putBoolean(KEY_PREWARM_ALL, value).apply()
 
-    /**
-     * The name other network players see (MW2_NAME). Empty means the
-     * profile's name, which on a fresh phone is "Player 1".
-     */
-    var playerName: String
-        get() = store.getString(KEY_PLAYER_NAME, "") ?: ""
-        set(value) = store.edit().putString(KEY_PLAYER_NAME, value.take(15)).apply()
-
-    /** Accept LAN lobby invitations automatically (MW2_LAN_ACCEPT). */
-    var lanAccept: Boolean
-        get() = store.getBoolean(KEY_LAN_ACCEPT, false)
-        set(value) = store.edit().putBoolean(KEY_LAN_ACCEPT, value).apply()
-
-    /**
-     * Announced network adapter (MW2_LAN_IFACE): name or address piece.
-     * Empty means the first connection up. For VPN + WiFi at once.
-     */
-    var lanIface: String
-        get() = store.getString(KEY_LAN_IFACE, "") ?: ""
-        set(value) = store.edit().putString(KEY_LAN_IFACE, value).apply()
-
     companion object {
         private const val KEY_RESOLUTION = "resolutionScale"
+        private const val KEY_SCENE_SCALE = "sceneScale"
+        private const val KEY_FSR = "fsr"
+        private const val KEY_FSR_SHARP = "fsrSharpness"
+        private const val KEY_CAP30 = "cap30"
+        private const val KEY_LOW_MEMORY = "lowMemory"
+        private const val KEY_PENDING_FOLDER = "pendingFolder"
         private const val KEY_RENDER_SCALE = "renderScale"
         private const val KEY_MSAA = "multisampling"
         private const val KEY_TEXTURE_MB = "textureBudgetMB"
         private const val KEY_SHOW_STATS = "showStats"
         private const val KEY_60HZ = "prefer60Hz"
-        private const val KEY_FOV = "fov"
         private const val KEY_AUDIO = "audio"
         private const val KEY_TOUCH = "touchControls"
         private const val KEY_GAMEPAD = "gamepad"
@@ -240,10 +239,6 @@ class Prefs(context: Context) {
         private const val KEY_WELCOME = "seenWelcome"
         private const val KEY_AUTO_LAUNCH = "autoLaunch"
         private const val KEY_UPDATE_TAG = "seenUpdateTag"
-        private const val KEY_PAD_WARNING = "seenPadWarning"
         private const val KEY_PREWARM_ALL = "prewarmAllShaders"
-        private const val KEY_PLAYER_NAME = "playerName"
-        private const val KEY_LAN_ACCEPT = "lanAccept"
-        private const val KEY_LAN_IFACE = "lanIface"
     }
 }

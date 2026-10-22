@@ -8,7 +8,7 @@ PATTERN=${1:?usage: tools/catch.sh PATTERN [out] [timeout]}; OUT=${2:-logs-stack
 LOG=/sdcard/Android/data/com.pes2017.recomp/files/game.log
 PKG=com.pes2017.recomp
 adb shell am force-stop $PKG
-adb shell am start -n $PKG/com.mw2.recomp.MainActivity >/dev/null
+adb shell am start -n $PKG/com.pes2017.recomp.MainActivity >/dev/null
 sleep 2
 START=$SECONDS
 # Count only lines after this run's marker: grep the tail of the file each poll.

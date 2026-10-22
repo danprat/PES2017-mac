@@ -229,14 +229,14 @@ namespace
 
     void Execute(Source& s, int depth);
 
-    // MW2_WATCH=<hex>[:bytes]: the command processor's own writes into the
+    // PES17_WATCH=<hex>[:bytes]: the command processor's own writes into the
     // watched range are reported here; the CPU's go through watchpoint.cpp.
     struct Watch { uint32_t lo = 0, hi = 0; };
     const Watch& Watched()
     {
         static const Watch w = [] {
             Watch v;
-            const char* e = diag::Text("MW2_WATCH");
+            const char* e = diag::Text("PES17_WATCH");
             if (!e) return v;
             char* end = nullptr;
             v.lo = uint32_t(std::strtoul(e, &end, 16));
@@ -378,11 +378,11 @@ namespace
         if (vk::renderer::EndOcclusionQuery(address, samples)) WriteEndRecord(address, samples);
     }
 
-    // MW2_DUMP_SHADERS=<dir>: every distinct shader's microcode, big-endian as
+    // PES17_DUMP_SHADERS=<dir>: every distinct shader's microcode, big-endian as
     // the title holds it, for tools/xenos_shader.py and translate-shader.
     const char* ShaderDumpDirectory()
     {
-        static const char* dir = diag::Text("MW2_DUMP_SHADERS");
+        static const char* dir = diag::Text("PES17_DUMP_SHADERS");
         return dir;
     }
 
@@ -412,13 +412,13 @@ namespace
         g.shader[type] = std::move(code);
     }
 
-    // MW2_TRACE_DRAWS=<n> describes n draw packets in full, after
-    // MW2_TRACE_DRAWS_AFTER=<presents>: the opening burst is not representative.
+    // PES17_TRACE_DRAWS=<n> describes n draw packets in full, after
+    // PES17_TRACE_DRAWS_AFTER=<presents>: the opening burst is not representative.
     void TraceDraw(const gpu::DrawInitiator& draw, bool indexed, uint32_t dmaBase,
                    uint32_t dmaSize)
     {
-        static const uint64_t limit = diag::Number("MW2_TRACE_DRAWS");
-        static const uint64_t after = diag::Number("MW2_TRACE_DRAWS_AFTER");
+        static const uint64_t limit = diag::Number("PES17_TRACE_DRAWS");
+        static const uint64_t after = diag::Number("PES17_TRACE_DRAWS_AFTER");
         static uint64_t traced = 0;
         if (traced >= limit || gpu::FrameCount() < after) return;
         traced++;
@@ -599,7 +599,7 @@ namespace
         bool matched = false;
         // On Android, never stall the GPU command processor for 2 seconds (which causes 0 FPS / deadlock)
         constexpr auto kTimeout =
-#ifdef MW2_ANDROID
+#ifdef PES17_ANDROID
             std::chrono::milliseconds(50);
 #else
             std::chrono::milliseconds(100);
@@ -807,7 +807,7 @@ namespace
             if (!va || !sizeDwords || sizeDwords > (64u << 10)) break;
             std::vector<uint32_t> code(sizeDwords);
             for (uint32_t i = 0; i < sizeDwords; i++) code[i] = *GuestPtr<be32>(va + i * 4);
-            static const bool traced = diag::Flag("MW2_TRACE_SHADER_LOADS");
+            static const bool traced = diag::Flag("PES17_TRACE_SHADER_LOADS");
             static std::unordered_set<uint32_t> told;
             if (traced && told.size() < 2000 && told.insert(va).second)
             {
@@ -1189,7 +1189,7 @@ uint32_t gpu::detail::RegisterOrAperture(uint32_t index)
 
 bool gpu::detail::Rendering()
 {
-    static const bool on = !diag::Text("MW2_RENDER") || diag::Flag("MW2_RENDER");
+    static const bool on = !diag::Text("PES17_RENDER") || diag::Flag("PES17_RENDER");
     return on;
 }
 

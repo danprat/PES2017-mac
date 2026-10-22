@@ -9,8 +9,8 @@ user32 = ctypes.windll.user32
 EnumWindowsProc = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
 
 RAD_EXE = os.path.abspath(r"tools\rad\bin\radvideo64.exe")
-GAME_DIR = os.path.abspath(r"mw2\game")
-BACKUP_DIR = os.path.abspath(r"mw2\game_cutscenes_backup")
+GAME_DIR = os.path.abspath(r"pes17\game")
+BACKUP_DIR = os.path.abspath(r"pes17\game_cutscenes_backup")
 TEMP_OUT = os.path.abspath(r"tools\rad\temp_out.bik")
 
 TARGET_WIDTH = 854

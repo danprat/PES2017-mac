@@ -15,12 +15,12 @@
 #include <mutex>
 #include <thread>
 #include <unordered_set>
-#ifdef MW2_ANDROID
+#ifdef PES17_ANDROID
 #include <sys/resource.h>
 #include "../../android/android.h"
 #endif
 
-#ifdef MW2_HAVE_VULKAN
+#ifdef PES17_HAVE_VULKAN
 
 namespace vk::renderer::detail
 {
@@ -195,7 +195,7 @@ namespace vk::renderer::detail
         // A whole class of geometry missing and nothing else wrong is what a
         // winding read backwards looks like, so it is worth being able to take
         // the culling away in one run.
-        static const bool noCull = diag::Flag("MW2_NO_CULL");
+        static const bool noCull = diag::Flag("PES17_NO_CULL");
         cull = noCull ? 0u
                       : ((mode.CullFront() ? VK_CULL_MODE_FRONT_BIT : 0u) |
                          (mode.CullBack() ? VK_CULL_MODE_BACK_BIT : 0u));
@@ -624,7 +624,7 @@ namespace vk::renderer::detail
                 }
                 else
                 {
-#ifdef MW2_ANDROID
+#ifdef PES17_ANDROID
                     // On mobile SoCs, allow 120 ms thermal dissipation between cold compilations
                     // to prevent aggressive OS thermal throttling (e.g. MediaTek/Realme horae at 44C+).
                     sleepMs = 15;
@@ -731,14 +731,14 @@ namespace vk::renderer::detail
         return s;
     }
 
-    // MW2_SHADER_CACHE=<file> records every pipeline a run needed and rebuilds
+    // PES17_SHADER_CACHE=<file> records every pipeline a run needed and rebuilds
     // them at start-up on the next -- the "compiling shaders" pass the console
     // never needed. It cannot be built from the shaders alone: a pipeline is a
     // shader pair *and* the state it is drawn with, and a previous run is the only
     // place that state exists.
     const char* ShaderCachePath()
     {
-        static const char* path = env::Text("MW2_SHADER_CACHE");
+        static const char* path = env::Text("PES17_SHADER_CACHE");
         return path;
     }
 
@@ -881,12 +881,12 @@ namespace vk::renderer::detail
         g.prewarmWanted = uint32_t(wanted.size());
         const bool hasFastLibraries = vk::pipeline::PipelineLibraries();
         // The whole recorded set, synchronously, when the player asked for it
-        // in Settings (MW2_SHADER_PREWARM_ALL): slow boot, no warmup debt
+        // in Settings (PES17_SHADER_PREWARM_ALL): slow boot, no warmup debt
         // afterwards. Otherwise the instant-boot budget, sized for this
         // device (android::perf::PrewarmBudget).
-        const bool prewarmAll = env::Flag("MW2_SHADER_PREWARM_ALL");
+        const bool prewarmAll = env::Flag("PES17_SHADER_PREWARM_ALL");
         uint32_t maxSync = 15, deadlineMs = 250;
-#ifdef MW2_ANDROID
+#ifdef PES17_ANDROID
         if (!prewarmAll) android::perf::PrewarmBudget(maxSync, deadlineMs);
 #endif
         const auto syncDeadline = start + std::chrono::milliseconds(deadlineMs);
@@ -955,4 +955,4 @@ namespace vk::renderer::detail
     }
 }
 
-#endif  // MW2_HAVE_VULKAN
+#endif  // PES17_HAVE_VULKAN

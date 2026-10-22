@@ -1,4 +1,4 @@
-package com.mw2.recomp
+package com.pes2017.recomp
 
 import android.view.InputDevice
 import android.view.KeyEvent

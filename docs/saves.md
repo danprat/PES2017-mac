@@ -79,7 +79,7 @@ chosen, which is what puts the prompt in front of the player. The console
 remembers the choice in the profile, so it is made once ever. Here the table
 starts empty at every launch, so the runtime hooks `Memcard_InitializeSystem`
 and, when it returns, fills every empty entry with device 1.
-`MW2_NO_AUTO_SAVE_DEVICE=1` leaves the table alone, and the prompt then works
+`PES17_NO_AUTO_SAVE_DEVICE=1` leaves the table alone, and the prompt then works
 as on the console. The table's address is known for the campaign only; in the
 multiplayer build the seed does nothing.
 
@@ -163,11 +163,11 @@ image, so `ctest` runs it on a tree with no disc, no game files and no GPU.
 ## Driving the first boot headlessly
 
 The calibration screens accept nothing until their slider has moved, so a
-scripted run has to push a stick. `MW2_INPUT_SCRIPT` (diagnostic builds) takes
+scripted run has to push a stick. `PES17_INPUT_SCRIPT` (diagnostic builds) takes
 stick directions with a hold time; the whole first boot (brightness,
 horizontal margin, vertical margin, then the content notice) is:
 
-    MW2_INPUT_SCRIPT="15:start,20:lx-:1,24:a,28:lx-:1,32:a,36:lx-:1,40:a,46:a"
+    PES17_INPUT_SCRIPT="15:start,20:lx-:1,24:a,28:lx-:1,32:a,36:lx-:1,40:a,46:a"
 
 ## What the launcher changes
 
@@ -200,7 +200,7 @@ all three from a running multiplayer's memory and writes
 The title's own console commands are the check on a change: `dumpPlayerData`
 prints the whole buffer by name as the title reads it, `setPlayerData` and
 `getPlayerData` take a path into it, `uploadStats` writes the file
-(`MW2_CONSOLE`, `MW2_ENGINE_LOG=1`).
+(`PES17_CONSOLE`, `PES17_ENGINE_LOG=1`).
 
 **The campaign's progress** is in the profile, in two of the title's
 settings. Each is `SEMV`, two words, then numbered fields: a number, a type

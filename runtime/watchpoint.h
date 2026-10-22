@@ -6,15 +6,15 @@
 // A write watchpoint on guest memory, for "what writes this word?" when nothing
 // in the recompiled code forms its address in a way a static scan can find.
 //
-// MW2_WATCH=<hex guest address>[:<bytes>] arms it: the page is made read-only,
+// PES17_WATCH=<hex guest address>[:<bytes>] arms it: the page is made read-only,
 // writes inside the range are reported with the host call stack, the first
-// MW2_WATCH_REPORTS of them (20 by default), and the rest are stepped over.
+// PES17_WATCH_REPORTS of them (20 by default), and the rest are stepped over.
 // Diagnostics only.
 namespace watchpoint
 {
 // x86-64 only: the implementation single-steps with the trap flag, which
 // is not a thing an arm64 build has.
-#if MW2_DIAGNOSTICS && !defined(_WIN32) && defined(__x86_64__)
+#if PES17_DIAGNOSTICS && !defined(_WIN32) && defined(__x86_64__)
     void Install();
 
     // Around a write this runtime makes itself. Without it the first memmove

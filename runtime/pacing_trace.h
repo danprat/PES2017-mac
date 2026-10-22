@@ -1,5 +1,5 @@
 #pragma once
-// MW2_TRACE_PACING=<file>: a timeline of what paces a frame -- the ring
+// PES17_TRACE_PACING=<file>: a timeline of what paces a frame -- the ring
 // consumer's batches and swaps, the title's threads waiting and presenting --
 // written to <file> at exit, one "microseconds event value thread" a line.
 // Off, a Note is a call and a load of a flag; without diagnostics, nothing.
@@ -26,7 +26,7 @@ namespace pacing
     };
     // Microseconds since the start, on the clock the trace is written in.
     int64_t Microseconds();
-#if MW2_DIAGNOSTICS
+#if PES17_DIAGNOSTICS
     bool On();
     void Note(Event event, uint32_t value = 0);
     // kCaller notes for the guest frames above the one with stack pointer

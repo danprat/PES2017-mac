@@ -18,50 +18,50 @@
 #ifdef _WIN32
 #include <windows.h>
 #endif
-#ifdef MW2_USE_SDL
+#ifdef PES17_USE_SDL
 #include <SDL3/SDL.h>
 #endif
-#ifdef MW2_ANDROID
+#ifdef PES17_ANDROID
 #include "../android/android.h"
 #include "../../launcher/disc.h"
 #include "../../launcher/package.h"
-#ifdef MW2_HAVE_XEX_PATCHER
+#ifdef PES17_HAVE_XEX_PATCHER
 #include <xex_patcher.h>
 #endif
-// A TU6 build configured without the update's hashes (no mw2/update/ and no
-// -DMW2_UPDATE_SHA256_*): ApplyTu6 refuses at run time rather than trusting
+// A TU6 build configured without the update's hashes (no pes17/update/ and no
+// -DPES17_UPDATE_SHA256_*): ApplyTu6 refuses at run time rather than trusting
 // any bytes, and this keeps it compiling.
-#ifndef MW2_UPDATE_SHA256_PATCH_MP
-#define MW2_UPDATE_SHA256_PATCH_MP ""
+#ifndef PES17_UPDATE_SHA256_PATCH_MP
+#define PES17_UPDATE_SHA256_PATCH_MP ""
 #endif
-#ifndef MW2_UPDATE_SHA256_DLC1_UI_MP
-#define MW2_UPDATE_SHA256_DLC1_UI_MP ""
+#ifndef PES17_UPDATE_SHA256_DLC1_UI_MP
+#define PES17_UPDATE_SHA256_DLC1_UI_MP ""
 #endif
-#ifndef MW2_UPDATE_SHA256_DLC2_UI_MP
-#define MW2_UPDATE_SHA256_DLC2_UI_MP ""
+#ifndef PES17_UPDATE_SHA256_DLC2_UI_MP
+#define PES17_UPDATE_SHA256_DLC2_UI_MP ""
 #endif
 #endif
 
 namespace fs = std::filesystem;
 
 // The executable this build was recompiled from, by its SHA-256, which CMake
-// reads from mw2/ at configure time. Any other -- another region, another
+// reads from pes17/ at configure time. Any other -- another region, another
 // version -- has other code at other addresses, so it is not run.
 namespace
 {
-#ifdef MW2_TITLE_MP
+#ifdef PES17_TITLE_MP
     constexpr const char* kXex = "default_mp.xex";
-    constexpr const char* kSha256 = MW2_XEX_SHA256_MP;
+    constexpr const char* kSha256 = PES17_XEX_SHA256_MP;
 #else
     constexpr const char* kXex = "default.xex";
-    constexpr const char* kSha256 = MW2_XEX_SHA256_SP;
+    constexpr const char* kSha256 = PES17_XEX_SHA256_SP;
 #endif
     constexpr const char* kGameFolder = "game";
     std::filesystem::path g_gameFolder = "game";
 #ifdef _WIN32
-    constexpr const char* kLauncher = "mw2-launcher.exe";
+    constexpr const char* kLauncher = "pes17-launcher.exe";
 #else
-    constexpr const char* kLauncher = "mw2-launcher";
+    constexpr const char* kLauncher = "pes17-launcher";
 #endif
 
     // Paths as UTF-8, which SDL and the log take, whatever the system's code page.
@@ -87,10 +87,10 @@ namespace
     {
         LOGE("%s", text.c_str());
         std::fprintf(stderr, "%s\n", text.c_str());
-#ifdef MW2_USE_SDL
+#ifdef PES17_USE_SDL
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Modern Warfare 2", text.c_str(), nullptr);
 #endif
-#ifdef MW2_ANDROID
+#ifdef PES17_ANDROID
         android::SetStatus(text.c_str());
 #endif
     }
@@ -98,7 +98,7 @@ namespace
     // The launcher beside this executable, left running on its own.
     bool StartLauncher()
     {
-#ifdef MW2_USE_SDL
+#ifdef PES17_USE_SDL
         std::error_code ec;
         const fs::path launcher = fs::absolute(kLauncher, ec);
         if (!fs::is_regular_file(launcher, ec)) return false;
@@ -117,16 +117,16 @@ namespace
     const char* ProgramFor(const std::string& xex)
     {
 #ifdef _WIN32
-        if (xex == "default.xex") return "mw2-sp.exe";
-        if (xex == "default_mp.xex") return "mw2-mp.exe";
+        if (xex == "default.xex") return "pes17-sp.exe";
+        if (xex == "default_mp.xex") return "pes17-mp.exe";
 #else
-        if (xex == "default.xex") return "mw2-sp";
-        if (xex == "default_mp.xex") return "mw2-mp";
+        if (xex == "default.xex") return "pes17-sp";
+        if (xex == "default_mp.xex") return "pes17-mp";
 #endif
         return nullptr;
     }
 
-    constexpr const char* kLaunchDataVariable = "MW2_LAUNCH_DATA";
+    constexpr const char* kLaunchDataVariable = "PES17_LAUNCH_DATA";
     bool g_playerStart = false;
     std::string g_nextTitle;
 
@@ -154,12 +154,12 @@ namespace
         return Installed::Yes;
     }
 
-#ifdef MW2_ANDROID
+#ifdef PES17_ANDROID
     constexpr uint32_t kTitleId = 0x4A3007D1;   // PES 2017, from the XEX execution info
 
     struct Title { const char* xex; const char* sha256; const char* disc; };
     constexpr Title kTitles[] = {
-        { "default.xex", MW2_XEX_SHA256_SP, MW2_DISC_SHA256_SP },
+        { "default.xex", PES17_XEX_SHA256_SP, PES17_DISC_SHA256_SP },
     };
 
     std::string Sha256(const std::vector<uint8_t>& bytes)
@@ -232,7 +232,7 @@ namespace
             // A TU6 build installs from the disc's executables (the update is
             // applied afterwards by ApplyTu6); a TU0 build installs what it
             // was recompiled from.
-#ifdef MW2_VERSION_TU0
+#ifdef PES17_VERSION_TU0
             if (Sha256(bytes) != title.sha256) { error = WrongDisc(title.xex, bytes); return false; }
 #else
             if (Sha256(bytes) != title.disc) { error = WrongDisc(title.xex, bytes); return false; }
@@ -354,7 +354,7 @@ namespace
 #endif
 }
 
-#ifdef MW2_ANDROID
+#ifdef PES17_ANDROID
 namespace install
 {
     namespace
@@ -387,20 +387,20 @@ namespace install
     // that finished looks like.
     bool ApplyTu6(const fs::path& package, std::string& error)
     {
-#ifdef MW2_VERSION_TU0
+#ifdef PES17_VERSION_TU0
         (void)package;
         error = "This build is the disc version; it needs no update.";
         return false;
 #else
-#ifndef MW2_HAVE_XEX_PATCHER
+#ifndef PES17_HAVE_XEX_PATCHER
         (void)package;
         error = "This APK was built without the title-update patcher; install a CI-built TU6 APK.";
         return false;
 #else
         static const char* kUpdateHashes[][2] = {
-            { "patch_mp.ff", MW2_UPDATE_SHA256_PATCH_MP },
-            { "dlc1_ui_mp.ff", MW2_UPDATE_SHA256_DLC1_UI_MP },
-            { "dlc2_ui_mp.ff", MW2_UPDATE_SHA256_DLC2_UI_MP },
+            { "patch_mp.ff", PES17_UPDATE_SHA256_PATCH_MP },
+            { "dlc1_ui_mp.ff", PES17_UPDATE_SHA256_DLC1_UI_MP },
+            { "dlc2_ui_mp.ff", PES17_UPDATE_SHA256_DLC2_UI_MP },
         };
         for (const auto& [name, hash] : kUpdateHashes)
             if (!*hash)
@@ -427,8 +427,8 @@ namespace install
             }
         }
         const char* kPatches[][3] = {
-            { "default.xex", "default.xexp", MW2_XEX_SHA256_SP },
-            { "default_mp.xex", "default_mp.xexp", MW2_XEX_SHA256_MP },
+            { "default.xex", "default.xexp", PES17_XEX_SHA256_SP },
+            { "default_mp.xex", "default_mp.xexp", PES17_XEX_SHA256_MP },
         };
         const fs::path folder = install::GameFolder();
         std::vector<uint8_t> patched[2];
@@ -540,7 +540,7 @@ bool install::Installed()
 
 void install::CancelInstall()
 {
-#ifdef MW2_ANDROID
+#ifdef PES17_ANDROID
     std::lock_guard lock(g_installLock);
     if (g_installing) g_installing->cancel = true;
 #endif
@@ -548,7 +548,7 @@ void install::CancelInstall()
 
 bool install::InstallFrom(const fs::path& from, std::string& error, Report report, void* user)
 {
-#ifdef MW2_ANDROID
+#ifdef PES17_ANDROID
     Progress progress;
     {
         std::lock_guard lock(g_installLock);
@@ -619,7 +619,7 @@ void install::StartNextTitle()
         LOGW("the title asked for %s: start that build yourself, a development run does not", g_nextTitle.c_str());
         return;
     }
-#ifdef MW2_USE_SDL
+#ifdef PES17_USE_SDL
     std::error_code ec;
     const fs::path file = fs::absolute(program, ec);
     if (!fs::is_regular_file(file, ec)) { ShowError(std::string(program) + " is not beside this program."); return; }
@@ -634,7 +634,7 @@ void install::StartNextTitle()
     if (hex.empty()) SDL_UnsetEnvironmentVariable(environment, kLaunchDataVariable);
     else SDL_SetEnvironmentVariable(environment, kLaunchDataVariable, hex.c_str(), true);
     // It writes on in this run's log, where there is one (main.cpp).
-    SDL_SetEnvironmentVariable(environment, "MW2_LOG_APPEND", "1", true);
+    SDL_SetEnvironmentVariable(environment, "PES17_LOG_APPEND", "1", true);
     const std::string path = Utf8(file);
     const char* const args[] = { path.c_str(), nullptr };
     SDL_Process* process = spawn::Start(args, environment);

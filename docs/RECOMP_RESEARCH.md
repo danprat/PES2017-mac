@@ -2,14 +2,14 @@
 
 Researched 2026-10-20 for the PES 2017 port. Sources are the XenonRecomp README,
 ReXGlue's public docs, and three sibling projects in this workspace
-(`mw2-android`, `pinyon-shift`, `Skate3-Port`) read as local checkouts. Numbers
+(`pes17-android`, `pinyon-shift`, `Skate3-Port`) read as local checkouts. Numbers
 marked **measured here** were produced on PES's own `default.xex`.
 
 ## 1. What the other projects do
 
 | Project | Recompiler | What is worth taking |
 |---|---|---|
-| `mw2-android` | XenonRecomp + a small patch | The architecture we started from. Hand-written fixes for `bdzf` ladders and leaf functions with jump tables (`functions = [...]`). |
+| `pes17-android` | XenonRecomp + a small patch | The architecture we started from. Hand-written fixes for `bdzf` ladders and leaf functions with jump tables (`functions = [...]`). |
 | `pinyon-shift` (Forza Horizon) | ShiftGlue, a ReXGlue fork | The most thorough measurements: `docs/RECOMP_OPTIMIZATION_SURVEY.md`, `site/pages/recompiler.md`. Register locals, byte-swap/stack-access work, FP-mode toggle elision, lockstep verification, ARMv8.2 baseline, `-Bsymbolic-functions`. |
 | `Skate3-Port` | ReXGlue 0.8 (vendored) | Hand-maintained function bounds (1,776 + 1,741 lines of `end`/`parent` entries). 16 KB-alignment and zipalign checks after the link. ARMv8.2 requirement. Build runs on an Apple-silicon Mac, same as ours. |
 | UnleashedRecomp | XenonRecomp | All register-local options on. Reports about 20 MB smaller and "several ms" faster frames, no method given. |
@@ -59,7 +59,7 @@ Select with `PROFILE=safe|balanced|aggressive ./build.sh`.
   CRT. There is **no RTTI** in this executable (4 `.?AV` strings), so the
   ReXGlue approach of walking RTTI vtables would find nothing here.
 - Conclusion: indirect calls through vtables are covered; the remaining risk is
-  caught at run time by `MW2_TRACE_INDIRECT`, which reports any guest address
+  caught at run time by `PES17_TRACE_INDIRECT`, which reports any guest address
   the call table lacks.
 
 What *did* need fixing, and is now automated:

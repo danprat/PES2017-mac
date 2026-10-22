@@ -8,7 +8,7 @@
 // A function entry is the bare hex address, without 0x, so GUEST_HOOK can paste
 // it onto sub_ / __imp__sub_ / 0x.
 
-#define MW2_TITLE_NAME  "PES 2017"
+#define PES17_TITLE_NAME  "PES 2017"
 #define T_ENTRY_POINT   0x82416708u          // the XEX header's ENTRY_POINT
 
 // ---- still to be located (see docs/PORTING.md) -----------------------------
@@ -38,12 +38,12 @@
 #define T_D3D_BlockOnFence     823F70F8
 
 // Hooking a recompiled function by address: GUEST_HOOK(T_x) { ... GUEST_ORIG(T_x)(ctx, base); }
-#define MW2_CAT_(a, b) a##b
-#define MW2_CAT(a, b) MW2_CAT_(a, b)
-#define MW2_STR_(x) #x
-#define MW2_STR(x) MW2_STR_(x)
-#define GUEST_FUNC(name) MW2_CAT(sub_, name)          // the recompiled function
-#define GUEST_ORIG(name) MW2_CAT(__imp__sub_, name)   // the original, once the function is hooked
-#define GUEST_ADDR(name) MW2_CAT(0x, name)            // its guest address
-#define GUEST_NAME(name) "sub_" MW2_STR(name)         // its name, for a log line
+#define PES17_CAT_(a, b) a##b
+#define PES17_CAT(a, b) PES17_CAT_(a, b)
+#define PES17_STR_(x) #x
+#define PES17_STR(x) PES17_STR_(x)
+#define GUEST_FUNC(name) PES17_CAT(sub_, name)          // the recompiled function
+#define GUEST_ORIG(name) PES17_CAT(__imp__sub_, name)   // the original, once the function is hooked
+#define GUEST_ADDR(name) PES17_CAT(0x, name)            // its guest address
+#define GUEST_NAME(name) "sub_" PES17_STR(name)         // its name, for a log line
 #define GUEST_HOOK(name) PPC_FUNC_IMPL(GUEST_ORIG(name)); PPC_FUNC(GUEST_FUNC(name))

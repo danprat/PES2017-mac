@@ -22,11 +22,11 @@
 #include <algorithm>
 #include <cstdio>
 #include <unistd.h>
-#ifdef MW2_ANDROID
+#ifdef PES17_ANDROID
 #include "../../android/android.h"
 #endif
 
-#ifdef MW2_HAVE_VULKAN
+#ifdef PES17_HAVE_VULKAN
 
 namespace vk::renderer::detail
 {
@@ -420,30 +420,6 @@ void vk::renderer::Resolve(const gpu::RegisterFile& r)
     // What the destination's memory holds now, to tell later whether the title wrote there.
     into.memoryBytes = std::min(surfaceWidth * surfaceHeight * 4u, 8u << 20);
     into.memorySignature = SampleGuestMemory(destination, into.memoryBytes);
-    if (g_tracePasses)
-    {
-        static std::atomic<uint32_t> traced{ 0 };
-        if (traced++ < 6000)
-            LOGW("TRACE frame %llu resolve -> %08X %ux%u (surface %ux%u) from tile %u pitch %u fmt %u x%u scale %.2f",
-                 (unsigned long long)g.frames, destination, width, height, surfaceWidth, surfaceHeight, sourceKey.baseTile,
-                 sourceKey.pitch, uint32_t(colour.Format()), sourceKey.samples, source->scale);
-    }
-    if (width == 320 && height == 180)
-    {
-        // The Master League menus' tile pictures: which destination is resolved when, to see
-        // whether the title re-renders them after a screen that reuses their memory.
-        // Only the first of a run of frames: the stadium behind the menus is resolved
-        // three times a frame and would fill the log.
-        static std::unordered_map<uint32_t, uint64_t> lastFrame;
-        static uint32_t told = 0;
-        uint64_t& last = lastFrame[destination];
-        const bool run = last && last + 1 >= g.frames;
-        last = g.frames;
-        if (!run && told++ < 1500)
-            LOGI("resolve320: to %08X (%ux%u, surface %ux%u) from tile %u pitch %u, frame %llu",
-                 destination, width, height, surfaceWidth, surfaceHeight, sourceKey.baseTile,
-                 sourceKey.pitch, (unsigned long long)g.frames);
-    }
     {
         // Every destination's first resolve, for working out what the title
         // composes on the GPU and reads back as a texture (kits, previews).
@@ -536,6 +512,9 @@ void vk::renderer::Resolve(const gpu::RegisterFile& r)
                   VK_PIPELINE_STAGE_TRANSFER_BIT, kShaderStages);
     EndReadingColour(*source);
 
+    // (Up to 1024x1024: an unlicensed team's kit pattern is drawn on the GPU at that size and resolved,
+    // and the title's CPU converts it to the 5_6_5 texture the kit is composed from. Held to 512 it read
+    // zeros and every unlicensed kit came out black.)
     // Write-back. The console's resolve writes guest memory, and PES 2017 builds
     // its kits that way: each player's shirt, numbers and name are drawn and
     // resolved once during the load, and the textures the match then fetches are
@@ -545,7 +524,7 @@ void vk::renderer::Resolve(const gpu::RegisterFile& r)
     // the title reads them as soon as its fence passes, which the command
     // processor signals without waiting for this GPU.
     if (destInfo.Format() == 6 && into.format == VK_FORMAT_R8G8B8A8_UNORM &&
-        surfaceWidth <= 512 && surfaceHeight <= 512 && g.scale == 1 && into.scale == 1.0f)
+        surfaceWidth <= 1024 && surfaceHeight <= 1024 && g.scale == 1 && into.scale == 1.0f)
     {
         // The first 64 resolves of a destination. The kits reuse their scratch
         // destinations player after player -- a few dozen times in a load, in
@@ -566,12 +545,14 @@ void vk::renderer::Resolve(const gpu::RegisterFile& r)
         const bool everyFrame = !g_noWriteBackCap && (times >= 12 || use.consecutive >= 8);
 
         times++;
+        const auto writeBackStart = std::chrono::steady_clock::now();
         const uint32_t va = kernel::FromPhysical(destination);
         if (!everyFrame && va)
         {
             Submit(true);
             const std::vector<uint8_t> pixels = ReadColourImage(
                 into.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, into.width, into.height, 4);
+            const auto readMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - writeBackStart).count();
             if (!pixels.empty())
             {
                 const gpu::CopyDestPitch pitchInfo{ r[gpu::RB_COPY_DEST_PITCH] };
@@ -607,9 +588,11 @@ void vk::renderer::Resolve(const gpu::RegisterFile& r)
                     LOGI("kitcompose %08X avg %02X %02X %02X frame %llu", destination, uint32_t(sum[0] / n),
                          uint32_t(sum[1] / n), uint32_t(sum[2] / n), (unsigned long long)g.frames);
                 }
-                LOGI("resolve: wrote %ux%u back to %08X..%08X (pitch %u, endian %u, swap %d), frame %llu", width, height,
+                LOGI("resolve: wrote %ux%u back to %08X..%08X (pitch %u, endian %u, swap %d), frame %llu, %lld ms (%lld to read the image)", width, height,
                      destination, destination + pitchBlocks * ((height + 31u) & ~31u) * 4u, pitchInfo.Pitch(),
-                     destInfo.Endian(), destInfo.Swap() ? 1 : 0, (unsigned long long)g.frames);
+                     destInfo.Endian(), destInfo.Swap() ? 1 : 0, (unsigned long long)g.frames,
+                     (long long)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - writeBackStart).count(),
+                     (long long)readMs);
             }
             if (!g.recording) BeginFrame();
         }
@@ -629,7 +612,7 @@ void vk::renderer::Swap(uint32_t frontBuffer)
     if (!g.device) return;
     {
         using namespace vk::renderer::detail;
-#ifdef MW2_ANDROID
+#ifdef PES17_ANDROID
         // The capture button (GameActivity writes files/capture_request): keep the
         // last frames' draw counts and times, and on a request print them with the
         // frame number, then dump the next frame, so a flicker the user just saw can
@@ -688,7 +671,7 @@ void vk::renderer::Swap(uint32_t frontBuffer)
         if (++tick % 20 == 0)
         {
             unsigned lo = 0, hi = 0xFFFFFFFFu;
-#ifdef MW2_ANDROID
+#ifdef PES17_ANDROID
             if (FILE* f = std::fopen((android::GetPaths().external + "/draw_range").c_str(), "r"))
             {
                 if (std::fscanf(f, "%u %u", &lo, &hi) < 1) { lo = 0; hi = 0xFFFFFFFFu; }
@@ -698,10 +681,9 @@ void vk::renderer::Swap(uint32_t frontBuffer)
             g_drawLo = lo; g_drawHi = hi;
             g_noWriteBackCap = access((android::GetPaths().external + "/no_writeback_cap").c_str(), F_OK) == 0;
             g_noVertexReuse = access((android::GetPaths().external + "/no_vertex_reuse").c_str(), F_OK) == 0;
-            g_tracePasses = access((android::GetPaths().external + "/trace_passes").c_str(), F_OK) == 0;
         }
     }
-#ifdef MW2_ANDROID
+#ifdef PES17_ANDROID
     {
         static uint32_t swaps = 0;
         if (++swaps % 120 == 0)
@@ -735,7 +717,7 @@ void vk::renderer::Swap(uint32_t frontBuffer)
                 samplesDue = true;
             }
             LOGW("DUMP frame ends");
-#ifdef MW2_ANDROID
+#ifdef PES17_ANDROID
             if (g_captureBurst > 0 && --g_captureBurst > 0)
                 if (FILE* f = std::fopen((android::GetPaths().external + "/dump_frame").c_str(), "w")) std::fclose(f);
 #endif
@@ -860,4 +842,4 @@ void vk::renderer::Swap(uint32_t frontBuffer)
     FinishFrame(present);
 }
 
-#endif  // MW2_HAVE_VULKAN
+#endif  // PES17_HAVE_VULKAN

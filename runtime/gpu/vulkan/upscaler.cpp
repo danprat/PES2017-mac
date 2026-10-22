@@ -1,7 +1,32 @@
 #include "upscaler.h"
 
-#ifndef MW2_HAVE_VULKAN
-bool vk::upscale::Enabled() { return false; }
+#ifndef PES17_HAVE_VULKAN
+bool vk::upscale::Enabled()
+{
+    // Off unless asked for: the two passes cost about 5 fps (2.3 ms a frame) on the Snapdragon 865 once it
+    // has throttled, for a picture only a little sharper than the blit at the window's 1.25x scale.
+    // PES17_UPSCALER=fsr, or `touch files/upscaler_on`, turns it on.
+    static const bool wanted = [] {
+        const char* mode = std::getenv("PES17_UPSCALER");
+        return mode && std::strcmp(mode, "fsr") == 0;
+    }();
+    if (g.tried && !g.ready) return false;
+#ifdef PES17_ANDROID
+    // `files/upscaler_on` / `files/upscaler_off`: live, looked at twice a second.
+    static std::atomic<uint32_t> asked{ 0 };
+    static std::atomic<bool> on{ false }, off{ false };
+    if (asked++ % 30 == 0)
+    {
+        on = access((android::GetPaths().external + "/upscaler_on").c_str(), F_OK) == 0;
+        off = access((android::GetPaths().external + "/upscaler_off").c_str(), F_OK) == 0;
+    }
+    if (off) return false;
+    return wanted || on;
+#else
+    return wanted;
+#endif
+}
+
 VkImage vk::upscale::Record(VkDevice, VkPhysicalDevice, VkCommandBuffer, uint32_t, VkImage, uint32_t,
                             uint32_t, uint32_t, uint32_t) { return VK_NULL_HANDLE; }
 void vk::upscale::Destroy(VkDevice) {}
@@ -17,7 +42,7 @@ void vk::upscale::Destroy(VkDevice) {}
 #include "util.h"
 #include "../../env.h"
 #include "../../log.h"
-#ifdef MW2_ANDROID
+#ifdef PES17_ANDROID
 #include "../../android/android.h"
 #endif
 
@@ -187,7 +212,7 @@ namespace
     bool Setup(VkDevice device)
     {
         g.tried = true;
-        const double stops = std::getenv("MW2_FSR_SHARPNESS") ? std::atof(std::getenv("MW2_FSR_SHARPNESS")) : 0.2;
+        const double stops = std::getenv("PES17_FSR_SHARPNESS") ? std::atof(std::getenv("PES17_FSR_SHARPNESS")) : 0.2;
         g.sharpness = std::exp2f(-float(stops));          // FsrRcasCon's const0.x
 
         VkSamplerCreateInfo sampler{ VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
@@ -351,11 +376,11 @@ namespace
 bool vk::upscale::Enabled()
 {
     static const bool wanted = [] {
-        const char* mode = std::getenv("MW2_UPSCALER");
+        const char* mode = std::getenv("PES17_UPSCALER");
         return !mode || std::strcmp(mode, "bilinear") != 0;
     }();
     if (!wanted || (g.tried && !g.ready)) return false;
-#ifdef MW2_ANDROID
+#ifdef PES17_ANDROID
     // `touch files/upscaler_off` compares the old blit live; looked at twice a second.
     static std::atomic<uint32_t> asked{ 0 };
     static std::atomic<bool> off{ false };

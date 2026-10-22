@@ -18,7 +18,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def read(program, image, game):
-    env = dict(os.environ, MW2_WATCHDOG="90", MW2_LOG_FILE=os.devnull)
+    env = dict(os.environ, PES17_WATCHDOG="90", PES17_LOG_FILE=os.devnull)
     child = subprocess.Popen(["systemd-run", "--user", "--scope", "--quiet", "-p", "MemoryMax=5G", "-p", "MemorySwapMax=0",
                               program, image, game], env=env)
     time.sleep(40)

@@ -5,7 +5,7 @@
 #include "../../log.h"
 #include "../../report.h"
 
-#ifndef MW2_HAVE_VULKAN
+#ifndef PES17_HAVE_VULKAN
 // No loader, so nothing here can be built. The callers all tolerate a device
 // that never comes up, because that is what a machine with no GPU gives them.
 bool vk::pipeline::Initialise(void*, void*, void*, uint32_t, void*) { return false; }
@@ -50,7 +50,7 @@ void vk::pipeline::OnDeviceLost(void (*)(const char*)) {}
 #include <cstring>
 #include <string>
 #include <vector>
-#ifdef MW2_ANDROID
+#ifdef PES17_ANDROID
 #include "../../android/android.h"
 #endif
 #include "../../env.h"
@@ -58,7 +58,7 @@ void vk::pipeline::OnDeviceLost(void (*)(const char*)) {}
 #include <vulkan/vulkan.h>
 #include "loader.h"
 
-#if defined(MW2_VULKAN_DYNAMIC)
+#if defined(PES17_VULKAN_DYNAMIC)
 namespace { bool OpenVulkan() { std::string error; return vk::loader::Open(error); } }
 #else
 namespace { bool OpenVulkan() { return true; } }
@@ -189,22 +189,22 @@ bool vk::pipeline::CreateDevice(void* physicalDevice, uint32_t family,
     // phones never show. Mali keeps hardware BC; colour ranges, lighting and
     // fog render identically with the hardware path there. Push Snapdragon
     // devices to the software BC decoder, whose results are correct on both.
-    // MW2_FORCE_BC_HW=1 puts it back when a driver proves clean.
+    // PES17_FORCE_BC_HW=1 puts it back when a driver proves clean.
     // The env flag is also available to users who hit this on another GPU vendor.
     const vk::bc::AdrenoBC adrenoBc = vk::bc::AdrenoMode();
     if (physicalProperties.vendorID == 0x5143 && supported.textureCompressionBC &&
-        !env::Flag("MW2_FORCE_BC_HW") && adrenoBc == vk::bc::AdrenoBC::kAll)
+        !env::Flag("PES17_FORCE_BC_HW") && adrenoBc == vk::bc::AdrenoBC::kAll)
     {
         enabled.textureCompressionBC = VK_FALSE;
         g.textureCompressionBC = false;
         LOGW("vulkan: Adreno BC sampling disabled (known black/missing-geometry flicker);"
-             " textures decode in software -- MW2_FORCE_BC_HW=1 re-enables hardware BC,"
-             " MW2_ADRENO_BC=dxt1 keeps it for everything but the BC1 family");
+             " textures decode in software -- PES17_FORCE_BC_HW=1 re-enables hardware BC,"
+             " PES17_ADRENO_BC=dxt1 keeps it for everything but the BC1 family");
     }
     else if (physicalProperties.vendorID == 0x5143 && supported.textureCompressionBC &&
              adrenoBc != vk::bc::AdrenoBC::kAll)
     {
-        LOGW("vulkan: MW2_ADRENO_BC=%s: the driver's BC sampling is on"
+        LOGW("vulkan: PES17_ADRENO_BC=%s: the driver's BC sampling is on"
              " (was off as the Adreno workaround); the BC1 family still decodes in software",
              adrenoBc == vk::bc::AdrenoBC::kHardware ? "hw" : "dxt1");
     }
@@ -315,7 +315,7 @@ bool vk::pipeline::CreateDevice(void* physicalDevice, uint32_t family,
     const bool hasDynamicState =
         dynamicState.extendedDynamicState && (dynamicStateExtension || core13);
 
-    const bool forceLegacy = env::Flag("MW2_FORCE_LEGACY_RENDERING");
+    const bool forceLegacy = env::Flag("PES17_FORCE_LEGACY_RENDERING");
     g.hasDynamicRendering = hasDynamicRendering && !forceLegacy;
     g.hasExtendedDynamicState = hasDynamicState && !forceLegacy;
     g.legacyMode = !hasDynamicRendering || !hasDynamicState || forceLegacy;
@@ -333,7 +333,7 @@ bool vk::pipeline::CreateDevice(void* physicalDevice, uint32_t family,
     if (g.legacyMode)
     {
         LOGI("vulkan: legacy Vulkan 1.1 fallback active: classic VkRenderPass and static pipeline states%s",
-             forceLegacy ? " (forced by MW2_FORCE_LEGACY_RENDERING)" : "");
+             forceLegacy ? " (forced by PES17_FORCE_LEGACY_RENDERING)" : "");
     }
 
     if (dynamicRenderingExtension) extensions.push_back(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
@@ -384,7 +384,7 @@ bool vk::pipeline::CreateDevice(void* physicalDevice, uint32_t family,
     VkDevice device = VK_NULL_HANDLE;
     const VkResult r = vkCreateDevice(physical, &info, nullptr, &device);
     if (r != VK_SUCCESS) { LOGW("vulkan: no device (%s)", Explain(r)); return false; }
-#if defined(MW2_VULKAN_DYNAMIC)
+#if defined(PES17_VULKAN_DYNAMIC)
     // From here on the device's entry points come from the driver itself
     // rather than through the loader's dispatch (loader.h).
     vk::loader::LoadDevice(device);
@@ -405,7 +405,7 @@ namespace
         if (!OpenVulkan()) { LOGW("pipeline: no Vulkan library"); return false; }
 
         VkApplicationInfo app{ VK_STRUCTURE_TYPE_APPLICATION_INFO };
-        app.pApplicationName = "mw2recomp";
+        app.pApplicationName = "pes17recomp";
         // 1.0 is the floor: negative viewport heights (VK_KHR_maintenance1
         // before that) and still-valid depth resolves (VK_KHR_get_*2 and
         // VK_KHR_depth_stencil_resolve) are all extensions, and the top of the
@@ -415,7 +415,7 @@ namespace
         // in core rather than as extensions can only be asked for them by an
         // application that says it targets 1.3.
         app.apiVersion = VK_API_VERSION_1_0;
-#if defined(MW2_VULKAN_DYNAMIC)
+#if defined(PES17_VULKAN_DYNAMIC)
         if (vkEnumerateInstanceVersion)
 #endif
         {
@@ -460,7 +460,7 @@ namespace
         info.ppEnabledExtensionNames = instanceExtensions.data();
         VkResult r = vkCreateInstance(&info, nullptr, &g.instance);
         if (r != VK_SUCCESS) { LOGW("pipeline: no Vulkan instance (%s)", Explain(r)); return false; }
-#if defined(MW2_VULKAN_DYNAMIC)
+#if defined(PES17_VULKAN_DYNAMIC)
         vk::loader::LoadInstance(g.instance);
 #endif
 
@@ -578,13 +578,13 @@ namespace
     {
         static std::string pathStr;
         if (!pathStr.empty()) return pathStr.c_str();
-        if (env::Flag("MW2_NO_PIPELINE_CACHE")) return nullptr;
-        if (const char* path = env::Text("MW2_PIPELINE_CACHE"))
+        if (env::Flag("PES17_NO_PIPELINE_CACHE")) return nullptr;
+        if (const char* path = env::Text("PES17_PIPELINE_CACHE"))
         {
             pathStr = path;
             return pathStr.c_str();
         }
-#ifdef MW2_ANDROID
+#ifdef PES17_ANDROID
         if (!android::GetPaths().cache.empty())
         {
             pathStr = android::GetPaths().cache + "/pipeline.vkcache";
@@ -615,7 +615,7 @@ namespace
     // Mali has historically had driver bugs with cross-session cache blobs, so
     // we create and use the cache within a session (which allows ISA reuse
     // between pipelines that share shaders) but do not save it to disk by
-    // default. MW2_PERSIST_PIPELINE_CACHE=1 overrides: the test reports of
+    // default. PES17_PERSIST_PIPELINE_CACHE=1 overrides: the test reports of
     // Poco X6 Pro (Mali-G615, driver 1.3.247) show every run recompiling
     // hundreds of pipelines at 300-464 ms as the training level loads, which
     // is what stalls the GPU thread behind its guest waits long enough for
@@ -624,7 +624,7 @@ namespace
     // logs it and falls back to an empty cache, so the failure is soft.
     bool PersistCache()
     {
-        static const bool asked = env::Flag("MW2_PERSIST_PIPELINE_CACHE");
+        static const bool asked = env::Flag("PES17_PERSIST_PIPELINE_CACHE");
         if (asked) LOGI("pipeline: persisting the pipeline cache across runs (user request) on %04X", g.deviceProperties.vendorID);
         return !IsMali() || asked;
     }
@@ -632,16 +632,16 @@ namespace
     void CreateCache()
     {
         std::lock_guard lock(vk::pipeline::CacheMutex());
-        if (env::Flag("MW2_NO_PIPELINE_CACHE"))
+        if (env::Flag("PES17_NO_PIPELINE_CACHE"))
         {
-            LOGI("pipeline: VkPipelineCache bypassed (MW2_NO_PIPELINE_CACHE)");
+            LOGI("pipeline: VkPipelineCache bypassed (PES17_NO_PIPELINE_CACHE)");
             return;
         }
 
         std::vector<uint8_t> initial;
         // Mali: skip disk-load by default to avoid cross-session driver
         // instability, but still create an in-session cache for ISA reuse.
-        // MW2_PERSIST_PIPELINE_CACHE=1 asks for the disk blob back (see
+        // PES17_PERSIST_PIPELINE_CACHE=1 asks for the disk blob back (see
         // PersistCache above).
         if (PersistCache())
         {
@@ -698,7 +698,7 @@ namespace
         else
         {
             LOGI("pipeline: Mali GPU detected -- using in-session VkPipelineCache only;"
-                 " set MW2_PERSIST_PIPELINE_CACHE=1 to keep the disk blob across runs");
+                 " set PES17_PERSIST_PIPELINE_CACHE=1 to keep the disk blob across runs");
         }
 
         VkPipelineCacheCreateInfo info{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
@@ -721,7 +721,7 @@ namespace
     {
         std::lock_guard lock(vk::pipeline::CacheMutex());
         // Do not persist cache blobs to disk on Mali by default --
-        // in-session use only. MW2_PERSIST_PIPELINE_CACHE=1 keeps saving.
+        // in-session use only. PES17_PERSIST_PIPELINE_CACHE=1 keeps saving.
         if (!PersistCache()) return;
         const char* path = CachePath();
         if (!path || !g.cache) return;
@@ -823,7 +823,7 @@ void vk::pipeline::Shutdown()
     g.layout = VK_NULL_HANDLE;
     if (g.ownsDevice)
     {
-#if defined(MW2_VULKAN_DYNAMIC)
+#if defined(PES17_VULKAN_DYNAMIC)
         vk::loader::ForgetDevice();
 #endif
         vkDestroyDevice(g.device, nullptr);
@@ -845,10 +845,10 @@ uint32_t vk::pipeline::QueueFamily() { return g.family; }
 bool     vk::pipeline::PreciseOcclusionQueries() { return g.preciseQueries; }
 float    vk::pipeline::MaxAnisotropy() { return g.maxAnisotropy; }
 bool     vk::pipeline::NonSeamlessCubes() { return g.nonSeamlessCubes; }
-// MW2_NO_PIPELINE_LIBRARIES=1 builds whole pipelines at the first draw instead.
+// PES17_NO_PIPELINE_LIBRARIES=1 builds whole pipelines at the first draw instead.
 bool     vk::pipeline::PipelineLibraries()
 {
-    static const bool refused = env::Flag("MW2_NO_PIPELINE_LIBRARIES");
+    static const bool refused = env::Flag("PES17_NO_PIPELINE_LIBRARIES");
     return g.pipelineLibraries && g.fastLinking && !refused;
 }
 bool     vk::pipeline::HasDynamicRendering() { return g.hasDynamicRendering; }
@@ -864,7 +864,7 @@ void*    vk::pipeline::Cache()
 {
     // Mali: return the handle for in-session ISA reuse.
     // (Not persisted to disk -- see SaveCache above.)
-    static const bool noCache = env::Flag("MW2_NO_PIPELINE_CACHE");
+    static const bool noCache = env::Flag("PES17_NO_PIPELINE_CACHE");
     if (noCache) return nullptr;
     return g.cache;
 }
@@ -885,4 +885,4 @@ bool vk::pipeline::CreateModule(const uint32_t* spirv, size_t words, const char*
     return true;
 }
 
-#endif  // MW2_HAVE_VULKAN
+#endif  // PES17_HAVE_VULKAN

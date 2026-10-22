@@ -11,24 +11,24 @@ refs.discard('PPC_CALL_INDIRECT_FUNC')
 allnames=defs|refs
 HEADER = """#pragma once
 
-// With MW2_TRACE_INDIRECT the generated code reports the guest address of any
+// With PES17_TRACE_INDIRECT the generated code reports the guest address of any
 // indirect call whose function-table slot is empty, instead of jumping to null.
 // PPC_FUNC_SLOT may be defined first (runtime/mmio_hook.h moves the table).
 #ifndef PPC_FUNC_SLOT
 #define PPC_FUNC_SLOT(b, x) PPC_LOOKUP_FUNC(b, x)
 #endif
 
-#ifdef MW2_TRACE_INDIRECT
-extern "C" void MW2ReportBadIndirectCall(unsigned int guestAddress, const void* ctx, const uint8_t* base);
+#ifdef PES17_TRACE_INDIRECT
+extern "C" void PES17ReportBadIndirectCall(unsigned int guestAddress, const void* ctx, const uint8_t* base);
 #define PPC_CALL_INDIRECT_FUNC(x) \\
     do { \\
-        const uint32_t mw2_addr = (uint32_t)(x); \\
-        PPCFunc* mw2_target = (mw2_addr >= PPC_CODE_BASE && mw2_addr < (PPC_CODE_BASE + PPC_CODE_SIZE)) \\
-            ? PPC_FUNC_SLOT(base, mw2_addr) : nullptr; \\
-        if (!mw2_target) { \\
-            MW2ReportBadIndirectCall(mw2_addr, &ctx, base); \\
+        const uint32_t pes17_addr = (uint32_t)(x); \\
+        PPCFunc* pes17_target = (pes17_addr >= PPC_CODE_BASE && pes17_addr < (PPC_CODE_BASE + PPC_CODE_SIZE)) \\
+            ? PPC_FUNC_SLOT(base, pes17_addr) : nullptr; \\
+        if (!pes17_target) { \\
+            PES17ReportBadIndirectCall(pes17_addr, &ctx, base); \\
         } else { \\
-            mw2_target(ctx, base); \\
+            pes17_target(ctx, base); \\
         } \\
     } while (0)
 #endif

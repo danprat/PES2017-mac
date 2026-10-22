@@ -3,7 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fillViewport="true"
-    android:background="#0B0E12">
+    android:background="#070D1C">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -30,9 +30,9 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:background="#141A21"
+            android:background="#0E1A36"
             android:padding="12dp"
-            android:textColor="#C8D0D8"
+            android:textColor="#D6E2FF"
             android:textSize="13sp" />
 
         <Button

@@ -1,4 +1,4 @@
-# MW2Recomp — Code Audit Summary
+# PES17Recomp — Code Audit Summary
 
 **Date**: 2026-10-11
 **Auditor**: Solar (assisted by read-only inspection of repo snapshot)
@@ -29,7 +29,7 @@ That said, **for your specific symptoms (16 FPS + 19-minute crash on Mali-G68)**
    - This is the right architecture for avoiding use-after-free and GPU-CPU races.
 
 4. **Texture cache has real eviction + budget logic**
-   - `MW2_TEXTURE_BUDGET_MB`, `OnTrimMemory` handling in `runtime/android/perf.cpp`, eviction after 10 seconds idle, descriptor-set lifetime tracking.
+   - `PES17_TEXTURE_BUDGET_MB`, `OnTrimMemory` handling in `runtime/android/perf.cpp`, eviction after 10 seconds idle, descriptor-set lifetime tracking.
    - That matters a lot on a 4-core Mali with limited device-local memory.
 
 5. **Documentation is unusually good for this kind of project**

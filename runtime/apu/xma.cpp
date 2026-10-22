@@ -62,7 +62,7 @@ namespace
 
     bool Trace()
     {
-        static const bool on = diag::Flag("MW2_TRACE_XMA");
+        static const bool on = diag::Flag("PES17_TRACE_XMA");
         return on;
     }
 #define XMATRACE(...) do { if (Trace()) LOGK("xma: " __VA_ARGS__); } while (false)
@@ -979,7 +979,7 @@ void apu::xma::RegisterStore(uint32_t address, uint32_t value)
     }
 }
 
-extern "C" void mw2_xma_register_store(uint32_t address, uint32_t value)
+extern "C" void pes17_xma_register_store(uint32_t address, uint32_t value)
 {
     // The recompiled code hands over what stw would write; the hardware reads
     // its registers little-endian, so the title wrote them with stwbrx.
