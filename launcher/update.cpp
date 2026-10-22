@@ -19,29 +19,29 @@ using install::Utf8;
 
 namespace
 {
-#ifndef PES17_RELEASE_TAG
-#define PES17_RELEASE_TAG ""
+#ifndef MW2_RELEASE_TAG
+#define MW2_RELEASE_TAG ""
 #endif
-#ifndef PES17_RELEASE_KIND
-#define PES17_RELEASE_KIND ""
+#ifndef MW2_RELEASE_KIND
+#define MW2_RELEASE_KIND ""
 #endif
-    // An archive is pes17-<tag>-<system>-<online service>, as the workflow names it.
+    // An archive is mw2-<tag>-<system>-<online service>, as the workflow names it.
 #ifdef _WIN32
-    constexpr const char* kArchiveEnd = "-" PES17_RELEASE_KIND ".zip";
+    constexpr const char* kArchiveEnd = "-" MW2_RELEASE_KIND ".zip";
 #else
-    constexpr const char* kArchiveEnd = "-" PES17_RELEASE_KIND ".tar.gz";
+    constexpr const char* kArchiveEnd = "-" MW2_RELEASE_KIND ".tar.gz";
 #endif
     // GitHub's description of the newest published release: its tag, and for
     // each archive its name, size, SHA-256 and address.
-    constexpr const char* kNewest = "https://api.github.com/repos/PaulCombal/pes17-recompiled/releases/latest";
-    constexpr const char* kPage = "https://github.com/PaulCombal/pes17-recompiled/releases";
+    constexpr const char* kNewest = "https://api.github.com/repos/PaulCombal/mw2-recompiled/releases/latest";
+    constexpr const char* kPage = "https://github.com/PaulCombal/mw2-recompiled/releases";
     const fs::path kFolder = "update";
     const fs::path kDone = kFolder / "installed";      // holds the version, for the next start to say
 
-    // PES17_UPDATE_URL names another description of the same form, a mirror's or a test's file.
+    // MW2_UPDATE_URL names another description of the same form, a mirror's or a test's file.
     std::string Newest()
     {
-        const char* other = std::getenv("PES17_UPDATE_URL");
+        const char* other = std::getenv("MW2_UPDATE_URL");
         return other && *other ? other : kNewest;
     }
 
@@ -104,8 +104,8 @@ namespace
     }
 }
 
-const char* update::Current() { return PES17_RELEASE_TAG; }
-const char* update::Kind() { return PES17_RELEASE_KIND; }
+const char* update::Current() { return MW2_RELEASE_TAG; }
+const char* update::Kind() { return MW2_RELEASE_KIND; }
 
 update::Check update::Look(Release& release, std::string& error)
 {

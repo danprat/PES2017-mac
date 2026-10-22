@@ -2,10 +2,10 @@
 // starts the campaign and the multiplayer, and is where the tools that work on
 // an install go (maps, the profile, updates of this program).
 //
-//     pes17-launcher                                  the window
-//     pes17-launcher --install [<disc>] [--update <package or folder>]
+//     mw2-launcher                                  the window
+//     mw2-launcher --install [<disc>] [--update <package or folder>]
 //                                                   the install, in a terminal
-//     pes17-launcher --upgrade                        a newer release, in a terminal
+//     mw2-launcher --upgrade                        a newer release, in a terminal
 //
 // With no <disc>, --install brings the install already in game/ up to date.
 #include "disc.h"
@@ -52,13 +52,13 @@ using install::Utf8;
 namespace
 {
 #ifdef _WIN32
-    constexpr const char* kCampaign = "pes17-sp.exe";
-    constexpr const char* kMultiplayer = "pes17-mp.exe";
-    constexpr const char* kLauncher = "pes17-launcher.exe";
+    constexpr const char* kCampaign = "mw2-sp.exe";
+    constexpr const char* kMultiplayer = "mw2-mp.exe";
+    constexpr const char* kLauncher = "mw2-launcher.exe";
 #else
-    constexpr const char* kCampaign = "pes17-sp";
-    constexpr const char* kMultiplayer = "pes17-mp";
-    constexpr const char* kLauncher = "pes17-launcher";
+    constexpr const char* kCampaign = "mw2-sp";
+    constexpr const char* kMultiplayer = "mw2-mp";
+    constexpr const char* kLauncher = "mw2-launcher";
 #endif
 
     // An install running on its own thread, or with `work` given, a look for
@@ -168,7 +168,7 @@ namespace
         PROCESSENTRY32W process{};
         process.dwSize = sizeof(process);
         for (BOOL more = Process32FirstW(snapshot, &process); more && !running; more = Process32NextW(snapshot, &process))
-            running = !_wcsicmp(process.szExeFile, L"pes17-sp.exe") || !_wcsicmp(process.szExeFile, L"pes17-mp.exe");
+            running = !_wcsicmp(process.szExeFile, L"mw2-sp.exe") || !_wcsicmp(process.szExeFile, L"mw2-mp.exe");
         CloseHandle(snapshot);
         return running;
 #else
@@ -348,9 +348,9 @@ namespace
             case Action::GetOtherBuild:
                 // The other game version lives in its own archives beside
                 // this one's, on the releases page.
-                if (!SDL_OpenURL("https://github.com/CyberLifeYT/pes17-crossplay/releases"))
+                if (!SDL_OpenURL("https://github.com/CyberLifeYT/mw2-crossplay/releases"))
                 {
-                    message = "Get it from:\nhttps://github.com/CyberLifeYT/pes17-crossplay/releases";
+                    message = "Get it from:\nhttps://github.com/CyberLifeYT/mw2-crossplay/releases";
                     messageIsError = false;
                 }
                 break;
@@ -654,7 +654,7 @@ namespace
                 ? "The report is\n" + file + "\n\nThe issue page has opened in your browser. Describe what happened, "
                   "drag that file into the text box, and submit."
                 : "The report is\n" + file + "\n\nNo browser could be opened. Attach that file to a new issue at\n"
-                  "github.com/PaulCombal/pes17-recompiled/issues";
+                  "github.com/PaulCombal/mw2-recompiled/issues";
         }
 
         std::vector<Entry> ProfileEntries() const
@@ -857,7 +857,7 @@ namespace
                     {
                         message = std::string("No file dialog could be opened (") + SDL_GetError() +
                                   "). Drop the file on this window, or install from a terminal:\n"
-                                  "pes17-launcher --install path/to/disc.iso";
+                                  "mw2-launcher --install path/to/disc.iso";
                         messageIsError = true;
                     }
                 }
@@ -973,7 +973,7 @@ namespace
                 play(campaign, kCampaign, "The campaign and Special Ops, alone or in split screen."));
             add(Action::PlayMultiplayer, "PLAY MULTIPLAYER", installed && multiplayer, "MULTIPLAYER",
                 play(multiplayer, kMultiplayer, "Multiplayer: split screen, system link and private matches.\n\n"
-                     "Windows may ask to allow pes17-mp through the firewall on first launch: allow it, "
+                     "Windows may ask to allow mw2-mp through the firewall on first launch: allow it, "
                      "or no other machine can see or join this one (UDP). "
                      "All players must be on the same network; a phone hotspot the PC joins is the most reliable."));
 
@@ -1009,7 +1009,7 @@ namespace
             add(Action::Mods, "MODS", installed, "MODS",
                 installed ? "Extra maps, weapons and modes from mod packs, for this install's game version.\n\nChoose the extracted folder: its .ff, .pak and .bik files are copied into the game folder. Anything else in it (scripts, plugins, documents) is reported and left alone, with why."
                           : "Install the game first.");
-#ifdef PES17_VERSION_TU0
+#ifdef MW2_VERSION_TU0
             add(Action::GetOtherBuild, "GET TU6 BUILD", true, "TITLE UPDATE 6",
                 "The separate build for title update 6, which mods need. It plays only with TU6 copies, "
                 "never with this disc-version one.\n\nChoose to open the releases page, where its archives wait beside this one's.");
@@ -1042,7 +1042,7 @@ namespace
     {
         if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD))
         {
-            std::fprintf(stderr, "No window could be opened (%s). Install from a terminal: pes17-launcher --install <disc>\n", SDL_GetError());
+            std::fprintf(stderr, "No window could be opened (%s). Install from a terminal: mw2-launcher --install <disc>\n", SDL_GetError());
             return 1;
         }
         // The design is 1280x720; a smaller desktop gets it scaled down.

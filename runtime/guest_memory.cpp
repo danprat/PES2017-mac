@@ -23,7 +23,7 @@
 #  include <sys/syscall.h>
 #  include <fcntl.h>
 #  include <string>
-#  ifdef PES17_ANDROID
+#  ifdef MW2_ANDROID
 #    include "android/android.h"
 #  endif
 #endif
@@ -155,9 +155,9 @@ namespace
     // windows need is a descriptor two mappings can share, not a memfd.
     int OpenBankDescriptor()
     {
-        const int fd = int(syscall(SYS_memfd_create, "pes17-physical", 0));
+        const int fd = int(syscall(SYS_memfd_create, "mw2-physical", 0));
         if (fd >= 0) return fd;
-#ifdef PES17_ANDROID
+#ifdef MW2_ANDROID
         const std::string path = android::Paths().cache + "/physical.bank";
         const int file = open(path.c_str(), O_RDWR | O_CREAT | O_TRUNC, 0600);
         if (file >= 0)

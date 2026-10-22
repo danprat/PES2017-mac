@@ -4,7 +4,7 @@
 //
 // The app (android/) owns the activity, the surface and the on-screen
 // controls; this header is the seam between them. Nothing here exists in a
-// desktop build -- the whole layer is behind PES17_ANDROID -- and nothing in it
+// desktop build -- the whole layer is behind MW2_ANDROID -- and nothing in it
 // calls into the guest.
 //
 //   window.cpp   the surface handed over by SurfaceHolder, and its lifetime
@@ -20,7 +20,7 @@
 #include <string>
 #include <functional>
 
-#ifdef PES17_ANDROID
+#ifdef MW2_ANDROID
 
 struct ANativeWindow;
 
@@ -217,4 +217,4 @@ namespace android::perf
     void PrewarmBudget(uint32_t& maxSync, uint32_t& deadlineMs);
 }
 
-#endif  // PES17_ANDROID
+#endif  // MW2_ANDROID

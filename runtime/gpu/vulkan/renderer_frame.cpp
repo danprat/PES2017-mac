@@ -8,7 +8,7 @@
 #include "../../pacing_trace.h"
 #include "../../report.h"
 
-#ifdef PES17_HAVE_VULKAN
+#ifdef MW2_HAVE_VULKAN
 
 namespace vk::renderer::detail
 {
@@ -463,4 +463,4 @@ void vk::renderer::CollectOcclusionQueries(void (*deliver)(uint32_t tag, uint64_
     g.pendingQueries.erase(g.pendingQueries.begin(), g.pendingQueries.begin() + done);
 }
 
-#endif  // PES17_HAVE_VULKAN
+#endif  // MW2_HAVE_VULKAN

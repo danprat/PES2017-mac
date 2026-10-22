@@ -9,7 +9,7 @@
 #include "../../signin.h"
 #include "../../online/service.h"
 
-#if !defined(PES17_HAVE_VULKAN) || (!defined(PES17_USE_SDL) && !defined(PES17_ANDROID))
+#if !defined(MW2_HAVE_VULKAN) || (!defined(MW2_USE_SDL) && !defined(MW2_ANDROID))
 // Without a loader or a window system there is nothing to present to; the rest
 // of the runtime carries on headless.
 bool     vk::Start()           { return false; }
@@ -40,11 +40,11 @@ uint64_t vk::PresentedFrames() { return 0; }
 #include "pipeline.h"
 #include "renderer.h"
 
-#ifdef PES17_USE_SDL
+#ifdef MW2_USE_SDL
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
 #endif
-#ifdef PES17_ANDROID
+#ifdef MW2_ANDROID
 #include <android/native_window.h>
 #include "../../android/android.h"
 // The surface extension's declarations. A build that loads Vulkan at run
@@ -74,10 +74,10 @@ namespace
 
     struct Presenter
     {
-#ifdef PES17_USE_SDL
+#ifdef MW2_USE_SDL
         SDL_Window* window = nullptr;
 #endif
-#ifdef PES17_ANDROID
+#ifdef MW2_ANDROID
         // The surface the activity owns. It goes away every time the player
         // leaves the game and comes back as a different one; `generation`
         // is how the loop notices.
@@ -225,7 +225,7 @@ namespace
     bool CreateInstance()
     {
         std::vector<const char*> extensions;
-#ifdef PES17_ANDROID
+#ifdef MW2_ANDROID
         // Android has one window system and it is always there.
         extensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
         extensions.push_back("VK_KHR_android_surface");
@@ -237,7 +237,7 @@ namespace
 #endif
 
         VkApplicationInfo app{ VK_STRUCTURE_TYPE_APPLICATION_INFO };
-        app.pApplicationName = "pes17recomp";
+        app.pApplicationName = "mw2recomp";
         // 1.0 is the floor: negative viewport heights (VK_KHR_maintenance1
         // before that) are an extension too, and 1.0 is the version the APK
         // advertises on its Play-store device filter. Everything newer is
@@ -247,7 +247,7 @@ namespace
         // a driver that has them in core rather than as extensions can only
         // be asked for them by an application that says it targets 1.3.
         app.apiVersion = VK_API_VERSION_1_0;
-#if defined(PES17_VULKAN_DYNAMIC)
+#if defined(MW2_VULKAN_DYNAMIC)
         if (vkEnumerateInstanceVersion)
 #endif
         {
@@ -293,7 +293,7 @@ namespace
         info.enabledExtensionCount = uint32_t(extensions.size());
         info.ppEnabledExtensionNames = extensions.data();
         if (!Check(vkCreateInstance(&info, nullptr, &g.instance), "vkCreateInstance")) return false;
-#if defined(PES17_VULKAN_DYNAMIC)
+#if defined(MW2_VULKAN_DYNAMIC)
         // Everything past this point is called through the driver's own
         // entry points rather than a link-time symbol (loader.h).
         vk::loader::LoadInstance(g.instance);
@@ -414,7 +414,7 @@ namespace
         else
         {
             int width = 0, height = 0;
-#ifdef PES17_ANDROID
+#ifdef MW2_ANDROID
             if (g.nativeWindow)
             {
                 width = ANativeWindow_getWidth(g.nativeWindow);
@@ -576,7 +576,7 @@ namespace
     void FollowTheDisplay()
     {
         double hz = 0;
-#ifdef PES17_ANDROID
+#ifdef MW2_ANDROID
         // Display.getRefreshRate, as the app reported it. A phone that can
         // run at 90 or 120 is asked for 60 by the app where it can, because
         // the console's frame is a 60 Hz frame and a display at 90 shows
@@ -845,7 +845,7 @@ namespace
         if (!idle)
         {
             std::lock_guard lock(g.lock);
-            // Off the blank (PES17_FPS_LIMIT) the title finishes frames whenever
+            // Off the blank (MW2_FPS_LIMIT) the title finishes frames whenever
             // it likes, and the display still takes one a blank: the newest is
             // shown and the ones before it are let go.
             while (!frame_rate::Console() && g.frameQueue.size() > 1)
@@ -1022,7 +1022,7 @@ namespace
             }
             if (g.pool) vkDestroyCommandPool(g.device, g.pool, nullptr);
             if (g.swapchain) vkDestroySwapchainKHR(g.device, g.swapchain, nullptr);
-#if defined(PES17_VULKAN_DYNAMIC)
+#if defined(MW2_VULKAN_DYNAMIC)
             vk::loader::ForgetDevice();
 #endif
             vkDestroyDevice(g.device, nullptr);
@@ -1041,11 +1041,11 @@ namespace
             g_messenger = VK_NULL_HANDLE;
         }
         if (g.instance) vkDestroyInstance(g.instance, nullptr);
-#ifdef PES17_USE_SDL
+#ifdef MW2_USE_SDL
         if (g.window) SDL_DestroyWindow(g.window);
         g.window = nullptr;
 #endif
-#ifdef PES17_ANDROID
+#ifdef MW2_ANDROID
         if (g.nativeWindow)
         {
             android::ReleaseWindow(g.nativeWindow);
@@ -1057,11 +1057,11 @@ namespace
         g.instance = VK_NULL_HANDLE;
     }
 
-#ifdef PES17_ANDROID
+#ifdef MW2_ANDROID
     // The Vulkan surface for the window the activity handed over.
     bool CreateSurfaceForWindow()
     {
-#if defined(PES17_VULKAN_DYNAMIC)
+#if defined(MW2_VULKAN_DYNAMIC)
         if (!vkCreateAndroidSurfaceKHR)
         {
             LOGE("vulkan: this driver has no VK_KHR_android_surface, so it cannot present");
@@ -1127,7 +1127,7 @@ namespace
 
     bool Bring()
     {
-#ifdef PES17_ANDROID
+#ifdef MW2_ANDROID
         std::string error;
         if (!vk::loader::Opened() && !vk::loader::Open(error))
         {
@@ -1175,10 +1175,10 @@ namespace
             LOGW("vulkan: SDL video would not start (%s)", SDL_GetError());
             return false;
         }
-        // Resizable, and fullscreen from the start under PES17_FULLSCREEN=1 --
+        // Resizable, and fullscreen from the start under MW2_FULLSCREEN=1 --
         // borderless at the desktop's resolution, which SDL gives a window
         // asked for fullscreen without a mode of its own. F8 toggles it.
-        g.fullscreen = env::Flag("PES17_FULLSCREEN");
+        g.fullscreen = env::Flag("MW2_FULLSCREEN");
         g.window = SDL_CreateWindow("Modern Warfare 2", kWidth, kHeight,
                                     SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE |
                                     (g.fullscreen ? SDL_WINDOW_FULLSCREEN : 0));
@@ -1217,7 +1217,7 @@ namespace
 
         while (g.running.load(std::memory_order_relaxed))
         {
-#ifdef PES17_ANDROID
+#ifdef MW2_ANDROID
             // The app asked for the run to end.
             if (!android::Running()) break;
             // The activity's surface came, went, or was replaced.
@@ -1259,24 +1259,24 @@ namespace
                     vk::capture::ToggleStream();
                 // F9 asks the title where the player stands, so a spot seen in
                 // play can be given back to setviewpos. The answer is printed
-                // under PES17_ENGINE_LOG=1.
+                // under MW2_ENGINE_LOG=1.
                 else if (diag::kOn && event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
                          event.key.scancode == SDL_SCANCODE_F9)
                 {
                     console::RunNow("viewpos");
                     LOGI("console: F9 -- viewpos asked for");
                 }
-                // F5 runs the console command PES17_F5 names: `noclip`, say, once
+                // F5 runs the console command MW2_F5 names: `noclip`, say, once
                 // a level's opening is behind.
                 else if (diag::kOn && event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
-                         event.key.scancode == SDL_SCANCODE_F5 && diag::Text("PES17_F5"))
+                         event.key.scancode == SDL_SCANCODE_F5 && diag::Text("MW2_F5"))
                 {
-                    console::RunNow(diag::Text("PES17_F5"));
-                    LOGI("console: F5 -- %s", diag::Text("PES17_F5"));
+                    console::RunNow(diag::Text("MW2_F5"));
+                    LOGI("console: F5 -- %s", diag::Text("MW2_F5"));
                 }
                 // F7: "I saw a flash just now" -- a mark in the log, and the
-                // frames before it written out when PES17_FLASH_FRAMES keeps them.
-                // Under PES17_STUTTERS it marks a hitch instead.
+                // frames before it written out when MW2_FLASH_FRAMES keeps them.
+                // Under MW2_STUTTERS it marks a hitch instead.
                 else if (diag::kOn && event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
                          event.key.scancode == SDL_SCANCODE_F7)
                 {
@@ -1307,7 +1307,7 @@ namespace
                 else if (event.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED ||
                          event.type == SDL_EVENT_WINDOW_RESIZED)
                     g.remakeSwapchain = true;
-#endif  // PES17_ANDROID
+#endif  // MW2_ANDROID
 
             // A frame to show, or 16 ms to go round the events again. Until the
             // renderer has finished one, the window shows its own colour.
@@ -1329,10 +1329,10 @@ namespace
 
 bool vk::Start()
 {
-    // Every build opens it; PES17_WINDOW=0 keeps it shut, for a headless
+    // Every build opens it; MW2_WINDOW=0 keeps it shut, for a headless
     // measurement run. On Android there is nothing else to be: the activity
     // is already on screen waiting for frames.
-    const bool window = !env::Text("PES17_WINDOW") || env::Flag("PES17_WINDOW");
+    const bool window = !env::Text("MW2_WINDOW") || env::Flag("MW2_WINDOW");
     if (!window) return false;
 
     g.running = true;
@@ -1353,7 +1353,7 @@ void vk::ShowImage(void* image, uint32_t width, uint32_t height, uint64_t serial
 void vk::WaitUntilTaken(uint64_t serial)
 {
     if (!serial || !g.running.load(std::memory_order_relaxed)) return;
-#ifdef PES17_ANDROID
+#ifdef MW2_ANDROID
     // The activity is not in front: there is no surface to copy the frame
     // out to, and waiting a quarter of a second for one, every frame, is a
     // game running at 4 fps in the background with the phone getting hot.
@@ -1422,4 +1422,4 @@ void vk::Stop()
 bool vk::Running() { return g.running.load(); }
 uint64_t vk::PresentedFrames() { return g.presented.load(); }
 
-#endif  // PES17_HAVE_VULKAN && PES17_USE_SDL
+#endif  // MW2_HAVE_VULKAN && MW2_USE_SDL

@@ -11,7 +11,7 @@
 // The device gets stereo: no phone has six speakers, and AAudio would resample
 // and downmix in its own mixer thread anyway. The downmix is the usual ITU
 // one, with the centre and surrounds at -3 dB.
-#ifdef PES17_ANDROID
+#ifdef MW2_ANDROID
 
 #include "android.h"
 #include "../log.h"
@@ -339,4 +339,4 @@ void android::audio::Write(const float* samples, uint32_t frames)
     g_ring.Push(stereo.data(), frames);
 }
 
-#endif  // PES17_ANDROID
+#endif  // MW2_ANDROID

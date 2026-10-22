@@ -8,7 +8,7 @@
 // peer is a 64-bit id the backend chooses (an address, a SteamID, an account
 // number); the kernel never looks inside it.
 //
-// The backends are chosen when the runtime is built (PES17_ONLINE in CMakeLists,
+// The backends are chosen when the runtime is built (MW2_ONLINE in CMakeLists,
 // ONLINE= for build.sh), in the order they are tried: the first that starts is
 // the service. A backend is one file under runtime/online/ with a function that
 // makes it, listed in service.cpp; a new service is one more such file. "none"

@@ -26,11 +26,11 @@
 // costs it a frame.
 #if defined(__x86_64__) || defined(__i386__)
 #include <immintrin.h>
-#define PES17_SPIN_HINT() _mm_pause()
+#define MW2_SPIN_HINT() _mm_pause()
 #elif defined(__aarch64__) || defined(__arm__)
-#define PES17_SPIN_HINT() __asm__ __volatile__("yield" ::: "memory")
+#define MW2_SPIN_HINT() __asm__ __volatile__("yield" ::: "memory")
 #else
-#define PES17_SPIN_HINT() ((void)0)
+#define MW2_SPIN_HINT() ((void)0)
 #endif
 
 namespace vk::record::detail
@@ -84,7 +84,7 @@ namespace
                 bool more = false;
                 for (uint32_t i = 0; i < kSpins && !more; i++)
                 {
-                    PES17_SPIN_HINT();
+                    MW2_SPIN_HINT();
                     more = q.written.load(std::memory_order_relaxed) != at;
                 }
                 if (more) continue;
@@ -117,7 +117,7 @@ namespace
         if (q.made.load(std::memory_order_acquire) >= position) return;
         for (uint32_t i = 0; i < kSpins; i++)
         {
-            PES17_SPIN_HINT();
+            MW2_SPIN_HINT();
             if (q.made.load(std::memory_order_acquire) >= position) return;
         }
         q.waiters.fetch_add(1, std::memory_order_seq_cst);
@@ -168,10 +168,10 @@ void vk::record::Start()
 {
     if (detail::threaded) return;
     static const bool off =
-        diag::kOn && diag::Text("PES17_RECORD_THREAD") && !diag::Flag("PES17_RECORD_THREAD");
+        diag::kOn && diag::Text("MW2_RECORD_THREAD") && !diag::Flag("MW2_RECORD_THREAD");
     if (off)
     {
-        LOGI("recorder: PES17_RECORD_THREAD=0, the consumer records its own commands");
+        LOGI("recorder: MW2_RECORD_THREAD=0, the consumer records its own commands");
         return;
     }
     q.ring = static_cast<uint8_t*>(::operator new(kBytes, std::align_val_t(64)));

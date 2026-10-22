@@ -57,7 +57,7 @@ The sender columns:
 
 | fixed | sender | file |
 |---|---|---|
-| An integer divide by zero, or the one signed divide that overflows, ends the process: the recompiler emitted the host's divide, which traps, where the console's does not. Every guest divide now gives 0 in those cases, as Xenia's does | anyone who can choose a divisor | `patches/xenonrecomp-pes17.patch` (`PPCDivide` in `XenonUtils/ppc_context.h`) |
+| An integer divide by zero, or the one signed divide that overflows, ends the process: the recompiler emitted the host's divide, which traps, where the console's does not. Every guest divide now gives 0 in those cases, as Xenia's does | anyone who can choose a divisor | `patches/xenonrecomp-mw2.patch` (`PPCDivide` in `XenonUtils/ppc_context.h`) |
 | The Steam lobby's `connect` line goes to the console, so text after a command separator runs as console commands. Only a line of the exact shape a host advertises is accepted | lobby owner | `runtime/online/service.cpp` (`IsConnectLine`) |
 
 ## Which builds carry them

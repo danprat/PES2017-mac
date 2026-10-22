@@ -1,7 +1,7 @@
 // See image_memory.h.
 #include "image_memory.h"
 
-#ifdef PES17_HAVE_VULKAN
+#ifdef MW2_HAVE_VULKAN
 
 #include <iterator>
 #include <map>
@@ -160,4 +160,4 @@ void vk::imagememory::Shutdown(VkDevice device)
 
 vk::imagememory::Totals vk::imagememory::Held() { return g_totals; }
 
-#endif  // PES17_HAVE_VULKAN
+#endif  // MW2_HAVE_VULKAN

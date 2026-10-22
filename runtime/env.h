@@ -1,5 +1,5 @@
 #pragma once
-// The PES17_* switches, read one way everywhere: a flag is on when the variable
+// The MW2_* switches, read one way everywhere: a flag is on when the variable
 // is set to anything but "" or "0". Callers cache the answer in a static; the
 // environment does not change under a run.
 #include <cstdint>

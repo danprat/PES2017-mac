@@ -21,12 +21,12 @@
 //
 // This header is force-included into the Vulkan sources by CMake, so it is
 // the first thing every one of them sees.
-#if defined(PES17_VULKAN_DYNAMIC) && defined(PES17_HAVE_VULKAN)
+#if defined(MW2_VULKAN_DYNAMIC) && defined(MW2_HAVE_VULKAN)
 
 #ifndef VK_NO_PROTOTYPES
 #   define VK_NO_PROTOTYPES 1
 #endif
-#if (defined(__ANDROID__) || defined(PES17_ANDROID)) && !defined(VK_USE_PLATFORM_ANDROID_KHR)
+#if (defined(__ANDROID__) || defined(MW2_ANDROID)) && !defined(VK_USE_PLATFORM_ANDROID_KHR)
 #   define VK_USE_PLATFORM_ANDROID_KHR 1
 #endif
 
@@ -38,13 +38,13 @@ extern "C"
     // library, and everything else comes out of it.
     extern PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr;
 
-#define PES17_VK_GLOBAL(name)   extern PFN_##name name;
-#define PES17_VK_INSTANCE(name) extern PFN_##name name;
-#define PES17_VK_DEVICE(name)   extern PFN_##name name;
+#define MW2_VK_GLOBAL(name)   extern PFN_##name name;
+#define MW2_VK_INSTANCE(name) extern PFN_##name name;
+#define MW2_VK_DEVICE(name)   extern PFN_##name name;
 #include "vulkan_functions.inc"
-#undef PES17_VK_GLOBAL
-#undef PES17_VK_INSTANCE
-#undef PES17_VK_DEVICE
+#undef MW2_VK_GLOBAL
+#undef MW2_VK_INSTANCE
+#undef MW2_VK_DEVICE
 }
 
 #include <string>
@@ -75,4 +75,4 @@ namespace vk::loader
     uint32_t Missing();
 }
 
-#endif  // PES17_VULKAN_DYNAMIC && PES17_HAVE_VULKAN
+#endif  // MW2_VULKAN_DYNAMIC && MW2_HAVE_VULKAN

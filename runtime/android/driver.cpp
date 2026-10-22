@@ -22,7 +22,7 @@
 //
 // A chosen driver that does not load is never silent: the app says so on the
 // driver screen, and the run carries on with the system's.
-#ifdef PES17_ANDROID
+#ifdef MW2_ANDROID
 
 #include "android.h"
 #include "../log.h"
@@ -36,7 +36,7 @@
 #include <mutex>
 #include <string>
 
-#if PES17_HAVE_ADRENOTOOLS
+#if MW2_HAVE_ADRENOTOOLS
 #include <adrenotools/driver.h>
 #endif
 
@@ -200,7 +200,7 @@ void* android::driver::Open(std::string& error)
 
     if (!g_directory.empty() && !g_libraryName.empty())
     {
-#if PES17_HAVE_ADRENOTOOLS
+#if MW2_HAVE_ADRENOTOOLS
         // The imported driver, loaded so that Android's WSI stays above it.
         // The temporary folder is where the loader writes the patched copy of
         // the driver, and the redirect folder is where a driver that wants to
@@ -275,7 +275,7 @@ void* android::driver::Open(std::string& error)
         {
             const char* why = dlerror();
             LOGW("driver: %s would not load (%s)", path.c_str(), why ? why : "?");
-#if !PES17_HAVE_ADRENOTOOLS
+#if !MW2_HAVE_ADRENOTOOLS
             // Worth spelling out, because the message above names a missing
             // system library and reads like the driver's fault. It is not:
             // a Turnip build links against libcutils and the rest of
@@ -313,4 +313,4 @@ void* android::driver::Open(std::string& error)
     return nullptr;
 }
 
-#endif  // PES17_ANDROID
+#endif  // MW2_ANDROID

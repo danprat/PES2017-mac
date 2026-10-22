@@ -1,10 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="launcher_background">#070D1C</color>
-    <color name="pes_navy">#070D1C</color>
-    <color name="pes_panel">#0E1A36</color>
-    <color name="pes_line">#243457</color>
-    <color name="pes_cyan">#2CC4FF</color>
-    <color name="pes_text">#EAF1FF</color>
-    <color name="pes_muted">#8FA0C2</color>
+    <color name="launcher_background">#0B0E12</color>
 </resources>

@@ -3,9 +3,8 @@
 // parts.
 #include "renderer.h"
 #include "../../diagnostics.h"
-#include <unistd.h>
 
-#ifndef PES17_HAVE_VULKAN
+#ifndef MW2_HAVE_VULKAN
 bool vk::renderer::Initialise() { return false; }
 void vk::renderer::Shutdown() {}
 bool vk::renderer::Ready() { return false; }
@@ -24,7 +23,7 @@ bool vk::renderer::DumpingDraws() { return false; }
 #else
 
 #include "renderer_state.h"
-#ifdef PES17_ANDROID
+#ifdef MW2_ANDROID
 #include "../../android/android.h"
 #endif
 #include "display_table.h"
@@ -158,19 +157,13 @@ bool vk::renderer::Initialise()
     if (g.depthFormat == VK_FORMAT_UNDEFINED) { LOGW("renderer: no depth format"); RollbackInitialise(); return false; }
 
     // The console's 2x and 4x surfaces are drawn with that many samples unless
-    // PES17_NO_MSAA=1. A count is usable when colour, depth and stencil can all
+    // MW2_NO_MSAA=1. A count is usable when colour, depth and stencil can all
     // be drawn at it; and a multisampled depth target can only be read back
     // through a render pass resolve, which Vulkan 1.2 has core (or
     // VK_KHR_depth_stencil_resolve before that) and has to take the first
     // sample -- the only mode every such device is required to offer.
     {
-#ifdef PES17_ANDROID
-        // files/no_msaa: the same, for measuring without changing the app's setting.
-        const bool offByFile = access((android::GetPaths().external + "/no_msaa").c_str(), F_OK) == 0;
-#else
-        const bool offByFile = false;
-#endif
-        const bool off = env::Flag("PES17_NO_MSAA") || offByFile;
+        const bool off = env::Flag("MW2_NO_MSAA");
         g.sampleCounts = properties.limits.framebufferColorSampleCounts &
                          properties.limits.framebufferDepthSampleCounts &
                          properties.limits.framebufferStencilSampleCounts;
@@ -193,38 +186,38 @@ bool vk::renderer::Initialise()
                  (g.sampleCounts & VK_SAMPLE_COUNT_8_BIT) ? " 8x" : "",
                  (g.sampleCounts & VK_SAMPLE_COUNT_16_BIT) ? " 16x" : "",
                  unsigned(HostSamples(1)), unsigned(HostSamples(2)),
-                 env::Text("PES17_MSAA") ? " (PES17_MSAA)" : "");
+                 env::Text("MW2_MSAA") ? " (MW2_MSAA)" : "");
         else
             LOGI("renderer: multisampling off (%s): the title's 2x and 4x surfaces are drawn at 1x",
-                 off ? "PES17_NO_MSAA" : !modern && !vk::pipeline::DeviceHasExtension(g.physical, VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME) ? "the device is Vulkan 1.1 without the depth resolve extension"
+                 off ? "MW2_NO_MSAA" : !modern && !vk::pipeline::DeviceHasExtension(g.physical, VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME) ? "the device is Vulkan 1.1 without the depth resolve extension"
                      : !depthResolve ? "no first-sample depth resolve"
                      : "the device draws at 1x only");
     }
 
-    // PES17_SCALE=2 or 3 draws everything that many times wider and taller. A
+    // MW2_SCALE=2 or 3 draws everything that many times wider and taller. A
     // surface is at most 4096 of the title's pixels either way, and the scale
     // is lowered until that fits an image of the device's.
     {
         VkPhysicalDeviceProperties properties{};
         vkGetPhysicalDeviceProperties(g.physical, &properties);
-        const uint32_t asked = uint32_t(std::clamp<uint64_t>(env::Number("PES17_SCALE", 1), 1, 3));
+        const uint32_t asked = uint32_t(std::clamp<uint64_t>(env::Number("MW2_SCALE", 1), 1, 3));
         g.scale = asked;
         while (g.scale > 1 && 4096 * g.scale > properties.limits.maxImageDimension2D) g.scale--;
         g.presentWidth *= g.scale;
         g.presentHeight *= g.scale;
         if (g.scale != asked)
-            LOGW("renderer: PES17_SCALE=%u is more than the device's %u-pixel images hold",
+            LOGW("renderer: MW2_SCALE=%u is more than the device's %u-pixel images hold",
                  asked, properties.limits.maxImageDimension2D);
         if (g.scale > 1)
             LOGI("renderer: drawing at %ux the title's sizes, a %ux%u frame", g.scale,
                  g.presentWidth, g.presentHeight);
-        // PES17_SCENE_SCALE: the full-frame surfaces drawn smaller (renderer_state.h
+        // MW2_SCENE_SCALE: the full-frame surfaces drawn smaller (renderer_state.h
         // SceneScaleFor). Rounded to a sixteenth, so 1280 lands on whole pixels.
         g.sceneScale = 1.0f;
         if (g.scale == 1)
         {
-            double asked = env::Real("PES17_SCENE_SCALE", 1.0);
-#ifdef PES17_ANDROID
+            double asked = env::Real("MW2_SCENE_SCALE", 1.0);
+#ifdef MW2_ANDROID
             // files/scene_scale overrides it, for measuring.
             if (FILE* f = std::fopen((android::GetPaths().external + "/scene_scale").c_str(), "r"))
             {
@@ -314,9 +307,9 @@ bool vk::renderer::Initialise()
     // memory and a release build cannot see a diagnostics switch (diag::Flag is
     // a constant false there): on the device whose memory is shortest the
     // switch would have done nothing at all.
-    static const bool noShadow = env::Flag("PES17_NO_SHADOW");
+    static const bool noShadow = env::Flag("MW2_NO_SHADOW");
     const uint32_t shadowBytes = guest::kPhysicalEnd - guest::kPhysicalBase;
-    uint32_t wanted = uint32_t(env::Number("PES17_ARENA_MB", kArenaWanted >> 20)) << 20;
+    uint32_t wanted = uint32_t(env::Number("MW2_ARENA_MB", kArenaWanted >> 20)) << 20;
     bool withShadow = !noShadow;
     for (; wanted >= kArenaLeast; withShadow ? (void)(withShadow = false) : (void)(wanted /= 2))
     {
@@ -578,4 +571,4 @@ void vk::renderer::Shutdown()
 
 bool vk::renderer::Ready() { return g.ready; }
 
-#endif  // PES17_HAVE_VULKAN
+#endif  // MW2_HAVE_VULKAN

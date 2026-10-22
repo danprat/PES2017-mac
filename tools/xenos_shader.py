@@ -2,7 +2,7 @@
 """Disassemble Xenos shader microcode.
 
 Works on raw microcode with known boundaries: the .ucode files the runtime
-captures from the command stream (PES17_DUMP_SHADERS), and the ones
+captures from the command stream (MW2_DUMP_SHADERS), and the ones
 extract_shaders.py recovers from the fastfiles.
 
 It does not work on a fastfile container, which holds the constant table and the

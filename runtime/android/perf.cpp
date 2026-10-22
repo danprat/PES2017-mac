@@ -11,7 +11,7 @@
 //     kernel kills the process rather than the cache evicting.
 //   * what to give back when Android asks. onTrimMemory is the only warning
 //     before the low-memory killer, and a texture cache that answers it lives.
-#ifdef PES17_ANDROID
+#ifdef MW2_ANDROID
 
 #include "android.h"
 #include "../env.h"
@@ -156,7 +156,7 @@ uint32_t android::perf::AvailableMemoryMB()
 // The instant-boot shader budget, sized for this device. A weak phone keeps
 // the conservative default (15 pipelines / 250 ms: sub-2-second boot); a
 // strong one compiles more up front and finishes warming sooner. Overridable
-// for testing: PES17_PREWARM_MAX / PES17_PREWARM_MS, either one alone leaving the
+// for testing: MW2_PREWARM_MAX / MW2_PREWARM_MS, either one alone leaving the
 // other at its tier.
 void android::perf::PrewarmBudget(uint32_t& maxSync, uint32_t& deadlineMs)
 {
@@ -165,8 +165,8 @@ void android::perf::PrewarmBudget(uint32_t& maxSync, uint32_t& deadlineMs)
     if (totalMB >= 8000 && g_bigCoreCount >= 4) { maxSync = 40; deadlineMs = 600; }
     else if (totalMB >= 6000)                   { maxSync = 25; deadlineMs = 400; }
     else                                        { maxSync = 15; deadlineMs = 250; }
-    const uint64_t overrideMax = env::Number("PES17_PREWARM_MAX");
-    const uint64_t overrideMs = env::Number("PES17_PREWARM_MS");
+    const uint64_t overrideMax = env::Number("MW2_PREWARM_MAX");
+    const uint64_t overrideMs = env::Number("MW2_PREWARM_MS");
     if (overrideMax) maxSync = uint32_t(std::min<uint64_t>(overrideMax, 5000));
     if (overrideMs) deadlineMs = uint32_t(std::min<uint64_t>(overrideMs, 60000));
     LOGI("perf: prewarm budget %u pipelines / %u ms (%u MB RAM, %u fast cores)",
@@ -188,18 +188,18 @@ void android::perf::ApplyMemoryDefaults()
     if (totalMB >= 12000) textureMB = 1536;
     char text[32];
     std::snprintf(text, sizeof text, "%u", textureMB);
-    setenv("PES17_TEXTURE_BUDGET_MB", text, 0);
+    setenv("MW2_TEXTURE_BUDGET_MB", text, 0);
 
     // The 3D scene at three quarters of 720p each way (960x540), stretched back
     // by the present: the match is GPU-bound on a Snapdragon 865 (98% busy at
     // its top clock), and this is 44% fewer pixels for every full-frame pass.
-    setenv("PES17_SCENE_SCALE", "0.75", 0);
+    setenv("MW2_SCENE_SCALE", "0.75", 0);
 
     // The upload arena is committed up front, so it is 512 MB of resident
     // memory on a device that does not have it to spare.
     const uint32_t arenaMB = totalMB >= 8000 ? 384u : totalMB >= 6000 ? 256u : 192u;
     std::snprintf(text, sizeof text, "%u", arenaMB);
-    setenv("PES17_ARENA_MB", text, 0);
+    setenv("MW2_ARENA_MB", text, 0);
 
     // The arena has a floor -- a frame that runs out of it draws nothing from
     // the point it ran out -- but the shadow behind it does not: it is 512 MB
@@ -208,29 +208,29 @@ void android::perf::ApplyMemoryDefaults()
     // that half-gigabyte is most of what the killer would otherwise count, and
     // it is asked for before the first frame. A variable already set wins, so
     // a device with room to spare keeps it.
-    if (totalMB <= 6000) setenv("PES17_NO_SHADOW", "1", 0);
+    if (totalMB <= 6000) setenv("MW2_NO_SHADOW", "1", 0);
 
     // Multisampling is the single most expensive thing a mobile GPU can be
     // asked for, and the title asks for 2x and 4x by default.
-    setenv("PES17_NO_MSAA", "1", 0);
+    setenv("MW2_NO_MSAA", "1", 0);
 
     if (!paths.external.empty())
     {
         const std::string shaders = paths.external + "/shader_cache.bin";
-        setenv("PES17_SHADER_CACHE", shaders.c_str(), 0);
+        setenv("MW2_SHADER_CACHE", shaders.c_str(), 0);
     }
     else if (!paths.files.empty())
     {
         const std::string shaders = paths.files + "/shader_cache.bin";
-        setenv("PES17_SHADER_CACHE", shaders.c_str(), 0);
+        setenv("MW2_SHADER_CACHE", shaders.c_str(), 0);
     }
     if (!paths.files.empty())
     {
         const std::string pipeline = paths.files + "/pipeline.cache";
-        setenv("PES17_PIPELINE_CACHE", pipeline.c_str(), 0);
+        setenv("MW2_PIPELINE_CACHE", pipeline.c_str(), 0);
     }
 
-    const char* activeBudget = std::getenv("PES17_TEXTURE_BUDGET_MB");
+    const char* activeBudget = std::getenv("MW2_TEXTURE_BUDGET_MB");
     const uint32_t loggedTextureMB = activeBudget ? uint32_t(std::strtoul(activeBudget, nullptr, 10)) : textureMB;
     LOGI("perf: %u MB of memory, %u MB free; textures %u MB (budget), arena %u MB", totalMB,
          AvailableMemoryMB(), loggedTextureMB, arenaMB);
@@ -298,4 +298,4 @@ void android::perf::TrimMemory(int level)
 #endif
 }
 
-#endif  // PES17_ANDROID
+#endif  // MW2_ANDROID

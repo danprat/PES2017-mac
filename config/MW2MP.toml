@@ -1,0 +1,81 @@
+[main]
+file_path = "../mw2/default_mp.xex"
+out_directory_path = "../ppc_mp"
+switch_table_file_path = "mw2mp_switch_tables.toml"
+
+skip_lr = false
+skip_msr = false
+ctr_as_local = false
+xer_as_local = false
+reserved_as_local = false
+cr_as_local = false
+non_argument_as_local = false
+non_volatile_as_local = false
+
+# The multiplayer's copies of the register save/restore helpers, found by
+# searching default_mp.pe for the campaign's helper bodies (each is unique).
+restgprlr_14_address = 0x8241A790
+savegprlr_14_address = 0x8241A740
+restfpr_14_address   = 0x8241A83C
+savefpr_14_address   = 0x8241A7F0
+restvmx_14_address   = 0x8241C058
+savevmx_14_address   = 0x8241BDC0
+restvmx_64_address   = 0x8241C0EC
+savevmx_64_address   = 0x8241BE54
+
+# The C runtime's setjmp and longjmp. Com_Error leaves an error with longjmp to
+# the setjmp of the thread's frame loop; recompiled as ordinary functions, the
+# longjmp returned into the code that raised the error instead.
+setjmp_address  = 0x8241C710
+longjmp_address = 0x8241D470
+
+# Leaf functions (no stack frame, hence absent from .pdata) that contain jump
+# tables. The analyzer ends them early because a table dispatch looks like a
+# tail call. Extents derived by tools/fixbounds.py (MW2_TITLE=mp) from bl
+# targets, padding runs and the tables' own case labels.
+functions = [
+    # Compact branch ladders that XenonAnalyse splits into several functions;
+    # the branch targets inside are fallthrough labels, not entry points. Each
+    # runs to the padding after its last blr.
+    { address = 0x821486B8, size = 0x44 },
+    { address = 0x8210F468, size = 0x9C },
+
+    { address = 0x820CC0F8, size = 0xA8 },
+    { address = 0x82115AA8, size = 0x60 },
+    { address = 0x82115B08, size = 0x70 },
+    { address = 0x82157640, size = 0x9C },
+    { address = 0x821AABB0, size = 0x118 },
+    { address = 0x821AACF0, size = 0x114 },
+    { address = 0x821AAE90, size = 0x3B8 },
+    { address = 0x82291288, size = 0x64 },
+    { address = 0x822DD760, size = 0xD4 },
+    { address = 0x822EB578, size = 0x88 },
+    { address = 0x822F3700, size = 0xE0 },
+    { address = 0x822F4D30, size = 0x94 },
+    { address = 0x82300E58, size = 0xD0 },
+    { address = 0x823011D8, size = 0x64 },
+    { address = 0x82301240, size = 0x74 },
+    { address = 0x823012C0, size = 0x60 },
+    { address = 0x82301320, size = 0x78 },
+    { address = 0x82301398, size = 0x68 },
+    { address = 0x8230C9D8, size = 0x20C },
+    { address = 0x8230CBE8, size = 0x1E0 },
+    { address = 0x8230FFB8, size = 0x1B0 },
+    { address = 0x823FEA58, size = 0x14C },
+    # Unreferenced leaf functions the analyser never starts (no .pdata, no bl
+    # into them, no padding between them), called through a table at boot by
+    # the code after 0x823AAC20. The device log shows each as "inside the code
+    # range but not identified as a function start", then the title bugchecks
+    # (black screen). Each runs to the next called address; the last of each
+    # group runs to its .pdata end. Extents from tools/bracket.py --flow on a
+    # TU6 MP recompile (Build MP APK probe).
+    { address = 0x8242C630, size = 0x20 },
+    { address = 0x8242C650, size = 0x38 },
+    { address = 0x8242C688, size = 0x24 },
+    { address = 0x8242C6E0, size = 0x18 },
+    { address = 0x8242C6F8, size = 0x38 },
+    { address = 0x8242C730, size = 0x20 },
+    { address = 0x8242C750, size = 0x180 },
+    { address = 0x8242BB48, size = 0x38 },
+    { address = 0x8242BB80, size = 0x44 },
+]

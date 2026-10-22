@@ -17,13 +17,13 @@
 #include "../stutters.h"
 #include "../gpu/vulkan/renderer.h"
 
-#ifdef PES17_ANDROID
+#ifdef MW2_ANDROID
 #include "../android/android.h"
 #include <algorithm>
 #include <cstring>
 #endif
 
-#ifdef PES17_USE_SDL
+#ifdef MW2_USE_SDL
 #include <SDL3/SDL.h>
 #include <atomic>
 #include <chrono>
@@ -65,7 +65,7 @@ namespace
         XInputVibration vibration;
     };
 
-#ifdef PES17_USE_SDL
+#ifdef MW2_USE_SDL
     std::once_flag g_sdlOnce;
     // The title reads the pads on its main thread and sets the motors from
     // whichever thread runs its rumble; both open and close pads here.
@@ -218,7 +218,7 @@ namespace
         return b;
     }
 
-    // PES17_INPUT_SCRIPT="2.5:start,6:a" presses buttons at fixed times, so a title
+    // MW2_INPUT_SCRIPT="2.5:start,6:a" presses buttons at fixed times, so a title
     // can be driven to a screen without a hand on the controller, and a bring-up
     // run reproduces the same path twice.
     //
@@ -264,7 +264,7 @@ namespace
         if constexpr (!diag::kOn) return 0;
         std::call_once(g_scriptOnce, [] {
             g_scriptStart = std::chrono::steady_clock::now();
-            const char* text = diag::Text("PES17_INPUT_SCRIPT");
+            const char* text = diag::Text("MW2_INPUT_SCRIPT");
             if (!text) return;
             for (const char* at = text; *at; )
             {
@@ -345,7 +345,7 @@ namespace
         return false;
     }
 
-#endif  // PES17_USE_SDL
+#endif  // MW2_USE_SDL
 
     // The packet number tells the title whether anything has changed since it
     // last looked. Incrementing it every poll says "changed" sixty times a second.
@@ -365,7 +365,7 @@ PPC_FUNC(__imp__XamInputGetState)
     auto* out = GuestPtr<XInputState>(sAddr);
     if (!out) { ctx.r3.u64 = X_ERROR_DEVICE_NOT_CONNECTED; return; }
 
-#ifdef PES17_ANDROID
+#ifdef MW2_ANDROID
     // A virtual pad from a file, for testing (tools/pad.sh): files/pad holds a
     // line per controller, `user buttons lx ly rx ry lt rt` (buttons in hex,
     // XInput bits; sticks -32768..32767; triggers 0..255), and is read again
@@ -494,7 +494,7 @@ PPC_FUNC(__imp__XamInputGetState)
     }
 #endif
 
-#ifdef PES17_USE_SDL
+#ifdef MW2_USE_SDL
     if (user >= 4) { *out = XInputState{}; ctx.r3.u64 = X_ERROR_DEVICE_NOT_CONNECTED; return; }
     SDL_Gamepad* pad = PadFor(user);
     const uint16_t elsewhere = uint16_t((user == 0 ? KeyboardButtons() : 0) | ScriptedButtons(user));
@@ -519,12 +519,12 @@ PPC_FUNC(__imp__XamInputGetState)
         if (down(SDL_GAMEPAD_BUTTON_WEST))           b |= BTN_X;
         if (down(SDL_GAMEPAD_BUTTON_NORTH))          b |= BTN_Y;
 
-        // A flash hunt (PES17_FLASH_HUNT, tools/flash_hunt.sh) takes the pad's Y
+        // A flash hunt (MW2_FLASH_HUNT, tools/flash_hunt.sh) takes the pad's Y
         // as its mark, because reaching for F7 mid-fight is not going to
         // happen. The title does not see it: Y switches weapon, and the
         // switch would change the very frames the mark keeps. A stutter hunt
-        // (PES17_STUTTERS) marks a hitch with it the same way.
-        static const bool hunting = diag::Flag("PES17_FLASH_HUNT") || stutters::On();
+        // (MW2_STUTTERS) marks a hitch with it the same way.
+        static const bool hunting = diag::Flag("MW2_FLASH_HUNT") || stutters::On();
         if (hunting && user == 0 && pad)
         {
             static bool wasDown = false;
@@ -588,7 +588,7 @@ PPC_FUNC(__imp__XamInputGetState)
             else if (axes[0] < -16000) b |= BTN_DPAD_LEFT;
 
             // What a person did, before the autopilot adds to it: a recorded
-            // route keeps the presses (PES17_RECORD_PATH), and every shot is logged.
+            // route keeps the presses (MW2_RECORD_PATH), and every shot is logged.
             player::SawPad(b, triggers[1]);
             player::Press press = player::Press::None;
             if (player::Steer(axes, press))
@@ -655,7 +655,7 @@ PPC_FUNC(__imp__XamInputGetCapabilities)
     uint32_t user = ctx.r3.u32;
     auto* caps = GuestPtr<XInputCapabilities>(ctx.r5.u32);
     if (!caps) { ctx.r3.u64 = X_ERROR_DEVICE_NOT_CONNECTED; return; }
-#ifdef PES17_ANDROID
+#ifdef MW2_ANDROID
     // A controller listed in files/pad (the virtual pad in XamInputGetState).
     bool listed = false;
     if (FILE* f = std::fopen((android::GetPaths().external + "/pad").c_str(), "r"))
@@ -682,7 +682,7 @@ PPC_FUNC(__imp__XamInputGetCapabilities)
     ctx.r3.u64 = X_ERROR_DEVICE_NOT_CONNECTED;
     return;
 #endif
-#ifdef PES17_USE_SDL
+#ifdef MW2_USE_SDL
     if (user == 0 || PadFor(user) || (user < 4 && g_scripted[user]) || player::Wanted())
     {
         // What a wired 360 pad reports: every control it has at full range,
@@ -715,14 +715,14 @@ PPC_FUNC(__imp__XamInputSetState)
     if (user >= 4) { ctx.r3.u64 = X_ERROR_DEVICE_NOT_CONNECTED; return; }
     auto* v = GuestPtr<XInputVibration>(ctx.r5.u32);
     if (!v) { ctx.r3.u64 = X_ERROR_BAD_ARGUMENTS; return; }
-#ifdef PES17_ANDROID
+#ifdef MW2_ANDROID
     // The phone's vibrator, or a pad that has motors of its own: the app
     // decides which, and whether the player wanted either.
     android::input::Rumble(user, v->left, v->right);
     ctx.r3.u64 = X_ERROR_SUCCESS;
     return;
 #endif
-#ifdef PES17_USE_SDL
+#ifdef MW2_USE_SDL
     if (SDL_Gamepad* pad = PadFor(user))
     {
         std::lock_guard lock(g_padLock);

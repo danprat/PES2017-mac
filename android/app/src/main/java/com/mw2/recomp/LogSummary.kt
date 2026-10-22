@@ -1,4 +1,4 @@
-package com.pes2017.recomp
+package com.mw2.recomp
 
 import android.content.Context
 import java.io.File
@@ -175,7 +175,7 @@ object LogSummary {
      * The level a line carries, or null for anything that is not one of the
      * runtime's lines: a stack trace, a blank line, the separator between runs.
      *
-     * The marker is "[x] " at the front, except that PES17_LOG_TIME puts nine
+     * The marker is "[x] " at the front, except that MW2_LOG_TIME puts nine
      * columns of seconds in front of it -- so the search is bounded rather than
      * a prefix test, and the bracket is closed at once, which is what keeps a
      * genuine line apart from a bracketed address inside a trace.

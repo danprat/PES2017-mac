@@ -3,7 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#070D1C"
+    android:background="#0B0E12"
     android:padding="20dp">
 
     <TextView
@@ -19,9 +19,9 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:background="#0E1A36"
+        android:background="#141A21"
         android:padding="12dp"
-        android:textColor="#D6E2FF"
+        android:textColor="#C8D0D8"
         android:textSize="13sp" />
 
     <TextView

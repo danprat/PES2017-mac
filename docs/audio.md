@@ -28,7 +28,7 @@ Pacing is locked to the wall-clock 5.333 ms cadence (187.5 Hz) matching the exac
 to withstand dense explosions or level transitions before frames are dropped. The callback
 keeps its nominal rate, advancing the sound state machines smoothly without pitch artifacts
 or underruns. A worker that falls far behind (e.g. process was suspended or long frame)
-resynchronises cleanly instead of pumping a burst. `PES17_NO_AUDIO=1` opens no device; the mixer
+resynchronises cleanly instead of pumping a burst. `MW2_NO_AUDIO=1` opens no device; the mixer
 and the decoder still run.
 
 Two other imports matter to the mixer:
@@ -73,7 +73,7 @@ address. `XMACreateContext` and `XMAReleaseContext` hand them out.
 The written registers are commands, not state, so they are caught as they are
 stored. The recompiler emits `PPC_MM_STORE_U32` for a store followed by
 `eieio`, and `runtime/mmio_hook.h`, force-included into the recompiled code,
-routes stores into the window to `pes17_xma_register_store`. A kick decodes
+routes stores into the window to `mw2_xma_register_store`. A kick decodes
 synchronously on the kicking thread until the output ring is full or the input
 is spent, so the context reflects the work when the store returns. A lock waits
 out a decode in flight on another thread.
@@ -93,8 +93,8 @@ allocated, and errors.
 
 | switch | effect |
 |---|---|
-| `PES17_NO_AUDIO=1` | no playback device |
-| `PES17_TRACE_XMA=1` | every kick with its buffers, and FFmpeg's log |
+| `MW2_NO_AUDIO=1` | no playback device |
+| `MW2_TRACE_XMA=1` | every kick with its buffers, and FFmpeg's log |
 
 To check the output without listening, record the sink's monitor while the game
 runs:

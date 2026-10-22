@@ -18,7 +18,7 @@
 #include "../../stutters.h"
 #include "../../words_hash.h"
 
-#ifndef PES17_HAVE_VULKAN
+#ifndef MW2_HAVE_VULKAN
 // No loader, so nothing here can be built. Every caller tolerates a cache that
 // never comes up, because that is also what happens on a machine with no GPU.
 bool     vk::textures::Initialise() { return false; }
@@ -73,12 +73,12 @@ void vk::textures::BeginUploads(uint32_t) {}
 
 namespace
 {
-    // PES17_FLASH_HUNT=1 (tools/flash_hunt.sh): every texture that reaches the
+    // MW2_FLASH_HUNT=1 (tools/flash_hunt.sh): every texture that reaches the
     // screen with nothing in it gets its line, not only the first few, so each
     // can be matched with a flash somebody saw.
     bool FlashHunt()
     {
-        static const bool on = diag::Flag("PES17_FLASH_HUNT");
+        static const bool on = diag::Flag("MW2_FLASH_HUNT");
         return on;
     }
 
@@ -111,15 +111,15 @@ namespace
     //
     // Hardware BC is off altogether on Adreno (pipeline.cpp), so there every BC
     // format lands here -- at eight times the bytes for BC1 and four for the
-    // rest, which is the workaround's cost. PES17_ADRENO_BC=narrow keeps the
+    // rest, which is the workaround's cost. MW2_ADRENO_BC=narrow keeps the
     // driver's sampling and software-decodes only the BC1 family, the case its
-    // sampler is known to get wrong. PES17_FORCE_BC_DECOMPRESS makes a clean
+    // sampler is known to get wrong. MW2_FORCE_BC_DECOMPRESS makes a clean
     // desktop driver exercise the same decoder, which is how a decode bug is
     // told apart from a driver one.
     bool DecodeInSoftware(uint32_t xenosFormat)
     {
         if (!vk::bc::IsBCFormat(xenosFormat)) return false;
-        static const bool force = std::getenv("PES17_FORCE_BC_DECOMPRESS") != nullptr;
+        static const bool force = std::getenv("MW2_FORCE_BC_DECOMPRESS") != nullptr;
         if (force) return true;
         if (!vk::pipeline::TextureCompressionBC()) return true;
         if (vk::bc::AdrenoMode() != vk::bc::AdrenoBC::kDxt1Only) return false;
@@ -272,7 +272,7 @@ namespace
         uint64_t lateReadsBoundAgain = 0, lateReadsOnLastUse = 0;
         uint64_t emptyDrawnInWorld = 0, refilledBeforeSubmit = 0, stillEmptyAtSubmit = 0;
 
-        // PES17_MARK_EMPTY=1: the id of a flat magenta texture, bound in place of
+        // MW2_MARK_EMPTY=1: the id of a flat magenta texture, bound in place of
         // anything uploaded from a block with nothing in it.
         uint64_t magenta = 0;
         uint64_t markedEmpty = 0;
@@ -1016,16 +1016,16 @@ bool vk::textures::Initialise()
     VkPhysicalDeviceProperties properties{};
     vkGetPhysicalDeviceProperties(g.physical, &properties);
     g.maxDimension = properties.limits.maxImageDimension2D;
-    // Half the device's own memory, within reason, unless PES17_TEXTURE_BUDGET_MB
+    // Half the device's own memory, within reason, unless MW2_TEXTURE_BUDGET_MB
     // says otherwise.
     VkDeviceSize deviceLocal = 0;
     for (uint32_t i = 0; i < g.memory.memoryHeapCount; i++)
         if (g.memory.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT)
             deviceLocal = std::max(deviceLocal, g.memory.memoryHeaps[i].size);
-    g.budget = env::Number("PES17_TEXTURE_BUDGET_MB") << 20;
+    g.budget = env::Number("MW2_TEXTURE_BUDGET_MB") << 20;
     if (!g.budget)
     {
-#if defined(PES17_ANDROID) || defined(__ANDROID__)
+#if defined(MW2_ANDROID) || defined(__ANDROID__)
         g.budget = 128ull << 20;
 #else
         g.budget = std::clamp<uint64_t>(deviceLocal / 2, 256ull << 20, 2048ull << 20);
@@ -1376,7 +1376,7 @@ void vk::textures::MemoryWritten(uint32_t physicalAddress, uint32_t size)
 
 namespace
 {
-#if defined(PES17_ANDROID) || defined(__ANDROID__)
+#if defined(MW2_ANDROID) || defined(__ANDROID__)
     constexpr uint64_t kUnusedFrames = 120;
     constexpr uint64_t kSweepFrames = 32;
 #else
@@ -1615,12 +1615,12 @@ void vk::textures::BeginUploads(uint32_t index)
 
 namespace
 {
-    // PES17_MARK_EMPTY=1: paint every world texture uploaded from a block with
+    // MW2_MARK_EMPTY=1: paint every world texture uploaded from a block with
     // nothing in it flat magenta, so what the counter counts can be seen. A
     // magenta flash is one the log explains; a black one is something else.
     bool MarkEmpty()
     {
-        static const bool on = diag::Flag("PES17_MARK_EMPTY");
+        static const bool on = diag::Flag("MW2_MARK_EMPTY");
         return on;
     }
 
@@ -1814,7 +1814,7 @@ namespace
             // Reaches the screen with nothing in it. tools/flash_hunt.sh matches
             // these lines with the flashes somebody saw.
             g.stillEmptyAtSubmit++;
-            if (g.stillEmptyAtSubmit <= 24 || FlashHunt())
+            if (g.stillEmptyAtSubmit <= 200 || FlashHunt())
             {
                 char moves[1024];
                 imagepool::DescribeMovesAround(image->address, uint32_t(image->sourceBytes), 16,
@@ -2113,8 +2113,8 @@ void vk::textures::Report()
          (unsigned long long)g.stale, (unsigned long long)(g.staleBytes >> 20),
          (unsigned long long)g.staleNotReally, (unsigned long long)g.shared);
     if (g.markedEmpty)
-        LOGI("textures: %llu binds painted magenta (PES17_MARK_EMPTY)",
+        LOGI("textures: %llu binds painted magenta (MW2_MARK_EMPTY)",
              (unsigned long long)g.markedEmpty);
 }
 
-#endif  // PES17_HAVE_VULKAN
+#endif  // MW2_HAVE_VULKAN

@@ -43,9 +43,9 @@ namespace vk::bindings
     // for a program drawn with the viewport transform off.
     constexpr uint32_t kVertexPushOffset = 16, kVertexPushBytes = 16;
     // Both, and only in shaders built for render targets larger than the
-    // title's (PES17_SCALE): { uint, a bit per texture slot bound to a resolve's
+    // title's (MW2_SCALE): { uint, a bit per texture slot bound to a resolve's
     // copy }, whose image is that many times the size the title gave it.
     // Then two floats: 1/(the copies' scale) and 1/(the target's scale), for
-    // texture sizes and the pixel position (PES17_SCENE_SCALE below 1).
+    // texture sizes and the pixel position (MW2_SCENE_SCALE below 1).
     constexpr uint32_t kScaledPushOffset = 32, kScaledPushBytes = 12;
 }

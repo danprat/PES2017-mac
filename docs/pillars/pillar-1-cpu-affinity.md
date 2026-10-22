@@ -60,4 +60,4 @@ void PinCurrentThreadToCores(uint32_t coreMask)
 ## Validation & Metrics
 1. Inspect thread placement with `top -H` and `perf` via adb.
 2. Confirm the main PPC execution thread remains pinned to Core 7 with zero migration events under thermal load.
-3. Validate frame time stability in the in-game HUD (`PES17_REPORT`).
+3. Validate frame time stability in the in-game HUD (`MW2_REPORT`).

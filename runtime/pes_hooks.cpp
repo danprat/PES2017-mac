@@ -96,3 +96,4 @@ GUEST_HOOK(8240CD00)
     GUEST_ORIG(8240CD00)(ctx, base);
     gpu::WaitAfterKick();
 }
+

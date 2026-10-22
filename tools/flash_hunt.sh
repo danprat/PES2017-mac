@@ -14,14 +14,14 @@
 # pictures, so the flash itself can be looked at, not only described.
 #
 #   --magenta    paint textures drawn from nothing magenta instead of black
-#                (PES17_MARK_EMPTY): a magenta flash is one the log explains, a
+#                (MW2_MARK_EMPTY): a magenta flash is one the log explains, a
 #                black one or a change of shade is something else
 #   --no-frames  keep no frames. Keeping them reads every frame back, which
 #                slows the game a little and could change how often it flashes
 #   --frames N   how many frames to keep before each F7
 #   --map NAME   another map than mp_afghan
 #   --no-shadow  turn off the write watch and the shadow of guest memory
-#                (PES17_NO_SHADOW): if a flash still happens without them, they
+#                (MW2_NO_SHADOW): if a flash still happens without them, they
 #                are not its cause
 #
 # Output: diagnosis/hunt/<date-time>/ -- full.log, texture.log (what the
@@ -47,11 +47,11 @@ while [ $# -gt 0 ]; do
     shift
 done
 
-if pgrep -x pes17 >/dev/null; then
-    echo "pes17 is already running; close it first" >&2
+if pgrep -x mw2 >/dev/null; then
+    echo "mw2 is already running; close it first" >&2
     exit 1
 fi
-[ -x build-mp/pes17 ] || { echo "build it first: TITLE=mp ./build.sh" >&2; exit 1; }
+[ -x build-mp/mw2 ] || { echo "build it first: TITLE=mp ./build.sh" >&2; exit 1; }
 
 out="diagnosis/hunt/$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$out"
@@ -65,13 +65,13 @@ echo "F8 = fullscreen.   Close the window to finish."
 [ -n "$noshadow" ] && echo "no shadow of guest memory (--no-shadow)"
 echo
 
-env PES17_NET_LINK=1 PES17_CONSOLE="3:map $map" \
-    PES17_LOG_TIME=1 PES17_FLASH_HUNT=1 \
-    PES17_FLASH_FRAMES="$frames" PES17_FLASH_DIR="$out" \
-    ${magenta:+PES17_MARK_EMPTY=1} \
-    ${noshadow:+PES17_NO_SHADOW=1} \
-    PES17_LOG_FILE="$out/full.log" \
-    ./build-mp/pes17 pes17/default_mp.pe pes17/game &
+env MW2_NET_LINK=1 MW2_CONSOLE="3:map $map" \
+    MW2_LOG_TIME=1 MW2_FLASH_HUNT=1 \
+    MW2_FLASH_FRAMES="$frames" MW2_FLASH_DIR="$out" \
+    ${magenta:+MW2_MARK_EMPTY=1} \
+    ${noshadow:+MW2_NO_SHADOW=1} \
+    MW2_LOG_FILE="$out/full.log" \
+    ./build-mp/mw2 mw2/default_mp.pe mw2/game &
 game=$!
 
 # What a flash can be matched with, as it is written.

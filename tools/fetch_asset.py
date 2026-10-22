@@ -7,8 +7,8 @@ somehow, and a link to storage the owner of the copy controls is the usual
 way. This resolves such a link, downloads what is behind it, works out what
 it got, and puts it where build.sh looks for it.
 
-    tools/fetch_asset.py --into pes17 <url> [<url> ...]
-    tools/fetch_asset.py --into pes17 default_mp.xex=<url>
+    tools/fetch_asset.py --into mw2 <url> [<url> ...]
+    tools/fetch_asset.py --into mw2 default_mp.xex=<url>
 
 Understood links:
 
@@ -497,7 +497,7 @@ def main():
         description="Fetch default.xex, default_mp.xex or the disc image from a link.")
     parser.add_argument("links", nargs="*", metavar="[NAME=]URL",
                         help="a link, optionally with the name to save it as")
-    parser.add_argument("--into", default="pes17", help="where to put what arrives (default: pes17)")
+    parser.add_argument("--into", default="mw2", help="where to put what arrives (default: mw2)")
     parser.add_argument("--require", default="",
                         help="comma-separated names that must be there afterwards, "
                              "e.g. default.xex,default_mp.xex")

@@ -9,12 +9,12 @@
 #include <bit>
 #include <cstring>
 #include <cstdio>
-#ifdef PES17_ANDROID
+#ifdef MW2_ANDROID
 #include "../../android/android.h"
 #endif
 #include <vector>
 
-#ifdef PES17_HAVE_VULKAN
+#ifdef MW2_HAVE_VULKAN
 
 namespace vk::renderer::detail
 {
@@ -24,7 +24,7 @@ namespace vk::renderer::detail
     // wrong -- their vertex data is rewritten in ways the page watch misses.
     // files/vertex_shadow turns it on, for testing.
     const bool kServeVertexShadow = [] {
-#ifdef PES17_ANDROID
+#ifdef MW2_ANDROID
         if (FILE* f = std::fopen((android::GetPaths().external + "/vertex_shadow").c_str(), "r"))
         { std::fclose(f); return true; }
 #endif
@@ -434,4 +434,4 @@ namespace vk::renderer::detail
     }
 }
 
-#endif  // PES17_HAVE_VULKAN
+#endif  // MW2_HAVE_VULKAN

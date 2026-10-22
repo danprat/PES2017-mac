@@ -5,19 +5,19 @@
 //
 // Each copy sends from a port of its own, and a peer is that port's address:
 // the IPv4 address in the top bits, the port in the low 16. Broadcasts go to a
-// port every copy shares (PES17_LAN_PORT, 3074 by default), which the kernel
+// port every copy shares (MW2_LAN_PORT, 3074 by default), which the kernel
 // delivers to all of them; each copy's own port is the first free one after it.
 // Who the player is, to the title, is the profile at the first controller
 // (signin.h), plus this copy's port slot, so a second copy on one machine is a
-// second player. PES17_NAME is another name for him than the profile's.
-// PES17_LAN_IFACE pins the announced adapter by name or address substring;
+// second player. MW2_NAME is another name for him than the profile's.
+// MW2_LAN_IFACE pins the announced adapter by name or address substring;
 // without it the first connection up is announced.
 //
 // Xbox LIVE lobbies: every copy says who it is and what can be joined, once a
-// second, to everyone on the shared port. PES17_LAN_JOIN=<name> joins that
+// second, to everyone on the shared port. MW2_LAN_JOIN=<name> joins that
 // player's party or lobby as soon as it is seen, as choosing a friend and
 // "Join Session" does on the console. The lobby's "Invite friends" invites
-// every player seen; a copy started with PES17_LAN_ACCEPT=1 accepts.
+// every player seen; a copy started with MW2_LAN_ACCEPT=1 accepts.
 #include "service.h"
 #include "../env.h"
 #include "../log.h"
@@ -129,7 +129,7 @@ namespace
     constexpr uint32_t kPresenceMagic = 0x4D573250;   // "MW2P"
     constexpr uint8_t kAnnounce = 0, kInvite = 1;
     constexpr uint8_t kPresenceTu0 = 1, kPresenceTu6 = 2;
-#ifdef PES17_VERSION_TU0
+#ifdef MW2_VERSION_TU0
     constexpr uint8_t kOwnTu = kPresenceTu0;
     constexpr const char* kOwnTuName = "TU0";
 #else
@@ -247,7 +247,7 @@ namespace
             found.push_back({ at->ifa_name, ntohl(reinterpret_cast<sockaddr_in*>(at->ifa_addr)->sin_addr.s_addr), mask });
         }
         freeifaddrs(list);
-#ifdef PES17_ANDROID
+#ifdef MW2_ANDROID
         std::stable_partition(found.begin(), found.end(), [](const Adapter& a) {
             return a.name.compare(0, 4, "wlan") == 0;
         });
@@ -261,7 +261,7 @@ namespace
     // names them all: with more than one, the first may not be the one the
     // other players are on.
     //
-    // PES17_LAN_IFACE pins one: any adapter whose name or address contains the
+    // MW2_LAN_IFACE pins one: any adapter whose name or address contains the
     // value ("WiFi", "wlan0", "192.168.1"). Matters with several up at once --
     // a VPN adapter first means sessions invite to an address only VPN peers
     // reach, and WiFi-only guests then loop on "attempt #N" forever.
@@ -279,7 +279,7 @@ namespace
         }
         if (adapters.empty()) LOGI("online: no network connection is up; lan stays on this machine");
         else LOGI("online: network connections: %s; announcing the first", list.c_str());
-        const char* pinned = env::Text("PES17_LAN_IFACE");
+        const char* pinned = env::Text("MW2_LAN_IFACE");
         if (pinned && *pinned)
         {
             for (const Adapter& adapter : adapters)
@@ -291,12 +291,12 @@ namespace
                 if (adapter.name.find(pinned) != std::string::npos ||
                     std::string(text).find(pinned) != std::string::npos)
                 {
-                    LOGI("online: PES17_LAN_IFACE=%s, announcing %s %s", pinned,
+                    LOGI("online: MW2_LAN_IFACE=%s, announcing %s %s", pinned,
                          adapter.name.c_str(), text);
                     return adapter.address;
                 }
             }
-            LOGW("online: PES17_LAN_IFACE=%s matches no connection, announcing the first", pinned);
+            LOGW("online: MW2_LAN_IFACE=%s matches no connection, announcing the first", pinned);
         }
         return adapters.empty() ? uint32_t(INADDR_LOOPBACK) : adapters.front().address;
     }
@@ -336,7 +336,7 @@ namespace
             WSADATA wsa;
             if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) { LOGE("online: no Winsock"); return false; }
 #endif
-            sharedPort_ = uint16_t(env::Number("PES17_LAN_PORT", 3074));
+            sharedPort_ = uint16_t(env::Number("MW2_LAN_PORT", 3074));
             // A port of its own, the first free one above the shared port.
             for (slot_ = 0; slot_ < 64 && own_ == kNoSocket; slot_++)
                 own_ = OpenSocket(uint16_t(sharedPort_ + 1 + slot_), false);
@@ -356,12 +356,12 @@ namespace
             const signin::Player player = signin::First();
             account_ = player.id;
             // Until there were profiles, the account was made from the name.
-            const char* name = env::Text("PES17_NAME");
+            const char* name = env::Text("MW2_NAME");
             const char* login = name ? name : UserName();
             former_ = Fnv(login ? login : "Player");
             name_ = name ? name : player.name;
-            if (const char* join = env::Text("PES17_LAN_JOIN")) join_ = join;
-            accept_ = env::Flag("PES17_LAN_ACCEPT");
+            if (const char* join = env::Text("MW2_LAN_JOIN")) join_ = join;
+            accept_ = env::Flag("MW2_LAN_ACCEPT");
             char text[INET_ADDRSTRLEN];
             inet_ntop(AF_INET, &bound.sin_addr, text, sizeof text);
             LOGI("online: lan as \"%s\" (%s) at %s:%u, broadcasts on %u", name_.c_str(), kOwnTuName, text,
@@ -633,7 +633,7 @@ namespace
                 invites_.push_back(InviteFrom(peer, true));
             }
             else
-                LOGI("online: %s invites you (PES17_LAN_ACCEPT=1 accepts)", name.c_str());
+                LOGI("online: %s invites you (MW2_LAN_ACCEPT=1 accepts)", name.c_str());
         }
 
         bool SendTo(const sockaddr_in& to, uint16_t fromPort, uint16_t toPort,
@@ -699,8 +699,8 @@ namespace
         bool hasJoinable_ = false;
         online::Joinable joinable_;
         std::chrono::steady_clock::time_point announced_{};
-        std::string join_;                     // PES17_LAN_JOIN, until joined
-        bool accept_ = false;                  // PES17_LAN_ACCEPT
+        std::string join_;                     // MW2_LAN_JOIN, until joined
+        bool accept_ = false;                  // MW2_LAN_ACCEPT
         std::deque<online::Invite> invites_;   // Live invitations, accepted above
         std::deque<std::string> joins_;        // system-link `connect` lines, typed by Frame
     };

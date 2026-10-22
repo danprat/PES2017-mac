@@ -31,7 +31,7 @@ Compare the loose alternative: scanning a zone for anything that decodes as a
 program, with no length constraint, finds one false positive every 36 KB of
 texture data -- data containing no shaders at all.
 
-Usage: extract_shaders.py <outdir> [fastfile ...]     (default: pes17/game/*.ff)
+Usage: extract_shaders.py <outdir> [fastfile ...]     (default: mw2/game/*.ff)
 """
 import zlib, struct, sys, os, glob, hashlib
 
@@ -142,7 +142,7 @@ def program_for(raw, start, length, stop):
 def main():
     outdir = sys.argv[1] if len(sys.argv) > 1 else "out/shaders"
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    files = sys.argv[2:] or sorted(glob.glob(os.path.join(root, "pes17/game/*.ff")))
+    files = sys.argv[2:] or sorted(glob.glob(os.path.join(root, "mw2/game/*.ff")))
     os.makedirs(outdir, exist_ok=True)
 
     seen, counts, scanned, recovered = set(), {"vertex": 0, "pixel": 0}, 0, 0

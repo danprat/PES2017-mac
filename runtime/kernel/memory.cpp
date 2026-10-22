@@ -7,8 +7,6 @@
 #include "../crash.h"
 #include "trace.h"
 #include <map>
-#include <chrono>
-#include <cstdio>
 #include <mutex>
 #include <atomic>
 #include <tuple>

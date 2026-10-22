@@ -1,4 +1,4 @@
-package com.pes2017.recomp
+package com.mw2.recomp
 
 import android.content.Intent
 import android.net.Uri

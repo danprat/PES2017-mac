@@ -1,4 +1,4 @@
-package com.pes2017.recomp
+package com.mw2.recomp
 
 import android.app.Application
 import android.content.Context
@@ -19,7 +19,7 @@ import java.util.Locale
  * is not attached to a computer. So the last exception is kept in a file,
  * and the launcher shows it on the next start.
  */
-class PES17Application : Application() {
+class MW2Application : Application() {
 
     override fun onCreate() {
         super.onCreate()

@@ -83,7 +83,7 @@ namespace
 
     bool ChooseDeviceForPlayer()
     {
-        static const bool on = !env::Flag("PES17_NO_AUTO_SAVE_DEVICE");
+        static const bool on = !env::Flag("MW2_NO_AUTO_SAVE_DEVICE");
         return on;
     }
 

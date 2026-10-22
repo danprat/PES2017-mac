@@ -13,7 +13,7 @@ wait_for() { local end=$(( $(date +%s) + $2 )); while [ "$(date +%s)" -lt $end ]
 marker() { adb exec-out "grep '^===== new run' $LOG | tail -1" 2>/dev/null | tr -d '\r'; }
 tools/pad.sh clear
 adb shell am force-stop $PKG; before=$(marker)
-adb shell am start -n $PKG/com.pes2017.recomp.MainActivity >/dev/null
+adb shell am start -n $PKG/com.mw2.recomp.MainActivity >/dev/null
 for i in $(seq 1 120); do [ "$(marker)" != "$before" ] && break; sleep 0.5; done
 wait_for "PreStartup" 60 || exit 1
 START() { tools/pad.sh tap 0 START 0.15; }

@@ -10,7 +10,7 @@
 // queued. The submission is queued the same way, and so is everything that has
 // to follow it: handing the frame to the window, a RenderDoc boundary.
 //
-// PES17_RECORD_THREAD=0 makes every call where it is queued, on the consumer, as
+// MW2_RECORD_THREAD=0 makes every call where it is queued, on the consumer, as
 // before.
 //
 // What a queued call names has to outlive it. Everything that destroys a

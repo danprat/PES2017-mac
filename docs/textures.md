@@ -70,7 +70,7 @@ A volume's level is strided by its own rows and, down the third axis, by the
 level's own depth, which shrinks with it. That term was read out of Xenia
 rather than guessed, and `tests/texture_volume_test.cpp` now holds both it and
 the level offsets that follow from it to that reading; what no desktop run can
-check is a volume captured from a real one (`PES17_DUMP_TEXTURES_RAW`, which
+check is a volume captured from a real one (`MW2_DUMP_TEXTURES_RAW`, which
 dumps any volume it meets).
 
 Which levels exist:
@@ -125,10 +125,10 @@ surfaces that read back black or missing for a frame at a time, and vertex garba
 vegetation. So the runtime turns the driver's own BC sampling off there and software-decodes
 instead (`pipeline.cpp`, `bc::AdrenoMode`), which is what the workaround costs: eight times
 the bytes in the cache for a BC1 texture and four times for the rest, plus the decode.
-`PES17_ADRENO_BC=dxt1` keeps the driver's sampling for everything but the BC1 family, which
-is the case its sampler is known to get wrong; `PES17_ADRENO_BC=hw` (the same as
-`PES17_FORCE_BC_HW=1`) drops the workaround altogether on a driver that proves clean; and
-`PES17_FORCE_BC_DECOMPRESS=1` makes a desktop driver exercise the same decoder, so a decode
+`MW2_ADRENO_BC=dxt1` keeps the driver's sampling for everything but the BC1 family, which
+is the case its sampler is known to get wrong; `MW2_ADRENO_BC=hw` (the same as
+`MW2_FORCE_BC_HW=1`) drops the workaround altogether on a driver that proves clean; and
+`MW2_FORCE_BC_DECOMPRESS=1` makes a desktop driver exercise the same decoder, so a decode
 bug can be told apart from a driver one.
 
 | Xenos (id) | Vulkan |
@@ -220,7 +220,7 @@ describes, uploading it the first time it is seen.
     using: without it a streaming level left two gigabytes of such copies in
     seven minutes.
   - Past the budget (half the device-local memory clamped between 256 MB – 2 GB on desktop,
-    or **128 MB on Android**, overridable via `PES17_TEXTURE_BUDGET_MB`), a **two-pass
+    or **128 MB on Android**, overridable via `MW2_TEXTURE_BUDGET_MB`), a **two-pass
     eviction** drops idle images down to three quarters of budget:
     1. *Normal Pass*: Evicts images idle past the sweep window.
     2. *Emergency Pass*: If still exceeding budget after a streaming rush, drops
@@ -294,7 +294,7 @@ submitted and waited for on its own.
 (memory nothing has written is zero in long runs; a dark or black compressed
 texture is not). Above 60% a texture is marked as read from an empty block and
 re-read at segment end until it drops to 25% or less. With diagnostics,
-`PES17_MARK_EMPTY=1` binds flat magenta in place of such a texture in the world
+`MW2_MARK_EMPTY=1` binds flat magenta in place of such a texture in the world
 pass for 60 frames after it is first seen empty, and textures still empty at
 segment end are logged with the pool copies around them.
 
@@ -345,9 +345,9 @@ whatever it held before, since the image is not streamed again.
   with a Vulkan equivalent; sizes that are not a multiple of the block size
   (`--size=17x9`) exercise the copy-region row length.
 - **By eye.** A wrong tiling function produces a buffer of the right size full
-  of plausible bytes, so only a picture confirms it. `PES17_DUMP_TEXTURES=<dir>`
+  of plausible bytes, so only a picture confirms it. `MW2_DUMP_TEXTURES=<dir>`
   writes each distinct texture as PNM, each mip level beside it
-  (`gpu::DecodeToRgba`, which exists only for this); `PES17_DUMP_TEXTURES_RAW=1`
+  (`gpu::DecodeToRgba`, which exists only for this); `MW2_DUMP_TEXTURES_RAW=1`
   also writes the guest bytes for offline layout experiments. A reimplemented
   offline untiler must first reproduce a known-good texture before its output
   is trusted.

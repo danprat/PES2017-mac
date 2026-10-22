@@ -5,7 +5,7 @@
 // the app starts a thread of its own with a stack deep enough for the
 // recompiled code and calls it there (runtime/android/jni.cpp), because the
 // thread Android would have given it is the one drawing the user interface.
-namespace pes17
+namespace mw2
 {
     // argv is what the desktop build takes: nothing, `--install <image>`, or
     // the title's image and the game folder.

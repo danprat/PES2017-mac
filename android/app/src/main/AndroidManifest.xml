@@ -6,20 +6,18 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- Reading the disc image the player supplies. On Android 13 and later
          a plain file path outside the app's own folders needs the manage
-         permission; the app asks for it only when the player picks a folder
+         permission; the app asks for it only when the player picks a file
          it cannot otherwise read, and works without it when the image sits
          in Android/data/<package>/files. -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
-    <!-- Saves and caches are written beside a game folder chosen outside the app. -->
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="29" />
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
         tools:ignore="ScopedStorage" />
     <!-- Self-update: downloading the next APK and installing it over this one. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-    <!-- Checking for a newer APK. -->
+    <!-- System link between phones on the same network (MW2_NET_LINK). -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <!-- The run's process has to stay wanted while the game is up, and for a
          process nobody is looking at a foreground service is the only way to
@@ -33,7 +31,7 @@
     <uses-feature android:name="android.hardware.gamepad" android:required="false" />
 
     <application
-        android:name=".PES17Application"
+        android:name=".MW2Application"
         android:allowBackup="false"
         android:requestLegacyExternalStorage="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -47,7 +45,7 @@
         android:hardwareAccelerated="true"
         android:extractNativeLibs="true"
         android:largeHeap="true"
-        android:theme="@style/Theme.PES17">
+        android:theme="@style/Theme.MW2">
 
         <activity
             android:name=".MainActivity"

@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Tabbed settings: a plain-view tab bar, one page visible at a time. -->
+<!-- Tabbed settings: custom plain-view tab bar (no new deps), one page
+     visible at a time. All setting ids are unchanged. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#070D1C"
+    android:background="#141417"
     android:orientation="vertical">
 
     <LinearLayout
@@ -13,28 +14,68 @@
         android:orientation="horizontal"
         android:paddingStart="8dp"
         android:paddingEnd="8dp"
-        android:paddingTop="8dp">
+        android:paddingTop="8dp"
+        android:paddingBottom="0dp">
 
         <Button
-            android:id="@+id/tab_picture"
-            style="@style/TabEntry"
-            android:text="@string/tab_picture" />
-
-        <Button
-            android:id="@+id/tab_port"
-            style="@style/TabEntry"
-            android:text="@string/tab_port" />
+            android:id="@+id/tab_graphics"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:minHeight="36dp"
+            android:background="@android:color/transparent"
+            android:gravity="center"
+            android:text="@string/tab_graphics"
+            android:textColor="#E8EAED"
+            android:textSize="11sp"
+            android:fontFamily="sans-serif-condensed"
+            android:letterSpacing="0.1"
+            android:stateListAnimator="@null" />
 
         <Button
             android:id="@+id/tab_controls"
-            style="@style/TabEntry"
-            android:text="@string/tab_controls" />
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:minHeight="36dp"
+            android:background="@android:color/transparent"
+            android:gravity="center"
+            android:text="@string/tab_controls"
+            android:textColor="#E8EAED"
+            android:textSize="11sp"
+            android:fontFamily="sans-serif-condensed"
+            android:letterSpacing="0.1"
+            android:stateListAnimator="@null" />
+
+        <Button
+            android:id="@+id/tab_network"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:minHeight="36dp"
+            android:background="@android:color/transparent"
+            android:gravity="center"
+            android:text="@string/tab_network"
+            android:textColor="#E8EAED"
+            android:textSize="11sp"
+            android:fontFamily="sans-serif-condensed"
+            android:letterSpacing="0.1"
+            android:stateListAnimator="@null" />
 
         <Button
             android:id="@+id/tab_files"
-            style="@style/TabEntry"
-            android:text="@string/tab_files" />
-
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:minHeight="36dp"
+            android:background="@android:color/transparent"
+            android:gravity="center"
+            android:text="@string/tab_files"
+            android:textColor="#E8EAED"
+            android:textSize="11sp"
+            android:fontFamily="sans-serif-condensed"
+            android:letterSpacing="0.1"
+            android:stateListAnimator="@null" />
     </LinearLayout>
 
     <View
@@ -43,19 +84,21 @@
         android:layout_marginStart="16dp"
         android:layout_marginEnd="16dp"
         android:layout_marginTop="4dp"
-        android:background="#243457" />
+        android:background="#3A3A3E" />
 
     <View
+        android:id="@+id/tab_rule"
         android:layout_width="48dp"
         android:layout_height="2dp"
         android:layout_marginStart="16dp"
         android:layout_marginTop="4dp"
-        android:background="#2CC4FF" />
+        android:background="#C9A227" />
 
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1">
+        android:layout_weight="1"
+        android:fillViewport="false">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -63,8 +106,9 @@
             android:orientation="vertical"
             android:padding="16dp">
 
+            <!-- GRAPHICS: picture + sound -->
             <LinearLayout
-                android:id="@+id/page_picture"
+                android:id="@+id/page_graphics"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
@@ -116,12 +160,6 @@
                     android:layout_height="wrap_content"
                     android:text="@string/msaa" />
 
-                <TextView
-                    style="@style/SettingHint"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/msaa_hint" />
-
                 <androidx.appcompat.widget.SwitchCompat
                     android:id="@+id/prefer60"
                     style="@style/SettingSwitch"
@@ -130,33 +168,13 @@
                     android:text="@string/prefer_60" />
 
                 <TextView
-                    style="@style/SettingHint"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/prefer_60_hint" />
-
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/page_port"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
-
-                <TextView
-                    style="@style/SectionHeading"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/section_port" />
-
-                <TextView
-                    android:id="@+id/scene_scale_label"
+                    android:id="@+id/fov_label"
                     style="@style/SettingLabel"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content" />
 
                 <SeekBar
-                    android:id="@+id/scene_scale"
+                    android:id="@+id/fov_slider"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content" />
 
@@ -164,57 +182,14 @@
                     style="@style/SettingHint"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="@string/scene_scale_hint" />
+                    android:text="@string/fov_hint" />
 
                 <androidx.appcompat.widget.SwitchCompat
-                    android:id="@+id/fsr"
+                    android:id="@+id/stats"
                     style="@style/SettingSwitch"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="@string/fsr" />
-
-                <TextView
-                    style="@style/SettingHint"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/fsr_hint" />
-
-                <TextView
-                    android:id="@+id/fsr_sharp_label"
-                    style="@style/SettingLabel"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content" />
-
-                <SeekBar
-                    android:id="@+id/fsr_sharp"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content" />
-
-                <androidx.appcompat.widget.SwitchCompat
-                    android:id="@+id/cap30"
-                    style="@style/SettingSwitch"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/cap30" />
-
-                <TextView
-                    style="@style/SettingHint"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/cap30_hint" />
-
-                <androidx.appcompat.widget.SwitchCompat
-                    android:id="@+id/low_memory"
-                    style="@style/SettingSwitch"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/low_memory" />
-
-                <TextView
-                    style="@style/SettingHint"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/low_memory_hint" />
+                    android:text="@string/show_stats" />
 
                 <TextView
                     android:id="@+id/texture_label"
@@ -246,21 +221,6 @@
                     android:layout_height="wrap_content"
                     android:text="@string/prewarm_all_hint" />
 
-                <androidx.appcompat.widget.SwitchCompat
-                    android:id="@+id/stats"
-                    style="@style/SettingSwitch"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/show_stats" />
-
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/page_controls"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
-
                 <TextView
                     style="@style/SectionHeading"
                     android:layout_width="match_parent"
@@ -273,6 +233,15 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="@string/audio_on" />
+            </LinearLayout>
+
+            <!-- CONTROLS -->
+            <LinearLayout
+                android:id="@+id/page_controls"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
 
                 <TextView
                     style="@style/SectionHeading"
@@ -307,19 +276,141 @@
                     android:layout_height="wrap_content"
                     android:text="@string/vibration" />
 
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/invert"
+                    style="@style/SettingSwitch"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/invert_look" />
+
+                <TextView
+                    android:id="@+id/look_x_label"
+                    style="@style/SettingLabel"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content" />
+
+                <SeekBar
+                    android:id="@+id/look_x"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content" />
+
+                <TextView
+                    android:id="@+id/look_y_label"
+                    style="@style/SettingLabel"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content" />
+
+                <SeekBar
+                    android:id="@+id/look_y"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content" />
+
+                <TextView
+                    android:id="@+id/smoothing_label"
+                    style="@style/SettingLabel"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content" />
+
+                <SeekBar
+                    android:id="@+id/smoothing"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content" />
+
                 <TextView
                     style="@style/SettingHint"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="@string/edit_controls_where" />
+                    android:text="@string/smoothing_hint" />
 
+                <TextView
+                    style="@style/SettingHint"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="@string/edit_controls_where" />
             </LinearLayout>
 
+            <!-- NETWORK -->
+            <LinearLayout
+                android:id="@+id/page_network"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    style="@style/SectionHeading"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/tab_network" />
+
+                <TextView
+                    style="@style/SettingLabel"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/player_name" />
+
+                <EditText
+                    android:id="@+id/player_name"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="@string/player_name"
+                    android:inputType="text"
+                    android:maxLength="15"
+                    android:singleLine="true"
+                    android:textColor="#E2E8F0"
+                    android:textColorHint="#64748B" />
+
+                <TextView
+                    style="@style/SettingHint"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/player_name_hint" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/lan_accept"
+                    style="@style/SettingSwitch"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/lan_accept" />
+
+                <TextView
+                    style="@style/SettingHint"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/lan_accept_hint" />
+
+                <TextView
+                    style="@style/SettingLabel"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/lan_iface" />
+
+                <EditText
+                    android:id="@+id/lan_iface"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="@string/lan_iface"
+                    android:inputType="text"
+                    android:maxLength="64"
+                    android:singleLine="true"
+                    android:textColor="#E2E8F0"
+                    android:textColorHint="#64748B" />
+
+                <TextView
+                    style="@style/SettingHint"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/lan_iface_hint" />
+            </LinearLayout>
+
+            <!-- FILES + STORAGE -->
             <LinearLayout
                 android:id="@+id/page_files"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical">
+                android:orientation="vertical"
+                android:visibility="gone">
 
                 <TextView
                     style="@style/SectionHeading"
@@ -331,44 +422,14 @@
                     android:id="@+id/paths"
                     style="@style/SettingHint"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textColor="#D6E2FF"
-                    android:textSize="12sp" />
-
-                <TextView
-                    android:id="@+id/storage_access"
-                    style="@style/SettingHint"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textColor="#D6E2FF"
-                    android:textSize="12sp" />
-
-                <Button
-                    android:id="@+id/grant_storage"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:text="@string/allow_storage" />
-
-                <Button
-                    android:id="@+id/change_folder"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:text="@string/entry_select_folder" />
+                    android:layout_height="wrap_content" />
 
                 <Button
                     android:id="@+id/forget"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
+                    android:layout_marginTop="10dp"
                     android:text="@string/forget_install" />
-
-                <TextView
-                    style="@style/SettingHint"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/forget_explained" />
 
                 <TextView
                     style="@style/SectionHeading"
@@ -381,25 +442,35 @@
                     style="@style/SettingHint"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textColor="#D6E2FF"
-                    android:textSize="12sp" />
+                    android:text="@string/storage_computing" />
 
                 <Button
                     android:id="@+id/clear_shaders"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
+                    android:layout_marginTop="10dp"
                     android:text="@string/clear_shaders" />
 
                 <Button
                     android:id="@+id/clear_logs"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
+                    android:layout_marginTop="10dp"
                     android:text="@string/clear_logs" />
 
-            </LinearLayout>
+                <Button
+                    android:id="@+id/install_mods"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="@string/install_mods" />
 
+                <TextView
+                    style="@style/SettingHint"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/install_mods_hint" />
+            </LinearLayout>
         </LinearLayout>
     </ScrollView>
 </LinearLayout>

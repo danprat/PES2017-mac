@@ -2,7 +2,7 @@
 // A bug report: one run of the game with its log kept, and what a reader
 // needs to know about the machine.
 //
-// The game is started with PES17_REPORT=1 and PES17_LOG_FILE (runtime/report.h),
+// The game is started with MW2_REPORT=1 and MW2_LOG_FILE (runtime/report.h),
 // so its log names the graphics driver and ends with how the run performed.
 // When it has ended, the log -- with the player's name, addresses, session
 // keys, account numbers and home folder taken out, since an issue is public --

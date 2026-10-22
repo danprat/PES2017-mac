@@ -58,6 +58,9 @@ namespace
                 if (at + size < start + length) free[at + size] = start + length - (at + size);
                 // Zeroed as the console's pages come. Slow when the pages are write-watched (each
                 // faults), so an allocation that takes long says so: a freeze was thread 11 here.
+                if (size >= (8u << 20))
+                    LOGW("memory: zeroing %u KB of %s heap at %08X (on '%s') -- started", size >> 10, name, at,
+                         crash::CurrentThreadName());
                 const auto zeroFrom = std::chrono::steady_clock::now();
                 std::memset(guest::Base() + at, 0, size);
                 const auto zeroDone = std::chrono::steady_clock::now();

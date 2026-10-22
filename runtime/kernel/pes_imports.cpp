@@ -9,7 +9,7 @@
 #include "../log.h"
 #include "../crash.h"
 #include "../platform.h"
-#ifdef PES17_ANDROID
+#ifdef MW2_ANDROID
 #include "../android/android.h"
 #endif
 #include <chrono>
@@ -622,7 +622,7 @@ PPC_FUNC(__imp__XamShowKeyboardUI)
     // text dialog; the answer is written into Buffer as big-endian UTF-16 and the overlapped completed.
     const uint32_t defaultText = ctx.r5.u32, title = ctx.r6.u32, description = ctx.r7.u32;
     const uint32_t buffer = ctx.r8.u32, length = ctx.r9.u32, overlapped = ctx.r10.u32;
-#ifdef PES17_ANDROID
+#ifdef MW2_ANDROID
     KeyboardRequest request{ buffer, length, overlapped, nullptr };
     std::shared_ptr<KeyboardWait> wait;
     if (!overlapped) { wait = std::make_shared<KeyboardWait>(); request.waiter = wait; }

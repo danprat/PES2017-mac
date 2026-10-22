@@ -224,7 +224,7 @@ namespace
 
     bool TraceFiles()
     {
-        static const bool on = diag::Flag("PES17_TRACE_FILES");
+        static const bool on = diag::Flag("MW2_TRACE_FILES");
         return on;
     }
 
@@ -256,7 +256,7 @@ namespace
         if (!writable && !relative.empty())
         {
             static const fs::path modDir = [] {
-                if (const char* envMod = env::Text("PES17_MOD_DIR"))
+                if (const char* envMod = env::Text("MW2_MOD_DIR"))
                     return fs::path(envMod);
                 return GameRoot() / "mods";
             }();

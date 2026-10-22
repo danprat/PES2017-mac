@@ -1,4 +1,4 @@
-package com.pes2017.recomp
+package com.mw2.recomp
 
 import android.app.Activity
 import android.content.Intent

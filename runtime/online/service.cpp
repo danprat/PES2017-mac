@@ -5,17 +5,17 @@
 
 namespace
 {
-    // The backends this build has, in the order they are tried (PES17_ONLINE).
+    // The backends this build has, in the order they are tried (MW2_ONLINE).
     struct Backend
     {
         const char* name;
         std::unique_ptr<online::Service> (*make)();
     };
     constexpr Backend kBackends[] = {
-#ifdef PES17_ONLINE_STEAM
+#ifdef MW2_ONLINE_STEAM
         { "steam", online::MakeSteam },
 #endif
-#ifdef PES17_ONLINE_LAN
+#ifdef MW2_ONLINE_LAN
         { "lan", online::MakeLan },
 #endif
         { nullptr, nullptr },

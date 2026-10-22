@@ -13,15 +13,15 @@
 #include <cstdint>
 #include "guest_memory.h"
 
-extern "C" void pes17_xma_register_store(uint32_t address, uint32_t value);
+extern "C" void mw2_xma_register_store(uint32_t address, uint32_t value);
 
 #define PPC_MM_STORE_U32(x, y)                                              \
     do {                                                                    \
-        const uint32_t pes17_ea = (x);                                        \
-        const uint32_t pes17_value = (y);                                     \
-        PPC_STORE_U32(pes17_ea, pes17_value);                                   \
-        if ((pes17_ea & 0xFFFF0000u) == 0x7FEA0000u)                          \
-            pes17_xma_register_store(pes17_ea, pes17_value);                      \
+        const uint32_t mw2_ea = (x);                                        \
+        const uint32_t mw2_value = (y);                                     \
+        PPC_STORE_U32(mw2_ea, mw2_value);                                   \
+        if ((mw2_ea & 0xFFFF0000u) == 0x7FEA0000u)                          \
+            mw2_xma_register_store(mw2_ea, mw2_value);                      \
     } while (0)
 
 // Diagnostics: a stored +/-infinity, which a title computing 1/0 leaves where
@@ -48,6 +48,6 @@ extern "C" volatile int pes_trap_inf_armed;
 // not defined already.
 #define PPC_FUNC_SLOT(b, x)                                                 \
     (*(PPCFunc**)((b) + guest::FunctionSlotOffset(uint32_t(x), uint32_t(PPC_CODE_BASE))))
-#ifndef PES17_TRACE_INDIRECT
+#ifndef MW2_TRACE_INDIRECT
 #define PPC_CALL_INDIRECT_FUNC(x) (PPC_FUNC_SLOT(base, x))(ctx, base)
 #endif

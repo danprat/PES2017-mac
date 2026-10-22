@@ -3,7 +3,7 @@
 Addresses only, no game data -- for diffing two versions' layouts when the
 analyser splits one differently than the other.
 
-    PES17_TITLE=mp PES17_VERSION=tu6 python3 tools/pdata_dump.py
+    MW2_TITLE=mp MW2_VERSION=tu6 python3 tools/pdata_dump.py
 """
 import sys
 

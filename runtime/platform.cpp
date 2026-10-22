@@ -98,7 +98,7 @@ void platform::SetThreadAffinity(ThreadAffinityRole role)
 }
 
 // No symbols without a PDB: each frame as its offset in the executable, which
-// `llvm-symbolizer --obj=pes17.exe` turns back into a name on the build machine.
+// `llvm-symbolizer --obj=mw2.exe` turns back into a name on the build machine.
 void platform::PrintBacktrace(const char* why)
 {
     void* frames[64];

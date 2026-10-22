@@ -1,6 +1,6 @@
 #pragma once
 // What the player set in the launcher (launcher/settings.cpp) or wrote by
-// hand, kept in the file .env as a line each of NAME=value. Any PES17_ switch
+// hand, kept in the file .env as a line each of NAME=value. Any MW2_ switch
 // can be there (docs/switches.md).
 #include <filesystem>
 #include <string>

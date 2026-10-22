@@ -83,14 +83,14 @@ physical heap, since everything the GPU is handed comes from there.
 
 - **A player's start** (no arguments): the executable works from its own
   folder. It reads `game/default.xex` or `game/default_mp.xex` and takes it
-  only if its SHA-256 is the one CMake baked in from `pes17/` (another region or
+  only if its SHA-256 is the one CMake baked in from `mw2/` (another region or
   another version has other code at other addresses), then decrypts and
   decompresses the XEX2 in memory, where it has either (`install/xex.cpp`,
   `install/crypto.cpp`). With no such executable there -- nothing installed,
-  or an install of another version -- it starts `pes17-launcher` beside it and
+  or an install of another version -- it starts `mw2-launcher` beside it and
   ends; installing is the launcher's ([building.md](building.md#the-launcher)).
 - **A development run** names the image and the game folder:
-  `./build/pes17 pes17/default.pe pes17/game`. The image is the flat PE that
+  `./build/mw2 mw2/default.pe mw2/game`. The image is the flat PE that
   `tools/xexdump.py` writes; the disc version also takes the disc's XEX
   itself, decrypted on the way in.
 
@@ -98,8 +98,8 @@ The campaign and the multiplayer are two executables, and the title's menus
 go from one to the other with `XamLoaderLaunchTitle`, after leaving what the
 other should know with `XamLoaderSetLaunchData` (1000 bytes it reads back at
 its own start). Here they are two programs: the call ends the run, and once
-the window and the sound are let go it starts `pes17-sp` or `pes17-mp` beside the
-running one, with the launch data in the `PES17_LAUNCH_DATA` environment
+the window and the sound are let go it starts `mw2-sp` or `mw2-mp` beside the
+running one, with the launch data in the `MW2_LAUNCH_DATA` environment
 variable (`kernel/misc.cpp`, `install/install.cpp`). A development run only
 logs the request, since nothing tells it where the other build and its image
 are.
@@ -302,7 +302,7 @@ walker ([switches.md](switches.md)).
 the title spins on "pending" answers (single player polls
 `XNetGetTitleXnAddr`). The Ethernet link is reported down in the campaign and
 up in the multiplayer, which refuses to start a match without one
-(`PES17_NET_LINK` overrides). With an online service built in, the title's
+(`MW2_NET_LINK` overrides). With an online service built in, the title's
 sockets and addresses go through it; see [multiplayer.md](multiplayer.md).
 
 ## The fault handler and the write watch
@@ -310,7 +310,7 @@ sockets and addresses go through it; see [multiplayer.md](multiplayer.md).
 `crash.cpp` installs signal handlers on Linux and a vectored exception handler
 on Windows. A fault is offered in turn to:
 
-1. the `PES17_WATCH` write watchpoint (diagnostic builds, Linux only);
+1. the `MW2_WATCH` write watchpoint (diagnostic builds, Linux only);
 2. the GPU's write watch (`gpu/memory_watch.*`);
 3. on Windows, the first-touch commit of a reserved page.
 
@@ -321,7 +321,7 @@ and a backtrace. The recompiled functions are ordinary `sub_XXXXXXXX` symbols
 stack; on Windows frames are printed as `exe+offset` for `llvm-symbolizer`. A
 `SIGTRAP` is a guest trap instruction, which IW4 uses for its asserts. A
 `SIGFPE` is an integer divide by zero whose guarding trap the recompiler drops.
-With `PES17_TRACE_INDIRECT` (on by default), an indirect call to an address with
+With `MW2_TRACE_INDIRECT` (on by default), an indirect call to an address with
 no recompiled function is reported instead of jumping to null.
 
 **The write watch** tells the GPU side which pages of physical memory the

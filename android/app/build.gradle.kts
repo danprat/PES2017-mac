@@ -5,29 +5,29 @@ plugins {
 
 // The native build is the repository's own CMakeLists.txt, two folders up.
 // Nothing about the runtime is duplicated here: the same project that makes
-// the desktop executable makes libpes17.so, with ANDROID set (cmake/android.cmake).
+// the desktop executable makes libmw2.so, with ANDROID set (cmake/android.cmake).
 val repositoryRoot = file("../..")
 
 // What a build machine may set, so that a CI job does not need a patched copy
 // of this file (.github/workflows/android.yml):
 //
-//   PES17_NDK_VERSION        which NDK to use, when the runner has another one
-//   PES17_VERSION_NAME       the release this apk is, without the leading "v"
+//   MW2_NDK_VERSION        which NDK to use, when the runner has another one
+//   MW2_VERSION_NAME       the release this apk is, without the leading "v"
 //                          ("0.0.2-alpha"); the workflow takes it from the tag
-//   PES17_VERSION_CODE       the number Android compares to decide whether an apk
+//   MW2_VERSION_CODE       the number Android compares to decide whether an apk
 //                          is an update; the workflow sets it when it must
-//   PES17_NATIVE_OPTIMISATION  -O2 compiles the recompiled tree a good deal
+//   MW2_NATIVE_OPTIMISATION  -O2 compiles the recompiled tree a good deal
 //                          quicker than -O3 and runs within a few percent of
 //                          it; a runner with six hours cares about that
-//   PES17_COMPILER_LAUNCHER  ccache, usually
-//   PES17_XEX_SHA256_SP/MP   the hashes the installer checks a player's own
+//   MW2_COMPILER_LAUNCHER  ccache, usually
+//   MW2_XEX_SHA256_SP/MP   the hashes the installer checks a player's own
 //                          copy against, for a build that has the recompiled
 //                          sources but not the disc they came from
-//   PES17_KEYSTORE and friends  a signing key, so the apk is installable
+//   MW2_KEYSTORE and friends  a signing key, so the apk is installable
 fun setting(name: String): String? = System.getenv(name)?.trim()?.ifEmpty { null }
 
 // The retail default.xex the app installs: the Kotlin folder import checks it before copying 6 GB.
-val pesXexSha256 = setting("PES17_XEX_SHA256_SP") ?: "b914ec9a1abb3a9b42a64255b6aa8ff27312da126f7c18f8c880106b832779e6"
+val pesXexSha256 = setting("MW2_XEX_SHA256_SP") ?: "b914ec9a1abb3a9b42a64255b6aa8ff27312da126f7c18f8c880106b832779e6"
 
 // The app's own sources have to be here. They went missing once -- written,
 // built against, and never committed -- and the result was an apk that
@@ -43,10 +43,10 @@ if (kotlinSources.size < 10) {
 }
 
 android {
-    namespace = "com.pes2017.recomp"
+    namespace = "com.mw2.recomp"
     compileSdk = 35
     // r27+ aligns a library for 16 KB pages by default and clang is new enough.
-    ndkVersion = setting("PES17_NDK_VERSION") ?: "28.2.13676358"
+    ndkVersion = setting("MW2_NDK_VERSION") ?: "28.2.13676358"
 
     defaultConfig {
         applicationId = "com.pes2017.recomp"
@@ -57,9 +57,9 @@ android {
         targetSdk = 35
         // Bump EVERY published release: Android refuses to install an update
         // whose versionCode is at or below the installed one. CI may set
-        // PES17_VERSION_CODE instead of editing this file.
+        // MW2_VERSION_CODE instead of editing this file.
         // 16: v0.0.2-alpha, over 15 (v0.0.2).
-        versionCode = setting("PES17_VERSION_CODE")?.toIntOrNull() ?: 16
+        versionCode = setting("MW2_VERSION_CODE")?.toIntOrNull() ?: 16
         // Which build this is, carried inside the apk. "The wrong apk" has
         // cost more than one evening, and every time the only way to settle
         // it was to guess. The launcher shows this and Android's app info
@@ -67,11 +67,11 @@ android {
         // that made it without downloading anything twice.
         // The release the build is from, which is what a report has to say to
         // be acted on. It was "1.0" -- a number no release ever had.
-        versionName = "${setting("PES17_VERSION_NAME") ?: "0.0.2-alpha"} " +
-            "(${setting("PES17_BUILD_SHA") ?: "local"})"
+        versionName = "${setting("MW2_VERSION_NAME") ?: "0.0.2-alpha"} " +
+            "(${setting("MW2_BUILD_SHA") ?: "local"})"
         buildConfigField("String", "PES_XEX_SHA256", "\"$pesXexSha256\"")
-        buildConfigField("String", "BUILD_SHA", "\"${setting("PES17_BUILD_SHA") ?: "local"}\"")
-        buildConfigField("String", "BUILD_STAMP", "\"${setting("PES17_BUILD_STAMP") ?: "unstamped"}\"")
+        buildConfigField("String", "BUILD_SHA", "\"${setting("MW2_BUILD_SHA") ?: "local"}\"")
+        buildConfigField("String", "BUILD_STAMP", "\"${setting("MW2_BUILD_STAMP") ?: "unstamped"}\"")
 
         ndk {
             // The guest's address space is 4 GiB reserved in one mapping, so
@@ -85,28 +85,40 @@ android {
                     "-DANDROID_STL=c++_shared",
                     // The runtime's optional parts, all off: they cost frames
                     // and the phone has none to spare.
-                    "-DPES17_DIAGNOSTICS=OFF",
-                    "-DPES17_USE_SDL=OFF",
-                    "-DPES17_LOGGING=ON",
+                    "-DMW2_DIAGNOSTICS=OFF",
+                    "-DMW2_USE_SDL=OFF",
+                    "-DMW2_LOGGING=ON",
                     "-DCMAKE_BUILD_TYPE=Release",
                 )
-                setting("PES17_COMPILER_LAUNCHER")?.let {
+                setting("MW2_COMPILER_LAUNCHER")?.let {
                     arguments += listOf(
                         "-DCMAKE_C_COMPILER_LAUNCHER=$it",
                         "-DCMAKE_CXX_COMPILER_LAUNCHER=$it",
                     )
                 }
-                val sp = setting("PES17_XEX_SHA256_SP") ?: "b914ec9a1abb3a9b42a64255b6aa8ff27312da126f7c18f8c880106b832779e6"
-                val mp = setting("PES17_XEX_SHA256_MP") ?: "b914ec9a1abb3a9b42a64255b6aa8ff27312da126f7c18f8c880106b832779e6"
-                arguments += listOf("-DPES17_XEX_SHA256_SP=$sp", "-DPES17_XEX_SHA256_MP=$mp")
-                cppFlags += (setting("PES17_NATIVE_OPTIMISATION") ?: "-O3")
+                val sp = setting("MW2_XEX_SHA256_SP") ?: "b914ec9a1abb3a9b42a64255b6aa8ff27312da126f7c18f8c880106b832779e6"
+                val mp = setting("MW2_XEX_SHA256_MP") ?: "b914ec9a1abb3a9b42a64255b6aa8ff27312da126f7c18f8c880106b832779e6"
+                arguments += listOf("-DMW2_XEX_SHA256_SP=$sp", "-DMW2_XEX_SHA256_MP=$mp")
+                // TU6 builds verify the disc's executables against these, then
+                // patch them on the device; the TU fastfiles' hashes gate the
+                // downloaded update. TU0 builds leave all three unset (their
+                // executables ARE the disc's).
+                setting("MW2_DISC_SHA256_SP")?.let { arguments += listOf("-DMW2_DISC_SHA256_SP=$it") }
+                setting("MW2_DISC_SHA256_MP")?.let { arguments += listOf("-DMW2_DISC_SHA256_MP=$it") }
+                setting("MW2_UPDATE_SHA256_PATCH_MP")?.let { arguments += listOf("-DMW2_UPDATE_SHA256_PATCH_MP=$it") }
+                setting("MW2_UPDATE_SHA256_DLC1_UI_MP")?.let { arguments += listOf("-DMW2_UPDATE_SHA256_DLC1_UI_MP=$it") }
+                setting("MW2_UPDATE_SHA256_DLC2_UI_MP")?.let { arguments += listOf("-DMW2_UPDATE_SHA256_DLC2_UI_MP=$it") }
+                cppFlags += (setting("MW2_NATIVE_OPTIMISATION") ?: "-O3")
             }
         }
     }
 
-    // One executable, one app: PES 2017 is installed from the disc as it is.
+    // One executable, one app. The TU fields stay for the launcher's code:
+    // PES 2017 is installed from the disc as it is (no title update).
     defaultConfig {
         resValue("string", "app_name", "PES 2017")
+        buildConfigField("String", "MW2_TU", "\"tu0\"")
+        buildConfigField("String", "MW2_TU6_URL", "\"\"")
     }
 
     // -PprebuiltNative=<dir with arm64-v8a/*.so> packages libraries built by
@@ -128,13 +140,13 @@ android {
     // one the debug key signs it, which Android accepts and which makes it
     // plain that this is not a store build.
     signingConfigs {
-        val keystorePath = setting("PES17_KEYSTORE")
+        val keystorePath = setting("MW2_KEYSTORE")
         if (keystorePath != null && file(keystorePath).exists()) {
             create("supplied") {
                 storeFile = file(keystorePath)
-                storePassword = setting("PES17_KEYSTORE_PASSWORD")
-                keyAlias = setting("PES17_KEY_ALIAS")
-                keyPassword = setting("PES17_KEY_PASSWORD") ?: setting("PES17_KEYSTORE_PASSWORD")
+                storePassword = setting("MW2_KEYSTORE_PASSWORD")
+                keyAlias = setting("MW2_KEY_ALIAS")
+                keyPassword = setting("MW2_KEY_PASSWORD") ?: setting("MW2_KEYSTORE_PASSWORD")
             }
         }
     }

@@ -4,7 +4,7 @@
 #include "log.h"
 #include "pacing_trace.h"
 
-#if PES17_DIAGNOSTICS
+#if MW2_DIAGNOSTICS
 
 #include <algorithm>
 #include <atomic>
@@ -110,11 +110,11 @@ namespace
 
 bool stutters::On()
 {
-    // A frame at every blank is the console's pacing; off it (PES17_FPS_LIMIT)
+    // A frame at every blank is the console's pacing; off it (MW2_FPS_LIMIT)
     // there is no blank a frame was due at.
     static const bool on = [] {
-        if (!diag::Flag("PES17_STUTTERS")) return false;
-        if (!frame_rate::Console()) LOGW("stutters: PES17_STUTTERS is for the console's 60, not PES17_FPS_LIMIT; off");
+        if (!diag::Flag("MW2_STUTTERS")) return false;
+        if (!frame_rate::Console()) LOGW("stutters: MW2_STUTTERS is for the console's 60, not MW2_FPS_LIMIT; off");
         return frame_rate::Console();
     }();
     return on;

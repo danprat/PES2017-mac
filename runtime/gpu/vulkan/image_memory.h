@@ -16,7 +16,7 @@
 // and releases textures.
 namespace vk::imagememory
 {
-#if defined(PES17_ANDROID) || defined(__ANDROID__)
+#if defined(MW2_ANDROID) || defined(__ANDROID__)
     constexpr VkDeviceSize kBlockBytes = 16ull << 20;
 #else
     constexpr VkDeviceSize kBlockBytes = 64ull << 20;

@@ -27,7 +27,7 @@ namespace
 {
     constexpr const char* kFolder = "reports";
     constexpr const char* kLog = "reports/run.log";
-    constexpr const char* kNewIssue = "https://github.com/PaulCombal/pes17-recompiled/issues/new";
+    constexpr const char* kNewIssue = "https://github.com/PaulCombal/mw2-recompiled/issues/new";
 
     void ReplaceAll(std::string& text, const std::string& what, const std::string& with)
     {
@@ -233,8 +233,8 @@ bool report::Start(const char* program, std::string& error)
     const char* const args[] = { path.c_str(), nullptr };
     // A copy: what is set here must not reach a game started the plain way later.
     SDL_Environment* environment = SDL_CreateEnvironment(true);
-    SDL_SetEnvironmentVariable(environment, "PES17_REPORT", "1", true);
-    SDL_SetEnvironmentVariable(environment, "PES17_LOG_FILE", log.c_str(), true);
+    SDL_SetEnvironmentVariable(environment, "MW2_REPORT", "1", true);
+    SDL_SetEnvironmentVariable(environment, "MW2_LOG_FILE", log.c_str(), true);
     SDL_Process* process = spawn::Start(args, environment);
     SDL_DestroyEnvironment(environment);
     if (!process) { error = std::string(program) + " could not be started: " + SDL_GetError(); return false; }
@@ -289,7 +289,7 @@ bool report::Make(Made& made, std::string& error)
     char stamp[32];
     const std::time_t now = std::time(nullptr);
     std::strftime(stamp, sizeof(stamp), "%Y%m%d-%H%M%S", std::localtime(&now));
-    const std::string name = std::string("pes17-report-") + stamp + ".txt";
+    const std::string name = std::string("mw2-report-") + stamp + ".txt";
     std::error_code ec;
     made.file = fs::absolute(fs::path(kFolder) / name, ec);
     {

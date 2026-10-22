@@ -9,19 +9,19 @@
 #include <chrono>
 #include <cstdlib>
 
-#ifdef PES17_HAVE_VULKAN
+#ifdef MW2_HAVE_VULKAN
 #include "../../platform.h"
 #include "../../../third_party/renderdoc/renderdoc_app.h"
 #endif
 
 namespace
 {
-#ifndef PES17_HAVE_VULKAN
+#ifndef MW2_HAVE_VULKAN
     struct { } g;
 #else
     struct State
     {
-        bool     asked = false;      // PES17_RENDERDOC was set
+        bool     asked = false;      // MW2_RENDERDOC was set
         double   after = 0.0;        // seconds of run time to wait first
         unsigned wanted = 4;         // how many frames to capture
         unsigned taken = 0;
@@ -47,11 +47,11 @@ namespace
     // few frames a second capturing leaves.
     constexpr unsigned kStreamLimit = 120;
 
-    // PES17_RENDERDOC=<seconds>[:<frames>]. Zero seconds captures the first world
+    // MW2_RENDERDOC=<seconds>[:<frames>]. Zero seconds captures the first world
     // frame there is, which on a level is during the load.
     void ReadRequest()
     {
-        const char* v = diag::Text("PES17_RENDERDOC");
+        const char* v = diag::Text("MW2_RENDERDOC");
         if (!v) return;
         g.asked = true;
         char* end = nullptr;
@@ -100,7 +100,7 @@ namespace
         // the one on the pipeline's instance.
         g.device = RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(instance);
 
-        if (const char* out = diag::Text("PES17_RENDERDOC_OUT"))
+        if (const char* out = diag::Text("MW2_RENDERDOC_OUT"))
             g.api->SetCaptureFilePathTemplate(out);
         LOGI("capture: RenderDoc %s, writing to %s",
              "1.4.1", g.api->GetCaptureFilePathTemplate());
@@ -108,7 +108,7 @@ namespace
 #endif
 }
 
-#ifndef PES17_HAVE_VULKAN
+#ifndef MW2_HAVE_VULKAN
 void vk::capture::FrameBoundary(bool, uint64_t) {}
 void vk::capture::RequestNow(unsigned) {}
 void vk::capture::ToggleStream() {}
@@ -120,7 +120,7 @@ void vk::capture::FrameBoundary(bool worldDrawn, uint64_t frame)
     static const bool once = (ReadRequest(), true);
     (void)once;
     // No early return on `!g.asked`: that is only the timed request, and the
-    // keys have to get through without PES17_RENDERDOC set. The tests below
+    // keys have to get through without MW2_RENDERDOC set. The tests below
     // stop every frame that nothing asked for.
 
     if (g.open)

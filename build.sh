@@ -33,7 +33,7 @@ if [ ! -d XenonRecomp ]; then
     git clone --recursive https://github.com/hedge-dev/XenonRecomp.git
     git -C XenonRecomp checkout -q "$XENON_COMMIT"
     git -C XenonRecomp submodule update --init --recursive -q
-    git -C XenonRecomp apply "$ROOT/patches/xenonrecomp-pes17.patch"
+    git -C XenonRecomp apply "$ROOT/patches/xenonrecomp-mw2.patch"
 fi
 echo "==> 2. build XenonRecomp / XenonAnalyse"
 cmake -B XenonRecomp/build -S XenonRecomp -DCMAKE_BUILD_TYPE=Release \
@@ -96,7 +96,7 @@ python3 tools/gen_kernel_stubs.py | head -1
 
 [ -n "${RECOMPILE_ONLY:-}" ] && [ "$RECOMPILE_ONLY" != 0 ] && { echo "done: ppc/ has $(ls ppc | wc -l) files"; exit 0; }
 
-echo "==> 8. build libpes17.so for arm64 Android"
+echo "==> 8. build libmw2.so for arm64 Android"
 # CMake and ninja run Python; with pyenv the shim needs a version (as in tools/deploy.sh).
 command -v pyenv >/dev/null && export PYENV_VERSION=${PYENV_VERSION:-3.10.14}
 NDK=${ANDROID_NDK_HOME:-$(ls -d "$HOME"/Library/Android/sdk/ndk/28.* "${ANDROID_HOME:-/nonexistent}"/ndk/28.* 2>/dev/null | tail -1)}
@@ -104,9 +104,9 @@ LAUNCH=""
 [ "${CCACHE:-}" = 1 ] && command -v ccache >/dev/null && LAUNCH="-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
 cmake -S . -B build-android -G Ninja -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
       -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-26 -DANDROID_STL=c++_shared \
-      -DPES17_DIAGNOSTICS=OFF -DPES17_USE_SDL=OFF -DCMAKE_BUILD_TYPE=Release \
+      -DMW2_DIAGNOSTICS=OFF -DMW2_USE_SDL=OFF -DCMAKE_BUILD_TYPE=Release \
       -DCMAKE_CXX_FLAGS_RELEASE="-O2 -DNDEBUG" $LAUNCH >logs-cmake.txt 2>&1 \
     || { tail -15 logs-cmake.txt; echo "cmake failed (logs-cmake.txt)"; exit 1; }
-ninja -C build-android -j"$JOBS" pes17
-ls -la build-android/libpes17.so
-tools/verify_android_libs.sh build-android/libpes17.so
+ninja -C build-android -j"$JOBS" mw2
+ls -la build-android/libmw2.so
+tools/verify_android_libs.sh build-android/libmw2.so

@@ -11,14 +11,14 @@
 // kernel or the GPU, "[k]" so they can be told from the rest.
 //
 // A whole run emits a few hundred lines, so this is not a hot path. Configure
-// with -DPES17_LOGGING=OFF to compile every call below to nothing, warnings
-// included; -DPES17_DIAGNOSTICS=OFF is what removes the traces and reports.
+// with -DMW2_LOGGING=OFF to compile every call below to nothing, warnings
+// included; -DMW2_DIAGNOSTICS=OFF is what removes the traces and reports.
 //
 // The disabled form keeps the arguments inside an `if (false)`, so they are
 // still type-checked and still count as used, and no expression in a log call
 // may have a side effect the program needs.
 //
-// PES17_LOG_TIME=1 starts every line with the seconds since the first one, so a
+// MW2_LOG_TIME=1 starts every line with the seconds since the first one, so a
 // line can be matched with something somebody saw on screen at that moment.
 //
 // A line that repeats is written once and then counted rather than written
@@ -26,12 +26,12 @@
 // a thousand times -- a texture that will not restage, an opcode the command
 // processor does not implement -- and in a log where that line is written a
 // thousand times the line that says what actually happened is unfindable.
-// PES17_LOG_ALL=1 writes every line as it comes, for when the count is not enough.
-namespace pes17log
+// MW2_LOG_ALL=1 writes every line as it comes, for when the count is not enough.
+namespace mw2log
 {
     inline const char* Stamp()
     {
-        static const bool on = diag::Flag("PES17_LOG_TIME");
+        static const bool on = diag::Flag("MW2_LOG_TIME");
         if (!on) return "";
         static const auto start = std::chrono::steady_clock::now();
         thread_local char text[24];
@@ -124,7 +124,7 @@ namespace pes17log
     // The count written is the largest of the doublings a repetition has reached,
     // so it is never above the truth and within a factor of two of it. That is
     // what saying four hundred happened costs without writing four hundred lines;
-    // PES17_LOG_ALL=1 writes the four hundred.
+    // MW2_LOG_ALL=1 writes the four hundred.
     //
     // Nothing here ends a repetition when the lines of it stop. The first version
     // did, and the benchmark of interleaved messages -- texture, kernel, gpu,
@@ -134,7 +134,7 @@ namespace pes17log
     // was logged between its lines.
     inline const char* Repeat(const std::string& line)
     {
-        static const bool all = env::Flag("PES17_LOG_ALL");
+        static const bool all = env::Flag("MW2_LOG_ALL");
         if (all) return "";
 
         // One entry per kind of line. Past a hundred and twenty-eight kinds a
@@ -178,13 +178,13 @@ namespace pes17log
 // the device was set up to keep it. The lines go to logcat and to the app's
 // own log screen instead (runtime/android/log.cpp), through one function
 // rather than the macro's format string, so the level survives.
-#ifdef PES17_ANDROID
-namespace pes17log
+#ifdef MW2_ANDROID
+namespace mw2log
 {
     void AndroidWrite(char level, const char* format, ...) __attribute__((format(printf, 2, 3)));
 }
 #else
-namespace pes17log
+namespace mw2log
 {
     // The line, and the count of its repeats, to stderr. A function rather than
     // a macro so that the format is still checked and the buffer it formats into
@@ -202,16 +202,16 @@ namespace pes17log
 }
 #endif
 
-#if defined(PES17_NO_LOGGING)
-#   define PES17_LOG_AT(level, fmt, ...) \
+#if defined(MW2_NO_LOGGING)
+#   define MW2_LOG_AT(level, fmt, ...) \
         do { if (false) std::fprintf(stderr, fmt "\n", ##__VA_ARGS__); } while (false)
-#elif defined(PES17_ANDROID)
-#   define PES17_LOG_AT(level, fmt, ...) pes17log::AndroidWrite(level, fmt, ##__VA_ARGS__)
+#elif defined(MW2_ANDROID)
+#   define MW2_LOG_AT(level, fmt, ...) mw2log::AndroidWrite(level, fmt, ##__VA_ARGS__)
 #else
-#   define PES17_LOG_AT(level, fmt, ...) pes17log::Write(level, fmt, ##__VA_ARGS__)
+#   define MW2_LOG_AT(level, fmt, ...) mw2log::Write(level, fmt, ##__VA_ARGS__)
 #endif
 
-#define LOGI(fmt, ...) PES17_LOG_AT('i', fmt, ##__VA_ARGS__)
-#define LOGW(fmt, ...) PES17_LOG_AT('w', fmt, ##__VA_ARGS__)
-#define LOGE(fmt, ...) PES17_LOG_AT('E', fmt, ##__VA_ARGS__)
-#define LOGK(fmt, ...) PES17_LOG_AT('k', fmt, ##__VA_ARGS__)
+#define LOGI(fmt, ...) MW2_LOG_AT('i', fmt, ##__VA_ARGS__)
+#define LOGW(fmt, ...) MW2_LOG_AT('w', fmt, ##__VA_ARGS__)
+#define LOGE(fmt, ...) MW2_LOG_AT('E', fmt, ##__VA_ARGS__)
+#define LOGK(fmt, ...) MW2_LOG_AT('k', fmt, ##__VA_ARGS__)

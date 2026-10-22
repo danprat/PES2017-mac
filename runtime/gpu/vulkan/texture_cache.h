@@ -34,7 +34,7 @@ namespace vk::textures
     // cached texture is signed at most once per frame however many draws bind
     // it. This is also where the cache lets go: of images idle for ten seconds
     // whose memory the title has rewritten, of the longest idle past the
-    // memory budget -- half the device's own memory, or PES17_TEXTURE_BUDGET_MB
+    // memory budget -- half the device's own memory, or MW2_TEXTURE_BUDGET_MB
     // -- and of descriptor sets nothing has bound for as long.
     void NewFrame();
     // The count NewFrame keeps, which the texture log lines are numbered by.
@@ -81,7 +81,7 @@ namespace vk::textures
     bool Readback(uint64_t id, std::vector<uint8_t>& bytes, const char** error);
 
     // A draw into the world pass bound this texture. Returns the id to bind:
-    // normally the one passed in; under PES17_MARK_EMPTY=1 a flat magenta texture
+    // normally the one passed in; under MW2_MARK_EMPTY=1 a flat magenta texture
     // when this one was read from a block with nothing in it.
     uint64_t NoteDrawnInWorld(uint64_t id);
 

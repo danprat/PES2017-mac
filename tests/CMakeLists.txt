@@ -13,7 +13,7 @@
 # depends on one source file and the headers around it.
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     cmake_minimum_required(VERSION 3.20)
-    project(pes17checks CXX)
+    project(mw2checks CXX)
     set(CMAKE_CXX_STANDARD 20)
     set(CMAKE_CXX_STANDARD_REQUIRED ON)
     if(NOT CMAKE_BUILD_TYPE)
@@ -22,7 +22,7 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     enable_testing()
 endif()
 
-set(PES17_RUNTIME "${CMAKE_CURRENT_SOURCE_DIR}/../runtime")
+set(MW2_RUNTIME "${CMAKE_CURRENT_SOURCE_DIR}/../runtime")
 
 # bc_decoder.cpp includes <vulkan/vulkan.h> for the format constants it answers
 # with. It opens no device and calls into no driver, so the headers are all it
@@ -44,8 +44,8 @@ endif()
 # not mistaken for the target, and sizes round-trip across block boundaries.
 add_executable(durable-test
     "${CMAKE_CURRENT_SOURCE_DIR}/durable_test.cpp"
-    "${PES17_RUNTIME}/kernel/durable.cpp")
-target_include_directories(durable-test PRIVATE "${PES17_RUNTIME}")
+    "${MW2_RUNTIME}/kernel/durable.cpp")
+target_include_directories(durable-test PRIVATE "${MW2_RUNTIME}")
 add_test(NAME durable COMMAND durable-test)
 
 # ---- the log's repeat counting ---------------------------------------------
@@ -55,7 +55,7 @@ add_test(NAME durable COMMAND durable-test)
 # cannot flood.
 add_executable(log-test
     "${CMAKE_CURRENT_SOURCE_DIR}/log_repeat_test.cpp")
-target_include_directories(log-test PRIVATE "${PES17_RUNTIME}")
+target_include_directories(log-test PRIVATE "${MW2_RUNTIME}")
 add_test(NAME log COMMAND log-test)
 
 # ---- the software block-compressed decoder ---------------------------------
@@ -65,11 +65,11 @@ add_test(NAME log COMMAND log-test)
 # texture on one phone.
 add_executable(bc-test
     "${CMAKE_CURRENT_SOURCE_DIR}/bc_decoder_test.cpp"
-    "${PES17_RUNTIME}/gpu/vulkan/bc_decoder.cpp")
-target_include_directories(bc-test PRIVATE "${PES17_RUNTIME}")
+    "${MW2_RUNTIME}/gpu/vulkan/bc_decoder.cpp")
+target_include_directories(bc-test PRIVATE "${MW2_RUNTIME}")
 if(TARGET Vulkan::Vulkan)
     target_link_libraries(bc-test PRIVATE Vulkan::Vulkan)
-    target_compile_definitions(bc-test PRIVATE PES17_HAVE_VULKAN=1)
+    target_compile_definitions(bc-test PRIVATE MW2_HAVE_VULKAN=1)
 endif()
 add_test(NAME bc COMMAND bc-test)
 
@@ -81,8 +81,8 @@ add_test(NAME bc COMMAND bc-test)
 # called unchecked.
 add_executable(volume-test
     "${CMAKE_CURRENT_SOURCE_DIR}/texture_volume_test.cpp"
-    "${PES17_RUNTIME}/gpu/texture.cpp")
-target_include_directories(volume-test PRIVATE "${PES17_RUNTIME}")
+    "${MW2_RUNTIME}/gpu/texture.cpp")
+target_include_directories(volume-test PRIVATE "${MW2_RUNTIME}")
 add_test(NAME volume COMMAND volume-test)
 
 # ---- release tag order -----------------------------------------------------

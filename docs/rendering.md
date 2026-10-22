@@ -108,7 +108,7 @@ float except where all three corners agree (packed colours).
 ## The frame arena
 
 Everything a draw reads that is not a texture is copied into one host-visible
-buffer. The runtime asks for 512 MB (`PES17_ARENA_MB`) and halves the request
+buffer. The runtime asks for 512 MB (`MW2_ARENA_MB`) and halves the request
 down to 32 MB. The buffer is split into one share per frame slot, each 4 KB
 short so that a full 256-vec4 uniform range stays in bounds. A draw that finds
 its share full is skipped.
@@ -156,7 +156,7 @@ write faults once, which marks the page and makes it writable again.
   fails with `EFAULT` on a read-only page. File reads and network packets go
   through a runtime buffer. Bulk runtime writes call `gpu::watch::WillWrite`.
 
-The texture cache uses the same watch. `PES17_NO_SHADOW=1` turns the shadow off,
+The texture cache uses the same watch. `MW2_NO_SHADOW=1` turns the shadow off,
 and it is read by every build rather than only a diagnostics one, because it is
 512 MB of resident memory before the first frame is drawn: the Android runtime
 sets it on a phone of six gigabytes or less ([android.md](android.md)).
@@ -211,7 +211,7 @@ A resolve does not end the submission unless the slot's arena share is half used
 
 ## Resolution scale
 
-`PES17_SCALE=2` or `3`, read once at start-up, makes every EDRAM surface, every
+`MW2_SCALE=2` or `3`, read once at start-up, makes every EDRAM surface, every
 resolve copy and the present images that many times wider and taller. The
 title is not told. A `Target`'s and a `Resolved`'s sizes, the keys, and every
 rectangle worked out from the registers stay in the title's pixels, and are
@@ -237,15 +237,15 @@ multiplication:
   slope is depth per pixel, and the pixels are smaller.
 
 The launcher's RESOLUTION entry keeps the scale in `.env` as
-`PES17_SCALE=<n>` ([switches.md](switches.md#the-settings-file)).
+`MW2_SCALE=<n>` ([switches.md](switches.md#the-settings-file)).
 
 ## Multisampling
 
 The title's 2x and 4x surfaces are drawn with that many samples. The count is in
 the target, pipeline and output-library keys, rounded up to one the device
 supports for colour, depth and stencil. Multisampling needs Vulkan 1.2 and a
-`SAMPLE_ZERO` depth resolve. Without them, or under `PES17_NO_MSAA=1`, everything
-is 1x. `PES17_MSAA=<n>` forces n.
+`SAMPLE_ZERO` depth resolve. Without them, or under `MW2_NO_MSAA=1`, everything
+is 1x. `MW2_MSAA=<n>` forces n.
 
 A multisampled image cannot be blitted, copied or sampled, so each one has a
 single-sampled **twin**, and every read goes through it. Colour reaches the
@@ -288,7 +288,7 @@ parsed on the consumer, so the title's frame retires at parse time.
 - Anything that destroys what a frame may use, or that submits on its own,
   calls `vk::record::Drain` first.
 
-`PES17_RECORD_THREAD=0` (diagnostics builds) makes the calls on the consumer.
+`MW2_RECORD_THREAD=0` (diagnostics builds) makes the calls on the consumer.
 
 ## Presenting
 
@@ -297,7 +297,7 @@ the present image it is about to reuse. With four present images, the renderer
 can run three frames ahead. The window presents every frame once, in order,
 one per blank (`FIFO`). Frames the window has not taken within 250 ms are
 dropped, so a hidden window never stalls the game. The window is resizable and
-letterboxed. `F8` or `PES17_FULLSCREEN=1` switches to borderless fullscreen.
+letterboxed. `F8` or `MW2_FULLSCREEN=1` switches to borderless fullscreen.
 
 **The guest's blank follows the display.** On the console the blank the title
 counts is the display's own. `VK_KHR_present_wait` timestamps each present.
@@ -310,7 +310,7 @@ present wait is missing, or nothing has been shown for half a second.
 
 ### More than 60 frames a second
 
-`PES17_FPS_LIMIT` (`runtime/frame_rate.h`) at anything but 60 takes the title off
+`MW2_FPS_LIMIT` (`runtime/frame_rate.h`) at anything but 60 takes the title off
 the blank. Three things hold it at 60, and each is released its own way:
 
 - **D3D's present interval.** The title's present puts the device's
@@ -330,7 +330,7 @@ the blank. Three things hold it at 60, and each is released its own way:
 
 The guest's blank itself stays the display's; only the retiring of frames
 leaves it. The simulation's speed does not change: a route walked at 93 frames
-a second takes the time it takes at 60. `PES17_STUTTERS`, which counts blanks
+a second takes the time it takes at 60. `MW2_STUTTERS`, which counts blanks
 without a new frame, is off in this mode.
 
 ## Occlusion queries
@@ -382,14 +382,14 @@ On the console a shader is ready as soon as it is loaded. With
   compiled at their first draw. D3D patches vertex fetches per vertex
   declaration, so some vertex shaders exist only once bound.
 
-Without pipeline libraries, or under `PES17_NO_PIPELINE_LIBRARIES=1`, whole
+Without pipeline libraries, or under `MW2_NO_PIPELINE_LIBRARIES=1`, whole
 pipelines are built at their first draw.
 
-`PES17_SHADER_CACHE=<file>` records every pipeline a run builds: microcode,
+`MW2_SHADER_CACHE=<file>` records every pipeline a run builds: microcode,
 formats and state (`SMW2`, version 3). The next run rebuilds them at start-up.
 It has to be recorded, because the state a shader pair is drawn with exists
 only in a previous run. The file is written back as a union, so it never
-shrinks. `PES17_PIPELINE_CACHE=<file>` persists the driver's `VkPipelineCache`.
+shrinks. `MW2_PIPELINE_CACHE=<file>` persists the driver's `VkPipelineCache`.
 
 ## Not implemented
 

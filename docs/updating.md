@@ -13,7 +13,7 @@ work here like any other patch.
 ## Once
 
 ```sh
-git remote add upstream https://github.com/PaulCombal/pes17-recompiled.git
+git remote add upstream https://github.com/PaulCombal/mw2-recompiled.git
 ```
 
 ## Each time

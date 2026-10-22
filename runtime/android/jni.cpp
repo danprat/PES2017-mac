@@ -10,7 +10,7 @@
 // application Android kills within five seconds. That thread also gets a
 // stack of its own -- the recompiled PowerPC nests deeply on the host stack,
 // and Android's default thread stack of one megabyte is not enough for it.
-#ifdef PES17_ANDROID
+#ifdef MW2_ANDROID
 
 #include "../gpu/debug_watch.h"
 #include "android.h"
@@ -98,7 +98,7 @@ namespace
         if (!g_vm) return nullptr;
         JNIEnv* env = nullptr;
         if (g_vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) == JNI_OK) return env;
-        JavaVMAttachArgs args{ JNI_VERSION_1_6, "pes17", nullptr };
+        JavaVMAttachArgs args{ JNI_VERSION_1_6, "mw2", nullptr };
         if (g_vm->AttachCurrentThread(&env, &args) != JNI_OK) return nullptr;
         if (g_envKeyMade) pthread_setspecific(g_envKey, env);
         return env;
@@ -167,13 +167,13 @@ namespace
         android::perf::PinToBigCores();
         android::perf::RaiseThreadPriority();
 
-        char image[1024], root[1024], program[] = "pes17";
+        char image[1024], root[1024], program[] = "mw2";
         std::snprintf(image, sizeof image, "%s", launch->image.c_str());
         std::snprintf(root, sizeof root, "%s", launch->gameRoot.c_str());
         char* argv[] = { program, image, root, nullptr };
 
         LOGI("android: starting the game from %s", image);
-        const int result = pes17::Run(3, argv);
+        const int result = mw2::Run(3, argv);
         LOGI("android: the run ended with %d", result);
         android::detail::SetRunning(false);
         g_started.store(false, std::memory_order_release);
@@ -206,7 +206,7 @@ namespace
 
     const char* TitleExecutable()
     {
-#ifdef PES17_TITLE_MP
+#ifdef MW2_TITLE_MP
         return "default_mp.xex";
 #else
         return "default.xex";
@@ -221,8 +221,8 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void*)
     return JNI_VERSION_1_6;
 }
 
-#define PES17_NATIVE(returns, name) \
-    extern "C" JNIEXPORT returns JNICALL Java_com_pes2017_recomp_NativeBridge_##name
+#define MW2_NATIVE(returns, name) \
+    extern "C" JNIEXPORT returns JNICALL Java_com_mw2_recomp_NativeBridge_##name
 
 void android::ui::ShowKeyboard(const std::string& title, const std::string& description, const std::string& initial,
                                uint32_t maxChars, std::function<void(bool, const std::string&)> done)
@@ -242,7 +242,7 @@ void android::ui::ShowKeyboard(const std::string& title, const std::string& desc
 
 // ---- start-up --------------------------------------------------------------
 
-PES17_NATIVE(jboolean, nativeInit)(JNIEnv* env, jobject, jstring filesDir, jstring externalDir,
+MW2_NATIVE(jboolean, nativeInit)(JNIEnv* env, jobject, jstring filesDir, jstring externalDir,
                                  jstring cacheDir, jstring nativeLibDir, jobject listener)
 {
     g_paths.files = ToString(env, filesDir);
@@ -281,8 +281,8 @@ PES17_NATIVE(jboolean, nativeInit)(JNIEnv* env, jobject, jstring filesDir, jstri
     // Everything the runtime prints rather than logs, the crash handler's
     // backtrace above all, now reaches that file instead of /dev/null.
     android::CaptureStandardStreams();
-    LOGI("--- PES 2017 on Android ---");
-#ifdef PES17_VERSION_TU0
+    LOGI("--- MW2 on Android ---");
+#ifdef MW2_VERSION_TU0
     LOGI("android: disc version (TU0)");
 #else
     LOGI("android: title update 6 (TU6)");
@@ -292,9 +292,9 @@ PES17_NATIVE(jboolean, nativeInit)(JNIEnv* env, jobject, jstring filesDir, jstri
     return JNI_TRUE;
 }
 
-// A setting from the app, as one of the runtime's PES17_* switches. Set before
+// A setting from the app, as one of the runtime's MW2_* switches. Set before
 // the run starts; nothing reads them again afterwards.
-PES17_NATIVE(void, nativeKeyboardResult)(JNIEnv* env, jobject, jboolean ok, jstring text)
+MW2_NATIVE(void, nativeKeyboardResult)(JNIEnv* env, jobject, jboolean ok, jstring text)
 {
     std::function<void(bool, const std::string&)> done;
     {
@@ -305,7 +305,7 @@ PES17_NATIVE(void, nativeKeyboardResult)(JNIEnv* env, jobject, jboolean ok, jstr
     if (done) done(ok == JNI_TRUE, ToString(env, text));
 }
 
-PES17_NATIVE(void, nativeSetOption)(JNIEnv* env, jobject, jstring key, jstring value)
+MW2_NATIVE(void, nativeSetOption)(JNIEnv* env, jobject, jstring key, jstring value)
 {
     const std::string name = ToString(env, key);
     const std::string text = ToString(env, value);
@@ -315,7 +315,7 @@ PES17_NATIVE(void, nativeSetOption)(JNIEnv* env, jobject, jstring key, jstring v
     LOGI("android: %s=%s", name.c_str(), text.c_str());
 }
 
-PES17_NATIVE(void, nativeSelectDriver)(JNIEnv* env, jobject, jstring directory, jstring library)
+MW2_NATIVE(void, nativeSelectDriver)(JNIEnv* env, jobject, jstring directory, jstring library)
 {
     const std::string folder = ToString(env, directory);
     const std::string name = ToString(env, library);
@@ -323,7 +323,7 @@ PES17_NATIVE(void, nativeSelectDriver)(JNIEnv* env, jobject, jstring directory, 
                             name.empty() ? nullptr : name.c_str());
 }
 
-PES17_NATIVE(jstring, nativeDriverDescription)(JNIEnv* env, jobject)
+MW2_NATIVE(jstring, nativeDriverDescription)(JNIEnv* env, jobject)
 {
     std::string text = android::driver::Description();
     if (android::driver::CustomDriverFailed())
@@ -331,7 +331,7 @@ PES17_NATIVE(jstring, nativeDriverDescription)(JNIEnv* env, jobject)
     return FromString(env, text);
 }
 
-PES17_NATIVE(jboolean, nativeStart)(JNIEnv* env, jobject, jstring gameDirectory)
+MW2_NATIVE(jboolean, nativeStart)(JNIEnv* env, jobject, jstring gameDirectory)
 {
     if (g_started.exchange(true, std::memory_order_acq_rel))
     {
@@ -381,7 +381,7 @@ PES17_NATIVE(jboolean, nativeStart)(JNIEnv* env, jobject, jstring gameDirectory)
 // does not take kindly to its device disappearing. So: stop the audio, let
 // the log out, and let the app kill the process -- which Android is perfectly
 // happy with, and which cannot crash.
-PES17_NATIVE(void, nativeRequestStop)(JNIEnv*, jobject)
+MW2_NATIVE(void, nativeRequestStop)(JNIEnv*, jobject)
 {
     LOGI("android: the app asked the run to end");
     android::audio::SetMuted(true);
@@ -389,24 +389,24 @@ PES17_NATIVE(void, nativeRequestStop)(JNIEnv*, jobject)
     android::audio::Close();
 }
 
-PES17_NATIVE(jboolean, nativeIsRunning)(JNIEnv*, jobject)
+MW2_NATIVE(jboolean, nativeIsRunning)(JNIEnv*, jobject)
 {
     return g_started.load(std::memory_order_acquire) ? JNI_TRUE : JNI_FALSE;
 }
 
-PES17_NATIVE(jstring, nativeStatus)(JNIEnv* env, jobject)
+MW2_NATIVE(jstring, nativeStatus)(JNIEnv* env, jobject)
 {
     return FromString(env, android::Status());
 }
 
-PES17_NATIVE(jstring, nativeLogTail)(JNIEnv* env, jobject)
+MW2_NATIVE(jstring, nativeLogTail)(JNIEnv* env, jobject)
 {
     return FromString(env, android::detail::LogTail());
 }
 
 // ---- the surface -----------------------------------------------------------
 
-PES17_NATIVE(void, nativeSurfaceChanged)(JNIEnv* env, jobject, jobject surface, jint width,
+MW2_NATIVE(void, nativeSurfaceChanged)(JNIEnv* env, jobject, jobject surface, jint width,
                                        jint height, jfloat refreshHz)
 {
     if (!surface)
@@ -426,35 +426,35 @@ PES17_NATIVE(void, nativeSurfaceChanged)(JNIEnv* env, jobject, jobject surface, 
     ANativeWindow_release(window);
 }
 
-PES17_NATIVE(void, nativeSurfaceDestroyed)(JNIEnv*, jobject)
+MW2_NATIVE(void, nativeSurfaceDestroyed)(JNIEnv*, jobject)
 {
     android::detail::DestroyWindow();
 }
 
-PES17_NATIVE(void, nativeSetPaused)(JNIEnv*, jobject, jboolean paused)
+MW2_NATIVE(void, nativeSetPaused)(JNIEnv*, jobject, jboolean paused)
 {
     android::detail::SetPaused(paused == JNI_TRUE);
     android::audio::SetMuted(paused == JNI_TRUE);
 }
 
-PES17_NATIVE(void, nativeTrimMemory)(JNIEnv*, jobject, jint level)
+MW2_NATIVE(void, nativeTrimMemory)(JNIEnv*, jobject, jint level)
 {
     android::perf::TrimMemory(int(level));
 }
 
-PES17_NATIVE(void, nativeRestoreMemory)(JNIEnv*, jobject)
+MW2_NATIVE(void, nativeRestoreMemory)(JNIEnv*, jobject)
 {
     android::perf::RestoreMemory();
 }
 
-PES17_NATIVE(void, nativeSetRefreshRate)(JNIEnv*, jobject, jfloat hz)
+MW2_NATIVE(void, nativeSetRefreshRate)(JNIEnv*, jobject, jfloat hz)
 {
     android::detail::SetRefreshHz(double(hz));
 }
 
 // ---- input -----------------------------------------------------------------
 
-PES17_NATIVE(void, nativeTouchState)(JNIEnv*, jobject, jint buttons, jint leftTrigger,
+MW2_NATIVE(void, nativeTouchState)(JNIEnv*, jobject, jint buttons, jint leftTrigger,
                                    jint rightTrigger, jfloat leftX, jfloat leftY,
                                    jfloat rightX, jfloat rightY)
 {
@@ -473,24 +473,24 @@ PES17_NATIVE(void, nativeTouchState)(JNIEnv*, jobject, jint buttons, jint leftTr
     android::input::SetTouchPad(pad);
 }
 
-PES17_NATIVE(void, nativeLookDelta)(JNIEnv*, jobject, jfloat dx, jfloat dy)
+MW2_NATIVE(void, nativeLookDelta)(JNIEnv*, jobject, jfloat dx, jfloat dy)
 {
     android::input::AddLook(float(dx), float(dy));
 }
 
-PES17_NATIVE(void, nativeLookEnd)(JNIEnv*, jobject)
+MW2_NATIVE(void, nativeLookEnd)(JNIEnv*, jobject)
 {
     android::input::ClearLook();
 }
 
-PES17_NATIVE(void, nativeLookSettings)(JNIEnv*, jobject, jfloat sensitivityX, jfloat sensitivityY,
+MW2_NATIVE(void, nativeLookSettings)(JNIEnv*, jobject, jfloat sensitivityX, jfloat sensitivityY,
                                      jfloat smoothing, jboolean invertY, jfloat saturation)
 {
     android::input::SetLookSettings(sensitivityX, sensitivityY, smoothing, invertY == JNI_TRUE,
                                     saturation);
 }
 
-PES17_NATIVE(void, nativePadState)(JNIEnv*, jobject, jint user, jint buttons, jint leftTrigger,
+MW2_NATIVE(void, nativePadState)(JNIEnv*, jobject, jint user, jint buttons, jint leftTrigger,
                                  jint rightTrigger, jfloat leftX, jfloat leftY, jfloat rightX,
                                  jfloat rightY)
 {
@@ -509,13 +509,13 @@ PES17_NATIVE(void, nativePadState)(JNIEnv*, jobject, jint user, jint buttons, ji
     android::input::SetHardwarePad(uint32_t(std::clamp(int(user), 0, 3)), pad);
 }
 
-PES17_NATIVE(void, nativePadConnected)(JNIEnv*, jobject, jint user, jboolean connected)
+MW2_NATIVE(void, nativePadConnected)(JNIEnv*, jobject, jint user, jboolean connected)
 {
     android::input::SetHardwarePadConnected(uint32_t(std::clamp(int(user), 0, 3)),
                                             connected == JNI_TRUE);
 }
 
-PES17_NATIVE(void, nativePadEnabled)(JNIEnv*, jobject, jboolean enabled)
+MW2_NATIVE(void, nativePadEnabled)(JNIEnv*, jobject, jboolean enabled)
 {
     android::input::SetHardwarePadEnabled(enabled == JNI_TRUE);
 }
@@ -523,20 +523,20 @@ PES17_NATIVE(void, nativePadEnabled)(JNIEnv*, jobject, jboolean enabled)
 // The title's lobby "Invite friends" from the pause menu: invites every
 // player this copy hears on the network (lan.cpp). Silent when there is no
 // service or nobody to invite to anything yet.
-PES17_NATIVE(void, nativeInviteFriends)(JNIEnv*, jobject)
+MW2_NATIVE(void, nativeInviteFriends)(JNIEnv*, jobject)
 {
     if (auto* service = online::Get()) service->InviteFriends();
 }
 
 // How many other copies this one hears, for the HUD's network line.
-PES17_NATIVE(jint, nativeLanPeers)(JNIEnv*, jobject)
+MW2_NATIVE(jint, nativeLanPeers)(JNIEnv*, jobject)
 {
     if (auto* service = online::Get()) return jint(service->PeerCount());
     return 0;
 }
 
 // Joinable peers' names, one per line, for the join picker.
-PES17_NATIVE(jstring, nativeLanPeerNames)(JNIEnv* env, jobject)
+MW2_NATIVE(jstring, nativeLanPeerNames)(JNIEnv* env, jobject)
 {
     std::string names;
     if (auto* service = online::Get()) names = service->PeerNames();
@@ -544,7 +544,7 @@ PES17_NATIVE(jstring, nativeLanPeerNames)(JNIEnv* env, jobject)
 }
 
 // Join a heard peer right now (an explicit tap: no accept flag needed).
-PES17_NATIVE(jboolean, nativeLanJoinPeer)(JNIEnv* env, jobject, jstring name)
+MW2_NATIVE(jboolean, nativeLanJoinPeer)(JNIEnv* env, jobject, jstring name)
 {
     const std::string peer = ToString(env, name);
     if (peer.empty()) return JNI_FALSE;
@@ -554,7 +554,7 @@ PES17_NATIVE(jboolean, nativeLanJoinPeer)(JNIEnv* env, jobject, jstring name)
 
 // ---- installing ------------------------------------------------------------
 
-PES17_NATIVE(jboolean, nativeGameInstalled)(JNIEnv* env, jobject, jstring gameDirectory)
+MW2_NATIVE(jboolean, nativeGameInstalled)(JNIEnv* env, jobject, jstring gameDirectory)
 {
     const std::string folder = ToString(env, gameDirectory);
     if (folder.empty()) return JNI_FALSE;
@@ -564,7 +564,7 @@ PES17_NATIVE(jboolean, nativeGameInstalled)(JNIEnv* env, jobject, jstring gameDi
 
 // Blocking: the app calls it from a thread of its own and polls the progress.
 // Returns null when it worked, or the sentence to show when it did not.
-PES17_NATIVE(jstring, nativeInstall)(JNIEnv* env, jobject, jstring source, jstring gameDirectory)
+MW2_NATIVE(jstring, nativeInstall)(JNIEnv* env, jobject, jstring source, jstring gameDirectory)
 {
     const std::string from = ToString(env, source);
     const std::string folder = ToString(env, gameDirectory);
@@ -582,7 +582,7 @@ PES17_NATIVE(jstring, nativeInstall)(JNIEnv* env, jobject, jstring source, jstri
     return FromString(env, error);
 }
 
-PES17_NATIVE(jstring, nativeInstallProgress)(JNIEnv* env, jobject, jlongArray out)
+MW2_NATIVE(jstring, nativeInstallProgress)(JNIEnv* env, jobject, jlongArray out)
 {
     std::lock_guard lock(g_progressLock);
     if (out && env->GetArrayLength(out) >= 2)
@@ -593,14 +593,14 @@ PES17_NATIVE(jstring, nativeInstallProgress)(JNIEnv* env, jobject, jlongArray ou
     return FromString(env, g_progressFile);
 }
 
-PES17_NATIVE(void, nativeCancelInstall)(JNIEnv*, jobject)
+MW2_NATIVE(void, nativeCancelInstall)(JNIEnv*, jobject)
 {
     install::CancelInstall();
 }
 
 // Blocking: applies the downloaded title update 6 after the disc install
 // (TU6 builds). Returns null when it worked, else the sentence to show.
-PES17_NATIVE(jstring, nativeApplyTu6)(JNIEnv* env, jobject, jstring packagePath, jstring gameDirectory)
+MW2_NATIVE(jstring, nativeApplyTu6)(JNIEnv* env, jobject, jstring packagePath, jstring gameDirectory)
 {
     const std::string package = ToString(env, packagePath);
     const std::string folder = ToString(env, gameDirectory);
@@ -614,7 +614,7 @@ PES17_NATIVE(jstring, nativeApplyTu6)(JNIEnv* env, jobject, jstring packagePath,
 
 // ---- what the overlay shows -------------------------------------------------
 
-PES17_NATIVE(void, nativeStats)(JNIEnv* env, jobject, jfloatArray out)
+MW2_NATIVE(void, nativeStats)(JNIEnv* env, jobject, jfloatArray out)
 {
     if (!out) return;
     const jsize len = env->GetArrayLength(out);
@@ -667,7 +667,7 @@ PES17_NATIVE(void, nativeStats)(JNIEnv* env, jobject, jfloatArray out)
     env->SetFloatArrayRegion(out, 0, len, values.data());
 }
 
-PES17_NATIVE(jstring, nativeRendererInfo)(JNIEnv* env, jobject)
+MW2_NATIVE(jstring, nativeRendererInfo)(JNIEnv* env, jobject)
 {
     std::string info;
     const char* dev = vk::pipeline::DeviceName();
@@ -679,7 +679,7 @@ PES17_NATIVE(jstring, nativeRendererInfo)(JNIEnv* env, jobject)
     return FromString(env, info);
 }
 
-PES17_NATIVE(void, nativeRunConsoleCommand)(JNIEnv* env, jobject, jstring command)
+MW2_NATIVE(void, nativeRunConsoleCommand)(JNIEnv* env, jobject, jstring command)
 {
     const std::string text = ToString(env, command);
     if (!text.empty())
@@ -724,4 +724,4 @@ android::Stats android::GetStats()
     return g_stats;
 }
 
-#endif  // PES17_ANDROID
+#endif  // MW2_ANDROID

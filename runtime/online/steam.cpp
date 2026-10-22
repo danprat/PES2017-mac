@@ -9,7 +9,7 @@
 // shipped, so a build keeps working as the client updates.
 //
 // The title runs as Spacewar, app 480, which every Steam account can run
-// (PES17_STEAM_APPID for another). Players are SteamIDs and datagrams are
+// (MW2_STEAM_APPID for another). Players are SteamIDs and datagrams are
 // ISteamNetworkingMessages, which punches through NAT or relays through Valve.
 //
 // Each player sits in a friends-only lobby of their own from the start. The
@@ -202,11 +202,11 @@ namespace
     using GetCallResultFn = bool (*)(HSteamPipe, SteamAPICall, void*, int, int, bool*);
 
     // Where the player's Steam keeps its client library: the usual install, the
-    // snap and the Flatpak, or PES17_STEAMCLIENT. On Windows, the folder the
+    // snap and the Flatpak, or MW2_STEAMCLIENT. On Windows, the folder the
     // registry says Steam is installed in.
     std::string FindClient()
     {
-        if (const char* path = env::Text("PES17_STEAMCLIENT")) return path;
+        if (const char* path = env::Text("MW2_STEAMCLIENT")) return path;
 #ifdef _WIN32
         wchar_t folder[MAX_PATH];
         DWORD bytes = sizeof(folder);
@@ -300,11 +300,11 @@ namespace
         bool Start() override
         {
             const std::string path = FindClient();
-            if (path.empty()) { LOGE("online: no Steam install found (PES17_STEAMCLIENT names one)"); return false; }
+            if (path.empty()) { LOGE("online: no Steam install found (MW2_STEAMCLIENT names one)"); return false; }
             // The client reads which game this is from the environment, as it does
             // for a game libsteam_api started, and reads it when it is loaded: set
             // later, its networking asserts and has no interface to give.
-            const std::string app = env::Text("PES17_STEAM_APPID") ? env::Text("PES17_STEAM_APPID") : "480";
+            const std::string app = env::Text("MW2_STEAM_APPID") ? env::Text("MW2_STEAM_APPID") : "480";
             SetEnvironment("SteamAppId", app.c_str());
             SetEnvironment("SteamGameId", app.c_str());
             const SdlSettings launched = SdlSettings::Now();

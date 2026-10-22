@@ -22,9 +22,9 @@ a desktop (the recompiler runs there), and Gradle then builds the same
   development packages for its video, audio and input backends (X11, Wayland,
   ALSA/PulseAudio/PipeWire, udev, dbus). `.github/workflows/release.yml` lists
   them.
-- The retail ISO, or at least `pes17/tu0/default.xex` and
-  `pes17/tu0/default_mp.xex`.
-- Title update 6: its package, or its files in `pes17/update/`
+- The retail ISO, or at least `mw2/tu0/default.xex` and
+  `mw2/tu0/default_mp.xex`.
+- Title update 6: its package, or its files in `mw2/update/`
   ([Title update 6](#title-update-6)).
 
 ## build.sh
@@ -32,18 +32,18 @@ a desktop (the recompiler runs there), and Gradle then builds the same
 `./build.sh` does everything, in order:
 
 1. clones XenonRecomp at a pinned commit and applies
-   `patches/xenonrecomp-pes17.patch` (an existing `XenonRecomp/` is reused as it
+   `patches/xenonrecomp-mw2.patch` (an existing `XenonRecomp/` is reused as it
    is);
 2. builds XenonRecomp and XenonAnalyse;
-3. extracts `default.xex` and `default_mp.xex` from the ISO into `pes17/tu0/`,
-   and every `.ff`, `.pak` and `.bik` into `pes17/game/` (files already there
+3. extracts `default.xex` and `default_mp.xex` from the ISO into `mw2/tu0/`,
+   and every `.ff`, `.pak` and `.bik` into `mw2/game/` (files already there
    are kept); then applies the title update, which writes the executables the
-   rest works on, `pes17/default.xex` and `pes17/default_mp.xex`
+   rest works on, `mw2/default.xex` and `mw2/default_mp.xex`
    ([Title update 6](#title-update-6));
-4. writes the flat PE image (`pes17/default.pe` or `pes17/default_mp.pe`) with
+4. writes the flat PE image (`mw2/default.pe` or `mw2/default_mp.pe`) with
    `tools/xexdump.py`;
-5. finds jump tables with XenonAnalyse (`config/pes17_switch_tables.toml`,
-   `config/pes17mp_switch_tables.toml`);
+5. finds jump tables with XenonAnalyse (`config/mw2_switch_tables.toml`,
+   `config/mw2mp_switch_tables.toml`);
 6. recompiles into `ppc/` or `ppc_mp/`;
 7. generates `ppc_recomp_shared.h` and the kernel import stubs
    (`tools/genshared.py`, `tools/gen_kernel_stubs.py`);
@@ -52,13 +52,13 @@ a desktop (the recompiler runs there), and Gradle then builds the same
 | variable | effect |
 |---|---|
 | `TITLE=sp\|mp` | `sp` (default): `default.xex`, the campaign and special ops. `mp`: `default_mp.xex`, the multiplayer. Each has its own recompiled tree, switch tables, recompiler config and build directory |
-| `TU=<path>` | the title update: its package, or a folder holding its files. Needed until `pes17/update/` has them |
+| `TU=<path>` | the title update: its package, or a folder holding its files. Needed until `mw2/update/` has them |
 | `VERSION=tu0` | builds the disc's own executables, without the update; see [The disc version](#the-disc-version) |
-| `RELEASE=1` | builds without diagnostics (`-DPES17_DIAGNOSTICS=OFF`) and, on Linux, with the C++ runtime linked statically (`PES17_PORTABLE`); adds `-release` to the build directory |
+| `RELEASE=1` | builds without diagnostics (`-DMW2_DIAGNOSTICS=OFF`) and, on Linux, with the C++ runtime linked statically (`MW2_PORTABLE`); adds `-release` to the build directory |
 | `ONLINE=none\|lan\|steam` | the online service ([multiplayer.md](multiplayer.md)); `none` (default) keeps system link on this machine; `steam` has lan behind it |
-| `WINDOWS=1` | cross-compiles for Windows with llvm-mingw; the build directory becomes `build-win...` and the executable `pes17.exe` |
+| `WINDOWS=1` | cross-compiles for Windows with llvm-mingw; the build directory becomes `build-win...` and the executable `mw2.exe` |
 | `LLVM_MINGW=<dir>` | the unpacked [llvm-mingw](https://github.com/mstorsjo/llvm-mingw) release, required by `WINDOWS=1` |
-| `ISO=<path>` | the disc image. Without one, `pes17/tu0/default.xex` and `pes17/tu0/default_mp.xex` are enough to build, and no game data is extracted |
+| `ISO=<path>` | the disc image. Without one, `mw2/tu0/default.xex` and `mw2/tu0/default_mp.xex` are enough to build, and no game data is extracted |
 | `BUILD_DIR=<dir>` | builds there instead of the default directory |
 | `REGENERATE=0` | keeps the recompiled tree already there (skips steps 5-7), for a second build of the same title, e.g. with another `ONLINE` |
 | `CMAKE_EXTRA` | passed to the configure step (a compiler launcher, `FETCHCONTENT_BASE_DIR`, ...) |
@@ -80,12 +80,12 @@ The update is a package holding a patch for each executable (`default.xexp`,
 `dlc1_ui_mp.ff`, `dlc2_ui_mp.ff`). After extracting the disc's executables,
 `build.sh`:
 
-- unpacks the package (`tools/stfs.py`) into `pes17/update/`, or copies the
+- unpacks the package (`tools/stfs.py`) into `mw2/update/`, or copies the
   files from the folder `TU` names;
 - applies each patch to the disc's executable with XenonRecomp's own patcher
-  (`tools/xexpatch.cpp`, built against its library), writing `pes17/default.xex`
-  and `pes17/default_mp.xex`;
-- copies the three fastfiles into `pes17/game/`.
+  (`tools/xexpatch.cpp`, built against its library), writing `mw2/default.xex`
+  and `mw2/default_mp.xex`;
+- copies the three fastfiles into `mw2/game/`.
 
 The update changes one of the campaign's 11,133 functions, and about 260 of the
 multiplayer's 11,579 with about 270 added; nearly every multiplayer function
@@ -97,15 +97,15 @@ the disc's executables at install time ([The launcher](#the-launcher)).
 ### The disc version
 
 `VERSION=tu0` builds the disc's executables as they are. Everything of theirs
-carries the version: the image and a game folder in `pes17/tu0/`, the configs
+carries the version: the image and a game folder in `mw2/tu0/`, the configs
 `config/MW2.tu0.toml` and `config/MW2MP.tu0.toml`, the trees `ppc_tu0/` and
 `ppc_mp_tu0/`, and `-tu0` on the build directory. The build defines
-`PES17_VERSION_TU0`, which selects the disc's blocks in `runtime/title.h`.
+`MW2_VERSION_TU0`, which selects the disc's blocks in `runtime/title.h`.
 
     VERSION=tu0 TITLE=mp ./build.sh
-    ./build-mp-tu0/pes17 pes17/tu0/default_mp.pe pes17/tu0/game
+    ./build-mp-tu0/mw2 mw2/tu0/default_mp.pe mw2/tu0/game
 
-`pes17/tu0/game/` links to everything in `pes17/game/` but the update's fastfiles:
+`mw2/tu0/game/` links to everything in `mw2/game/` but the update's fastfiles:
 the disc's multiplayer would load a `patch_mp.ff` it found. The installer
 works with this version, which is the one a player can install.
 
@@ -123,12 +123,12 @@ with no arguments loads the installed title, or starts the launcher when there
 is none ([runtime.md](runtime.md#loading-the-image)).
 A development run names the image and the game folder:
 
-    ./build/pes17 pes17/default.pe pes17/game
-    ./build-mp/pes17 pes17/default_mp.pe pes17/game
+    ./build/mw2 mw2/default.pe mw2/game
+    ./build-mp/mw2 mw2/default_mp.pe mw2/game
 
 The multiplayer hosts a system-link match to reach a map:
 
-    PES17_NET_LINK=1 PES17_CONSOLE="8:map mp_afghan" ./build-mp/pes17 pes17/default_mp.pe pes17/game
+    MW2_NET_LINK=1 MW2_CONSOLE="8:map mp_afghan" ./build-mp/mw2 mw2/default_mp.pe mw2/game
 
 The switches are in [switches.md](switches.md).
 
@@ -136,24 +136,24 @@ The switches are in [switches.md](switches.md).
 
 | option | default | effect |
 |---|---|---|
-| `PES17_TITLE` | `sp` | which executable: `sp` or `mp` (defines `PES17_TITLE_MP`, selecting the addresses in `runtime/title.h`) |
-| `PES17_VERSION` | `tu6` | which version of it: `tu6`, or `tu0` for the disc's (defines `PES17_VERSION_TU0`) |
-| `PES17_DIAGNOSTICS` | `ON` | traces, dumps, statistics, end-of-run reports, the stutter detector and pacing timeline, the flash hunt, the write watchpoint and the headless harness (walker, input script, run deadlines, watchdog); see `runtime/diagnostics.h`. `OFF` unsets every diagnostic switch whatever the environment says |
-| `PES17_LOGGING` | `ON` | `OFF` compiles out every log line, warnings included |
-| `PES17_TRACE_INDIRECT` | `ON` | the generated code checks an indirect call's target and reports a missing one instead of jumping to null |
-| `PES17_ONLINE` | `none` | the online service: `none`, `lan`, or `steam` (Steam, then lan) |
-| `PES17_PORTABLE` | `OFF` | links libstdc++ and libgcc statically (Linux) |
-| `PES17_USE_SDL` | `ON` | SDL3 for the window, input and audio |
+| `MW2_TITLE` | `sp` | which executable: `sp` or `mp` (defines `MW2_TITLE_MP`, selecting the addresses in `runtime/title.h`) |
+| `MW2_VERSION` | `tu6` | which version of it: `tu6`, or `tu0` for the disc's (defines `MW2_VERSION_TU0`) |
+| `MW2_DIAGNOSTICS` | `ON` | traces, dumps, statistics, end-of-run reports, the stutter detector and pacing timeline, the flash hunt, the write watchpoint and the headless harness (walker, input script, run deadlines, watchdog); see `runtime/diagnostics.h`. `OFF` unsets every diagnostic switch whatever the environment says |
+| `MW2_LOGGING` | `ON` | `OFF` compiles out every log line, warnings included |
+| `MW2_TRACE_INDIRECT` | `ON` | the generated code checks an indirect call's target and reports a missing one instead of jumping to null |
+| `MW2_ONLINE` | `none` | the online service: `none`, `lan`, or `steam` (Steam, then lan) |
+| `MW2_PORTABLE` | `OFF` | links libstdc++ and libgcc statically (Linux) |
+| `MW2_USE_SDL` | `ON` | SDL3 for the window, input and audio |
 
-CMake reads the SHA-256 of the executables in `pes17/` and `pes17/tu0/` and of the
-update's fastfiles in `pes17/update/` at configure time: a game executable runs
+CMake reads the SHA-256 of the executables in `mw2/` and `mw2/tu0/` and of the
+update's fastfiles in `mw2/update/` at configure time: a game executable runs
 only the title executable it was recompiled from, and the launcher installs
 only that disc and that update.
 
 ## The launcher
 
-`pes17-launcher` (`launcher/`) is built with every build directory, beside
-`pes17`. It is one executable: Dear ImGui (fetched, like SDL3) on SDL's own
+`mw2-launcher` (`launcher/`) is built with every build directory, beside
+`mw2`. It is one executable: Dear ImGui (fetched, like SDL3) on SDL's own
 renderer, three fonts from `third_party/fonts/` written out as arrays at
 configure time, and XenonRecomp's patcher compiled in from its checkout with
 the LZX decoder and AES it uses.
@@ -191,7 +191,7 @@ right ones is what a finished install is. With the disc's executables already
 in `game/` (an install made by the disc version), only the update is applied
 and no disc is asked for. A `VERSION=tu0` build installs the disc as it is.
 
-    pes17-launcher --install [<disc image or folder>] [--update <package or folder>]
+    mw2-launcher --install [<disc image or folder>] [--update <package or folder>]
 
 does the same from a terminal; with no disc it updates the install in place.
 
@@ -202,7 +202,7 @@ PROFILES, GRAPHICS and REPORT A BUG swap the list for their own (`ProfileEntries
 `ui::Frame::slider`, and the pane draws a track for it; FOV's also shows a street drawn at the
 angle (`preview.cpp`), with the game's projection, to say what the number does before the game
 is started.
-PLAY CAMPAIGN and PLAY MULTIPLAYER start `pes17-sp` and `pes17-mp` beside the
+PLAY CAMPAIGN and PLAY MULTIPLAYER start `mw2-sp` and `mw2-mp` beside the
 launcher, the names a release gives the two game executables.
 
 ### Updating itself
@@ -212,9 +212,9 @@ GitHub's description of the newest published release
 (`api.github.com/repos/.../releases/latest`), which has the release's tag and,
 for each archive, its name, size, SHA-256 and address, and compares the tag
 with its own. The workflow gives the build its tag
-(`RELEASE_TAG=v0.3.0 ./build.sh`, CMake's `PES17_RELEASE_TAG`); a build without
+(`RELEASE_TAG=v0.3.0 ./build.sh`, CMake's `MW2_RELEASE_TAG`); a build without
 one has nothing to compare and the entry is off. The archive it wants is the
-one for its system and online service, `pes17-<tag>-<linux|windows>-<service>`.
+one for its system and online service, `mw2-<tag>-<linux|windows>-<service>`.
 
 Choosing UPDATE TO downloads that archive into `update/` beside the launcher,
 checks its SHA-256, unpacks it with the system's `tar` (Windows 10 and later
@@ -225,16 +225,16 @@ running program can be moved but not deleted, the launcher included, so
 `game/` and `saves/` are not touched; a release built from another version of
 the game shows UPDATE GAME as any install of another version does.
 
-    pes17-launcher --upgrade
+    mw2-launcher --upgrade
 
-does the same from a terminal. `PES17_UPDATE_URL=<address>` names another
+does the same from a terminal. `MW2_UPDATE_URL=<address>` names another
 description of the same form: a mirror's, or a file as `file://` to try an
 update without publishing one.
 
 ### Reporting a bug
 
 REPORT A BUG (`report.cpp`) starts the campaign or the multiplayer with
-`PES17_REPORT=1` and `PES17_LOG_FILE=reports/run.log`, and waits for it to end;
+`MW2_REPORT=1` and `MW2_LOG_FILE=reports/run.log`, and waits for it to end;
 the title one starts from its menus writes on in the same log. In that mode
 the game's log names the graphics driver and ends, at exit or at a fault, with
 how the run performed (`runtime/report.cpp`): the frame rate in play, how the
@@ -244,7 +244,7 @@ back: the thread itself when it is at work nearly all the time, the graphics
 chip when much of that work is waiting for it, and the title's own threads or
 the display when it is neither.
 
-The launcher then writes `reports/pes17-report-<date>-<time>.txt`: the version,
+The launcher then writes `reports/mw2-report-<date>-<time>.txt`: the version,
 the system, processor, memory, graphics and displays, the game's own summary,
 and the log. An issue is public, so the log first loses the player's name, IP
 addresses, the session keys of a `connect` line, account numbers, other
@@ -265,7 +265,7 @@ report from it, NO deletes it.
 ## Windows
 
 `WINDOWS=1 TITLE=mp RELEASE=1 LLVM_MINGW=<dir> ./build.sh` produces
-`build-win-mp-release/pes17.exe` with `cmake/mingw-w64.cmake` (clang for
+`build-win-mp-release/mw2.exe` with `cmake/mingw-w64.cmake` (clang for
 `x86_64-w64-mingw32` against the UCRT). XenonRecomp itself is still built with
 the host's clang-18. The executable needs nothing beside it:
 
@@ -285,12 +285,12 @@ It needs Windows 10 1803 or later, for the placeholder mapping of guest memory.
 tag and the game's version (`tu6` or `tu0`). It builds both titles with both `steam` and `lan` for Linux (Ubuntu 22.04,
 so the binaries need glibc 2.35 at most, with Vulkan-Headers 1.3.275 installed
 over the system's) and for Windows (cross-compiled on Ubuntu with llvm-mingw),
-with ccache, then packages `pes17-sp` and `pes17-mp` with the README per platform
+with ccache, then packages `mw2-sp` and `mw2-mp` with the README per platform
 and service, and drafts a GitHub Release. The two executables come from a
 private repository named by the secret `ASSET_REPO`, read with
 `ASSET_REPO_TOKEN`, which holds `default.xex` and `default_mp.xex` at its root
 and the update's two patches and three fastfiles under `title-updates/TU6/`.
-It packages `pes17-launcher` with them, and the fonts' licence.
+It packages `mw2-launcher` with them, and the fonts' licence.
 
 ## Layout
 
@@ -303,7 +303,7 @@ It packages `pes17-launcher` with them, and the fonts' licence.
 | `ppc/`, `ppc_mp/` | generated C++ and its generated glue (gitignored) |
 | `runtime/` | the host runtime |
 | `tools/` | generators, reverse-engineering scripts, capture helpers |
-| `tools/routes/` | recorded walks across `mp_afghan` for `PES17_WALK_PATH` |
+| `tools/routes/` | recorded walks across `mp_afghan` for `MW2_WALK_PATH` |
 | `launcher/` | the launcher: install, and starting the game ([The launcher](#the-launcher)) |
 | `third_party/ffmpeg-xenia/` | builds the XMA frame decoder from Xenia's FFmpeg branch, fetched at configure time |
 | `third_party/fonts/` | the launcher's fonts (Barlow, SIL Open Font License) |
@@ -328,9 +328,9 @@ It packages `pes17-launcher` with them, and the fonts' licence.
 | `shader_preload.cpp` | hands shaders loaded with a level to the renderer to compile |
 | `engine.h`, `engine_log.cpp`, `predicate_waits.cpp`, `console.cpp` | hooks into the engine: print and error paths, spin waits, the console command buffer |
 | `player.cpp` | the headless walker and route recorder |
-| `field_of_view.cpp` | `PES17_FOV`: scales the view angle the title computes |
+| `field_of_view.cpp` | `MW2_FOV`: scales the view angle the title computes |
 | `stutters.cpp`, `pacing_trace.cpp` | the stutter detector and the frame pacing timeline |
-| `report.cpp` | `PES17_REPORT=1`: the driver's name and a run's performance summary, for a bug report |
+| `report.cpp` | `MW2_REPORT=1`: the driver's name and a run's performance summary, for a bug report |
 | `crash.cpp`, `watchpoint.cpp`, `mmio_hook.h` | the fault handler, the write watchpoint, the hardware-register store hook |
 
 ### Tools
@@ -339,7 +339,7 @@ It packages `pes17-launcher` with them, and the fonts' licence.
 |---|---|
 | `xdvdfs.py`, `xexdump.py`, `xexinfo.py` | read the ISO; decrypt and decompress an XEX2 into a flat PE; dump its headers |
 | `stfs.py`, `xexpatch.cpp` | unpack a title update's package; apply an executable patch (`.xexp`) with XenonRecomp's patcher |
-| `title.py` | which executable the other tools work on (`PES17_TITLE=sp\|mp`, `PES17_VERSION=tu6\|tu0`) |
+| `title.py` | which executable the other tools work on (`MW2_TITLE=sp\|mp`, `MW2_VERSION=tu6\|tu0`) |
 | `fixbounds.py` | explicit function boundaries for leaf functions holding jump tables |
 | `genshared.py`, `gen_kernel_stubs.py` | `ppc_recomp_shared.h`, the import list, and stubs for unimplemented imports |
 | `extract_shaders.py` | every shader's microcode from the fastfiles |
@@ -381,7 +381,7 @@ on every push and pull request).
 | test | what |
 |---|---|
 | `durable` (`tests/durable_test.cpp`) | that a save survives losing the process part-way: a replacement leaves the previous contents whole, a successful write leaves no `.tmp`, one left by a dead run is not mistaken for the target, and sizes round-trip across block boundaries ([saves.md](saves.md#surviving-an-interrupted-write)) |
-| `log` (`tests/log_repeat_test.cpp`) | the rule that keeps a run readable: a line that repeats is written as it doubles with the count beside it, two lines differing only by an address are one kind, and a repetition in progress cannot flood ([switches.md](switches.md), `PES17_LOG_ALL`) |
+| `log` (`tests/log_repeat_test.cpp`) | the rule that keeps a run readable: a line that repeats is written as it doubles with the count beside it, two lines differing only by an address are one kind, and a repetition in progress cannot flood ([switches.md](switches.md), `MW2_LOG_ALL`) |
 | `bc` (`tests/bc_decoder_test.cpp`) | the software block-compressed decoder (`bc_decoder.cpp`) against a reference written from the formats themselves, over random blocks and odd sizes: DXT1's three-colour mode, DXT3's four-bit alpha, DXT5's two alpha modes, BC5's two channels, levels, short payloads, impossible formats, and that decoding into a reused output buffer gives what a fresh one gave ([textures.md](textures.md#formats)) |
 | `volume` (`tests/texture_volume_test.cpp`) | where each level of a 3D texture lives in guest memory and that untiling one reads every level from its own place, against Xenia's `GetGuestTextureLayout` transcribed for the comparison — the depth term of a volume's level stride, which no desktop run could confirm ([textures.md](textures.md#layout-in-guest-memory)) |
 | `version` (`tests/version_test.cpp`) | the order release tags are compared in (`launcher/version.h`, `update::Look`): that a pre-release is older than its release, that `alpha.2` is older than `alpha.10`, that the project's own `v0.1.0-alpha.13` reads, and that what is not a version is refused rather than ordered — a tag the updater cannot read is a release no player is ever offered |
@@ -398,7 +398,7 @@ failing with `0xc0000139` before it can run a single check.
 |---|---|
 | [building.md](building.md) | this page |
 | [runtime.md](runtime.md) | how the runtime stands in for the console |
-| [switches.md](switches.md) | every `PES17_*` switch |
+| [switches.md](switches.md) | every `MW2_*` switch |
 | [d3d9-seam.md](d3d9-seam.md) | where the title meets the GPU: the statically linked D3D9, the ring, the flip handshake |
 | [shaders.md](shaders.md) | Xenos microcode translated to SPIR-V |
 | [textures.md](textures.md) | fetch constants, tiling, upload and invalidation |
@@ -410,7 +410,7 @@ failing with `0xc0000139` before it can run a single check.
 
 ## Local changes to XenonRecomp
 
-`patches/xenonrecomp-pes17.patch`, applied by `build.sh`:
+`patches/xenonrecomp-mw2.patch`, applied by `build.sh`:
 
 - **`XenonRecomp/recompiler.cpp`**
   - Instructions MW2 uses that the recompiler did not handle: load/store update

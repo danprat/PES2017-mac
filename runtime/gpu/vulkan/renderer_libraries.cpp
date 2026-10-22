@@ -39,7 +39,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#ifdef PES17_HAVE_VULKAN
+#ifdef MW2_HAVE_VULKAN
 
 namespace
 {
@@ -498,4 +498,4 @@ void vk::renderer::PrepareShader(bool pixel, const uint32_t* code, size_t words)
 
 void vk::renderer::PrepareShader(bool, const uint32_t*, size_t) {}
 
-#endif  // PES17_HAVE_VULKAN
+#endif  // MW2_HAVE_VULKAN

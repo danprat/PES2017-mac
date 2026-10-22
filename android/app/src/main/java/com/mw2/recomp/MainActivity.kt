@@ -1,4 +1,4 @@
-package com.pes2017.recomp
+package com.mw2.recomp
 
 import android.app.DownloadManager
 import android.content.BroadcastReceiver
@@ -8,12 +8,11 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.view.InputDevice
 import android.widget.Button
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.documentfile.provider.DocumentFile
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -41,7 +40,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var footer: TextView
     private lateinit var play: Button
     private lateinit var installButton: Button
-    private lateinit var selectFolderButton: Button
+    private lateinit var otherAppButton: Button
+    private lateinit var modsButton: Button
+    private lateinit var tu6Button: Button
     private lateinit var updatesButton: Button
     private lateinit var quitButton: Button
     private lateinit var detailTitle: TextView
@@ -54,17 +55,6 @@ class MainActivity : AppCompatActivity() {
     private var hasAutoLaunched = false
     private var pendingInstallId: Long = -1
     private var pendingUpdateUrl: String? = null
-
-    /** The tree the player picked while the app still lacked storage access. */
-    private var pendingTree: Uri? = null
-
-    private val pickTree = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
-        if (uri != null) onFolderPicked(uri)
-    }
-
-    private val legacyPermission = registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions(),
-    ) { resumePendingFolder() }
 
     private val downloadDone = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -84,7 +74,9 @@ class MainActivity : AppCompatActivity() {
         footer = findViewById(R.id.footer)
         play = findViewById(R.id.play)
         installButton = findViewById(R.id.install)
-        selectFolderButton = findViewById(R.id.select_folder)
+        otherAppButton = findViewById(R.id.other_app)
+        modsButton = findViewById(R.id.entry_mods)
+        tu6Button = findViewById(R.id.entry_tu6)
         updatesButton = findViewById(R.id.entry_updates)
         quitButton = findViewById(R.id.entry_quit)
         detailTitle = findViewById(R.id.detail_title)
@@ -96,9 +88,13 @@ class MainActivity : AppCompatActivity() {
             val name = info.versionName ?: ""
             val code = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) info.longVersionCode.toInt()
             else info.versionCode
-            versionTag.text = getString(R.string.version_tag, name, code)
+            val tu = BuildConfig.MW2_TU.uppercase()
+            val build = if (isTu6()) "TITLE UPDATE 6" else "DISC VERSION 1.0.557"
+            versionTag.text = "$name · vcode $code · $tu · $build"
         } catch (_: Throwable) {
         }
+        // TU6 apps offer the TU0 archives instead (PC launcher parity).
+        if (isTu6()) tu6Button.text = getString(R.string.entry_tu0)
 
         directLaunchSwitch.isChecked = prefs.autoLaunch
         directLaunchSwitch.setOnCheckedChangeListener { _, isChecked ->
@@ -121,34 +117,63 @@ class MainActivity : AppCompatActivity() {
                 }
                 startActivity(intent)
             } else {
-                // Nothing to play yet: the natural next step is choosing the folder.
-                selectGameFolder()
+                startActivity(Intent(this, InstallActivity::class.java))
             }
         }
-        selectFolderButton.setOnClickListener {
-            select(selectFolderButton)
-            selectGameFolder()
+        // The other half of the game, when it is installed: campaign jumps
+        // straight into multiplayer and back, no home screen in between.
+        otherAppButton.setOnClickListener {
+            select(otherAppButton)
+            launchOtherApp()
         }
         installButton.setOnClickListener {
             select(installButton)
-            showDetail(getString(R.string.install_game), getString(R.string.install_hint))
+            showDetail(
+                getString(R.string.install_game),
+                getString(R.string.install_hint),
+            )
             if (detectedSources.size > 1) chooseSource()
             else startActivity(Intent(this, InstallActivity::class.java))
         }
         findViewById<Button>(R.id.driver).setOnClickListener {
             select(it as Button)
-            showDetail(getString(R.string.graphics_driver), getString(R.string.driver_hint))
+            showDetail(
+                getString(R.string.graphics_driver),
+                getString(R.string.driver_hint),
+            )
             startActivity(Intent(this, DriverActivity::class.java))
         }
         findViewById<Button>(R.id.settings).setOnClickListener {
             select(it as Button)
-            showDetail(getString(R.string.entry_settings), getString(R.string.settings_hint))
+            showDetail(getString(R.string.network_settings), getString(R.string.player_name_hint))
             startActivity(Intent(this, SettingsActivity::class.java))
         }
         findViewById<Button>(R.id.log).setOnClickListener {
             select(it as Button)
             showDetail(getString(R.string.view_log), "")
             showLog()
+        }
+        modsButton.setOnClickListener {
+            select(modsButton)
+            showDetail(getString(R.string.entry_mods), getString(R.string.mods_detail_phone))
+            startActivity(
+                Intent(this, SettingsActivity::class.java).apply {
+                    putExtra(SettingsActivity.EXTRA_TAB, SettingsActivity.TAB_FILES)
+                },
+            )
+        }
+        tu6Button.setOnClickListener {
+            select(tu6Button)
+            // Mirror of the PC launcher's GET TU6/GET TU0 entry: each build
+            // points at the other game version's archives. Same-version rule:
+            // TU0 plays only with TU0, TU6 only with TU6.
+            if (isTu6()) {
+                tu6Button.text = getString(R.string.entry_tu0)
+                showDetail(getString(R.string.entry_tu0), getString(R.string.tu0_detail_phone))
+            } else {
+                showDetail(getString(R.string.entry_tu6), getString(R.string.tu6_detail_phone))
+            }
+            openReleasesPage()
         }
         updatesButton.setOnClickListener {
             select(updatesButton)
@@ -204,161 +229,13 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Back from the all-files permission screen with a folder waiting.
-        // This comes first so a freshly chosen folder is what refresh() shows
-        // (and what direct launch would start).
-        resumePendingFolder()
         refresh()
+        // Back from the install-permission screen with a download waiting.
         pendingUpdateUrl?.let { url ->
             pendingUpdateUrl = null
             if (packageManager.canRequestPackageInstalls()) startUpdateDownload(url)
         }
     }
-
-    // ---- choosing the game folder ------------------------------------------------
-
-    /**
-     * Select Game Folder: the system folder picker, then -- only if the folder
-     * is outside the app's own storage and Android has not yet allowed the app
-     * to read it -- the permission prompt. The game runs from the chosen folder
-     * as it lies; nothing is copied unless the player prefers that.
-     */
-    private fun selectGameFolder() {
-        showDetail(getString(R.string.entry_select_folder), getString(R.string.select_folder_hint))
-        try {
-            pickTree.launch(null)
-        } catch (_: Throwable) {
-            message(getString(R.string.folder_unreadable_path))
-        }
-    }
-
-    private fun onFolderPicked(tree: Uri) {
-        val picked = GameFolder.pathOf(tree)
-        if (picked == null) {
-            // A provider with no path behind it: the only way in is a copy.
-            offerCopy(tree)
-            return
-        }
-        if (!GameFolder.hasAccess(this)) {
-            pendingTree = tree
-            prefs.pendingFolder = picked.absolutePath
-            askForAccess(tree)
-            return
-        }
-        useFolder(picked, tree)
-    }
-
-    private fun askForAccess(tree: Uri) {
-        AlertDialog.Builder(this)
-            .setTitle(R.string.access_title)
-            .setMessage(R.string.access_explained)
-            .setNegativeButton(R.string.cancel) { _, _ ->
-                pendingTree = null
-                prefs.pendingFolder = ""
-            }
-            .setNeutralButton(R.string.copy_instead) { _, _ ->
-                pendingTree = null
-                prefs.pendingFolder = ""
-                offerCopy(tree)
-            }
-            .setPositiveButton(R.string.allow_storage) { _, _ -> requestAccess() }
-            .show()
-    }
-
-    private fun requestAccess() {
-        val intent = GameFolder.accessIntent(this)
-        if (intent == null) {
-            legacyPermission.launch(GameFolder.legacyPermissions)
-            return
-        }
-        try {
-            startActivity(intent)
-        } catch (_: Throwable) {
-            try {
-                startActivity(Intent(android.provider.Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
-            } catch (_: Throwable) {
-            }
-        }
-    }
-
-    /** Back from the permission screen: carry on with the folder that was waiting. */
-    private fun resumePendingFolder() {
-        val path = prefs.pendingFolder
-        if (path.isEmpty() || !GameFolder.hasAccess(this)) return
-        val tree = pendingTree
-        prefs.pendingFolder = ""
-        pendingTree = null
-        useFolder(File(path), tree)
-    }
-
-    /** Looks for default.xex in the folder (or one level down) and offers to use it. */
-    private fun useFolder(picked: File, tree: Uri?) {
-        thread(name = "folder-check") {
-            val game = try {
-                GameFolder.locate(picked)
-            } catch (_: Throwable) {
-                null
-            }
-            runOnUiThread {
-                when {
-                    game == null && picked.listFiles() == null && tree != null -> offerCopy(tree)
-                    game == null -> message(getString(R.string.folder_no_xex))
-                    else -> verifyAndSet(game, picked)
-                }
-            }
-        }
-    }
-
-    private fun verifyAndSet(game: File, picked: File) {
-        thread(name = "folder-hash") {
-            val matches = try {
-                GameFolder.sha256(File(game, GameFolder.XEX)).equals(BuildConfig.PES_XEX_SHA256, ignoreCase = true)
-            } catch (_: Throwable) {
-                false
-            }
-            runOnUiThread {
-                if (matches) {
-                    setGameFolder(game, picked)
-                } else {
-                    AlertDialog.Builder(this)
-                        .setTitle(R.string.folder_title)
-                        .setMessage(getString(R.string.folder_wrong_game) + "\n\n" + game.absolutePath)
-                        .setNegativeButton(R.string.cancel, null)
-                        .setPositiveButton(R.string.folder_use_anyway) { _, _ -> setGameFolder(game, picked) }
-                        .show()
-                }
-            }
-        }
-    }
-
-    private fun setGameFolder(game: File, picked: File) {
-        prefs.gameDirectory = game.absolutePath
-        val inside = if (game != picked) getString(R.string.folder_found_inside, game.absolutePath) + "\n\n" else ""
-        showDetail(getString(R.string.folder_title), inside + getString(R.string.folder_set, game.absolutePath))
-        refresh()
-    }
-
-    private fun offerCopy(tree: Uri) {
-        AlertDialog.Builder(this)
-            .setTitle(R.string.folder_title)
-            .setMessage(R.string.folder_unreadable_path)
-            .setNegativeButton(R.string.cancel, null)
-            .setPositiveButton(R.string.copy_instead) { _, _ ->
-                startActivity(
-                    Intent(this, InstallActivity::class.java).apply {
-                        data = tree
-                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    },
-                )
-            }
-            .show()
-    }
-
-    private fun message(text: String) {
-        AlertDialog.Builder(this).setMessage(text).setPositiveButton(R.string.close, null).show()
-    }
-
-    // ---- the menu's state ------------------------------------------------------------
 
     private fun refresh() {
         if (!nativeReady) {
@@ -373,6 +250,7 @@ class MainActivity : AppCompatActivity() {
             )
             return
         }
+        refreshOtherApp()
 
         var gameDirectory = prefs.gameDirectory
         if (gameDirectory.isEmpty()) {
@@ -388,8 +266,8 @@ class MainActivity : AppCompatActivity() {
 
         if (installed) {
             play.isEnabled = true
-            play.text = getString(R.string.play)
-            status.text = getString(R.string.status_ready, gameDirectory)
+            play.text = "▶ LAUNCH GAME"
+            status.text = "Status: Game Ready\nLocation: $gameDirectory"
             installButton.visibility = android.view.View.GONE
             directLaunchSwitch.visibility = android.view.View.VISIBLE
 
@@ -405,31 +283,23 @@ class MainActivity : AppCompatActivity() {
             val chosen = detectedSources.firstOrNull { it.file.absolutePath == prefs.lastSource }
                 ?: detectedSources.firstOrNull()
             detectedIsoFile = chosen?.file
-            installButton.visibility = android.view.View.VISIBLE
-            directLaunchSwitch.visibility = android.view.View.GONE
 
-            if (gameDirectory.isNotEmpty()) {
-                // A folder was chosen but is no longer usable: say why.
-                play.isEnabled = false
-                play.text = getString(R.string.play)
-                status.text = getString(
-                    if (!GameFolder.hasAccess(this) && !gameDirectory.startsWith(filesDirParent()))
-                        R.string.status_needs_access else R.string.status_folder_missing,
-                    gameDirectory,
-                )
-            } else if (detectedIsoFile != null) {
+            if (detectedIsoFile != null) {
                 play.isEnabled = true
-                play.text = getString(R.string.install_and_play)
+                play.text = "⚡ INSTALL & PLAY"
                 val c = chosen!!
                 val more = if (detectedSources.size > 1) "\n${detectedSources.size - 1} other source(s) found." else ""
                 status.text = "Game found (${c.kind}):\n${c.file.name}\nReady for one-click setup.$more"
+                installButton.visibility = android.view.View.VISIBLE
                 installButton.text = if (detectedSources.size > 1) "Choose Game Source (${detectedSources.size})" else "Choose Another Source"
             } else {
-                play.isEnabled = true
+                play.isEnabled = false
                 play.text = getString(R.string.play)
                 status.text = getString(R.string.status_not_installed)
-                installButton.text = getString(R.string.entry_install)
+                installButton.visibility = android.view.View.VISIBLE
+                installButton.text = getString(R.string.install_game)
             }
+            directLaunchSwitch.visibility = android.view.View.GONE
         }
 
         applyDriverChoice()
@@ -438,8 +308,6 @@ class MainActivity : AppCompatActivity() {
             BuildConfig.BUILD_SHA, BuildConfig.BUILD_STAMP,
         )
     }
-
-    private fun filesDirParent(): String = (getExternalFilesDir(null) ?: filesDir).absolutePath
 
     /** Pick which disc image or folder to install from, or go and look for another. */
     private fun chooseSource() {
@@ -500,6 +368,12 @@ class MainActivity : AppCompatActivity() {
 
     private fun startGame() {
         if (!nativeReady) return
+        // A physical pad means a second player can join (split-screen Spec
+        // Ops / multiplayer). Warn once: two viewports cost frames and heat.
+        if (!prefs.seenPadWarning && physicalPadCount() > 0) {
+            showSplitscreenWarning()
+            return
+        }
         GameActivity.start(this)
     }
 
@@ -508,13 +382,103 @@ class MainActivity : AppCompatActivity() {
         detailText.text = text
     }
 
+    /** com.mw2.recomp.mp and com.mw2.recomp.mp.tu6 are both multiplayer. */
+    private fun isMp(): Boolean = packageName.contains(".mp")
+
+    /** com.mw2.recomp.sp.tu6 / .mp.tu6 run title update 6. */
+    private fun isTu6(): Boolean = packageName.endsWith(".tu6")
+
+    /** The other flavor's package, or null when it is not installed. */
+    private fun otherApp(): Pair<String, String>? {
+        // Same game version on both ends: TU6 cross-launches the TU6 sibling.
+        val base = if (isMp()) ".sp" else ".mp"
+        val pkg = "com.mw2.recomp$base" + if (isTu6()) ".tu6" else ""
+        val label = getString(
+            R.string.launch_other,
+            getString(if (isMp()) R.string.other_name_campaign else R.string.other_name_multiplayer),
+        )
+        return try {
+            packageManager.getLaunchIntentForPackage(pkg) ?: return null
+            pkg to label
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
+    private fun refreshOtherApp() {
+        val other = otherApp()
+        if (other == null) {
+            otherAppButton.visibility = android.view.View.GONE
+        } else {
+            otherAppButton.visibility = android.view.View.VISIBLE
+            otherAppButton.text = other.second
+        }
+    }
+
+    private fun launchOtherApp() {
+        val other = otherApp()
+        if (other == null) {
+            showDetail(
+                getString(R.string.play),
+                getString(
+                    R.string.other_missing,
+                    getString(
+                        if (isMp()) R.string.other_name_campaign
+                        else R.string.other_name_multiplayer,
+                    ),
+                ),
+            )
+            return
+        }
+        showDetail(other.second, "")
+        try {
+            startActivity(packageManager.getLaunchIntentForPackage(other.first))
+        } catch (_: Throwable) {
+        }
+    }
+
+    private fun physicalPadCount(): Int {
+        var count = 0
+        for (id in InputDevice.getDeviceIds()) {
+            val device = InputDevice.getDevice(id) ?: continue
+            if (device.isVirtual) continue
+            val sources = device.sources
+            if (sources and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD ||
+                sources and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK) {
+                count++
+            }
+        }
+        return count
+    }
+
+    private fun showSplitscreenWarning() {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.splitscreen_title)
+            .setMessage(R.string.splitscreen_warning)
+            .setPositiveButton(R.string.play_anyway) { _, _ -> GameActivity.start(this) }
+            .setNegativeButton(R.string.cancel, null)
+            .setNeutralButton(R.string.dont_show_again) { _, _ ->
+                prefs.seenPadWarning = true
+                GameActivity.start(this)
+            }
+            .show()
+    }
+
     private var selectedEntry: Button? = null
 
-    /** The game menu's highlight bar on the chosen entry. */
+    /** The PC launcher's black-bar highlight on the chosen entry. */
     private fun select(entry: Button) {
         selectedEntry?.setBackgroundColor(android.graphics.Color.TRANSPARENT)
         selectedEntry = entry
         entry.setBackgroundResource(R.drawable.bg_entry_selected)
+    }
+
+    /** TU-aware asset match: TU0 never takes a TU6 APK and vice versa.
+     * Unmarked (pre-TU) assets match TU0 only, the version they were. */
+    private fun assetMatches(asset: String, wantTitle: String, wantTu: String): Boolean {
+        if (!asset.contains(wantTitle, ignoreCase = true)) return false
+        val hasTu6 = asset.contains("tu6", ignoreCase = true)
+        return if (wantTu == "tu6") hasTu6 else !hasTu6
     }
 
     /** A newer published APK, if there is one: silent when offline. */
@@ -522,8 +486,7 @@ class MainActivity : AppCompatActivity() {
         thread(name = "update-check", isDaemon = true) {
             var offered = false
             try {
-                if (RELEASES_API.isEmpty()) throw IllegalStateException("no release feed")
-                val connection = (URL(RELEASES_API)
+                val connection = (URL("https://api.github.com/repos/CyberLifeYT/mw2-crossplay/releases?per_page=10")
                     .openConnection() as HttpURLConnection).apply {
                     connectTimeout = 15000
                     readTimeout = 15000
@@ -531,14 +494,16 @@ class MainActivity : AppCompatActivity() {
                 }
                 if (connection.responseCode == 200) {
                     val releases = JSONArray(connection.inputStream.bufferedReader().readText())
+                    val wantTitle = if (isMp()) "multiplayer" else "campaign"
+                    val wantTu = if (isTu6()) "tu6" else "tu0"
                     for (i in 0 until releases.length()) {
                         val release = releases.getJSONObject(i)
                         if (release.optBoolean("draft")) continue
                         val assets = release.optJSONArray("assets") ?: continue
-                        val apk = (0 until assets.length())
-                            .map { assets.getJSONObject(it) }
-                            .firstOrNull { it.optString("name").endsWith(".apk", ignoreCase = true) }
-                            ?: continue
+                        val matches = (0 until assets.length()).any {
+                            assetMatches(assets.getJSONObject(it).optString("name"), wantTitle, wantTu)
+                        }
+                        if (!matches) continue
                         val tag = release.optString("tag_name")
                         val code = Regex("APK versionCode:\\s*(\\d+)")
                             .find(release.optString("body"))?.groupValues?.get(1)?.toIntOrNull() ?: 0
@@ -546,10 +511,15 @@ class MainActivity : AppCompatActivity() {
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) it.longVersionCode.toInt()
                             else it.versionCode
                         }
-                        // Newest release with an APK only: older ones stay buried.
+                        // Newest matching release only: older ones stay buried.
                         if (code > installed && tag.isNotEmpty() && tag != prefs.seenUpdateTag) {
                             val page = release.optString("html_url")
-                            val apkUrl = apk.optString("browser_download_url")
+                            val apkUrl = (0 until assets.length())
+                                .map { assets.getJSONObject(it) }
+                                .firstOrNull {
+                                    it.optString("name").endsWith(".apk", ignoreCase = true) &&
+                                        assetMatches(it.optString("name"), wantTitle, wantTu)
+                                }?.optString("browser_download_url") ?: ""
                             val notes = release.optString("body").take(1500)
                             offered = true
                             runOnUiThread { showUpdateDialog(tag, page, apkUrl, notes, installed, code) }
@@ -596,6 +566,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /** TU6 lives in separate PC archives; Android stays TU0 (future work, not started). */
+    private fun openReleasesPage() {
+        openPage("https://github.com/CyberLifeYT/mw2-crossplay/releases")
+    }
+
     private fun downloadAndInstall(apkUrl: String) {
         if (!packageManager.canRequestPackageInstalls()) {
             // System sends the user to allow installs from this app; the
@@ -620,15 +595,15 @@ class MainActivity : AppCompatActivity() {
         try {
             val manager = getSystemService(DOWNLOAD_SERVICE) as DownloadManager
             val request = DownloadManager.Request(Uri.parse(apkUrl))
-                .setTitle("PES 2017 update")
+                .setTitle("MW2 update")
                 .setDescription("Downloading APK")
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "pes17-update.apk")
+                .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "mw2-update.apk")
                 .setAllowedOverMetered(true)
             pendingInstallId = manager.enqueue(request)
             Toast.makeText(this, R.string.update_downloading, Toast.LENGTH_SHORT).show()
         } catch (_: Throwable) {
-            if (RELEASES_PAGE.isNotEmpty()) openPage(RELEASES_PAGE)
+            openPage("https://github.com/CyberLifeYT/mw2-crossplay/releases")
         }
     }
 
@@ -644,18 +619,12 @@ class MainActivity : AppCompatActivity() {
         } catch (_: Throwable) {
             AlertDialog.Builder(this)
                 .setMessage(R.string.update_failed)
-                .setPositiveButton(R.string.open_page) { _, _ -> openPage(RELEASES_PAGE) }
+                .setPositiveButton(R.string.open_page) { _, _ ->
+                    openPage("https://github.com/CyberLifeYT/mw2-crossplay/releases")
+                }
                 .setNegativeButton(R.string.cancel, null)
                 .show()
         }
-    }
-
-    companion object {
-        // Where releases are published. Empty until this port has a release
-        // page of its own: an update check must never pull an APK from some
-        // other project's repository. Fill both in together.
-        private const val RELEASES_PAGE = ""
-        private const val RELEASES_API = ""
     }
 
     private fun showLastCrash(crash: String) {
@@ -710,7 +679,7 @@ class MainActivity : AppCompatActivity() {
     private fun share(text: String) {
         val intent = Intent(Intent.ACTION_SEND)
         intent.type = "text/plain"
-        intent.putExtra(Intent.EXTRA_SUBJECT, "PES 2017 log")
+        intent.putExtra(Intent.EXTRA_SUBJECT, "MW2 log")
         intent.putExtra(Intent.EXTRA_TEXT, text.takeLast(200_000))
         startActivity(Intent.createChooser(intent, getString(R.string.share)))
     }

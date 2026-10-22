@@ -10,8 +10,8 @@ CompileFlags:
     - "-Ibuild-win/_deps/sdl3-build/include-revision"
     - "-Ibuild-win/_deps/imgui-src"
     - "-Ibuild-win/_deps/vulkan_headers-src/include"
-    - "-DPES17_USE_SDL=1"
-    - "-DPES17_HAVE_VULKAN=1"
-    - "-DPES17_DIAGNOSTICS=1"
+    - "-DMW2_USE_SDL=1"
+    - "-DMW2_HAVE_VULKAN=1"
+    - "-DMW2_DIAGNOSTICS=1"
 Diagnostics:
   UnusedIncludes: None

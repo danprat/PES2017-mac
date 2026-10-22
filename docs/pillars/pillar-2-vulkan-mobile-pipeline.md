@@ -32,7 +32,7 @@ depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 To prevent gameplay stutter when new shaders are introduced:
 - **Tier 1 (Instant Boot)**: Compile the first 15 critical title/menu shaders within a 250 ms budget.
 - **Tier 2 (Background Warmup Scheduler)**: Asynchronously compile remaining gameplay pipelines during cutscenes and menus using `g_shadersMutex`.
-- **Tier 3 (Persistent `VkPipelineCache`)**: Serialize compiled driver bytecode into `shader_cache.bin` on internal storage (`/data/data/com.pes2017.recomp/files/`).
+- **Tier 3 (Persistent `VkPipelineCache`)**: Serialize compiled driver bytecode into `shader_cache.bin` on internal storage (`/data/data/com.mw2.recomp/files/`).
 
 ### 3. Skybox & Normal Map Reconstruction
 - **Skybox Cubemaps**: Ensure `VkSamplerAddressMode` is set to `VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE` for cubemap faces to avoid seam borders.

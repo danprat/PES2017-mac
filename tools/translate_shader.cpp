@@ -7,7 +7,7 @@
 //
 //     translate-shader [--compile] <file.ucode> [out.spv]
 //
-// The shader type comes from the file name, which is how PES17_DUMP_SHADERS
+// The shader type comes from the file name, which is how MW2_DUMP_SHADERS
 // writes them (vertex_*.ucode / pixel_*.ucode).
 //
 // --compile also hands the module to a real Vulkan driver. spirv-val checks the
@@ -50,7 +50,7 @@ int main(int argc, char** argv)
     // The capture is written big-endian, the way the guest holds it.
     for (uint32_t& w : words) w = __builtin_bswap32(w);
 
-    // PES17_DUMP_SHADERS writes pixel_*.ucode; the fastfile extractor writes
+    // MW2_DUMP_SHADERS writes pixel_*.ucode; the fastfile extractor writes
     // ps_*.xsh. Both are pixel shaders, and translating one as a vertex shader
     // fails in ways that look like translator bugs.
     const bool pixel = path.find("pixel") != std::string::npos ||

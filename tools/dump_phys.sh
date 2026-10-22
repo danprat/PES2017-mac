@@ -4,7 +4,7 @@
 OUT=${1:-phys.bin}
 cat > /tmp/dp.sh <<'S'
 PID=$(pidof com.pes2017.recomp:game)
-START=$(grep pes17-physical /proc/$PID/maps | head -1 | cut -d- -f1)
+START=$(grep mw2-physical /proc/$PID/maps | head -1 | cut -d- -f1)
 dd if=/proc/$PID/mem of=/data/local/tmp/phys.bin bs=4096 skip=$((0x$START / 4096)) count=131072 2>/dev/null
 chmod 644 /data/local/tmp/phys.bin
 S

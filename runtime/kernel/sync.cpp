@@ -70,7 +70,7 @@ namespace
     uint32_t LoadWord(uint32_t address)
     {
         uint32_t* const word = reinterpret_cast<uint32_t*>(guest::Base() + address);
-        if (Aligned(address)) return pes17::AtomicRef<uint32_t>(*word).load();
+        if (Aligned(address)) return mw2::AtomicRef<uint32_t>(*word).load();
         NoteUnaligned(address);
         std::lock_guard held(UnalignedLock());
         uint32_t value;
@@ -81,7 +81,7 @@ namespace
     void StoreWord(uint32_t address, uint32_t value)
     {
         uint32_t* const word = reinterpret_cast<uint32_t*>(guest::Base() + address);
-        if (Aligned(address)) { pes17::AtomicRef<uint32_t>(*word).store(value); return; }
+        if (Aligned(address)) { mw2::AtomicRef<uint32_t>(*word).store(value); return; }
         NoteUnaligned(address);
         std::lock_guard held(UnalignedLock());
         std::memcpy(word, &value, sizeof value);
@@ -91,7 +91,7 @@ namespace
     {
         uint32_t* const word = reinterpret_cast<uint32_t*>(guest::Base() + address);
         if (Aligned(address))
-            return pes17::AtomicRef<uint32_t>(*word).compare_exchange_strong(expected, desired);
+            return mw2::AtomicRef<uint32_t>(*word).compare_exchange_strong(expected, desired);
         NoteUnaligned(address);
         std::lock_guard held(UnalignedLock());
         uint32_t seen;
