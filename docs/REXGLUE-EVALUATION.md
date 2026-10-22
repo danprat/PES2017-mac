@@ -127,7 +127,7 @@ WWE ports. Those are real but small compared with the cost.
 1. **Jump-table detector** → our codegen pipeline.
    `SDK/src/codegen/function_scanner.cpp` (`detectJumpTable`, `scanForBounds`: index-register
    tracking through copies, the four encodings, the default-branch skip). Port the logic into
-   `XenonRecomp/XenonAnalyse/` or as a replacement for `tools/find_missed_switches.py` and
+   `third_party/XenonRecomp/XenonAnalyse/` or as a replacement for `tools/find_missed_switches.py` and
    `tools/fix_switch_regs.py`. Cross-check it against our 1,327 tables, and use it to find
    what `sub_8284E0F0` is missing.
 2. **Function-graph and gap-fill logic** →

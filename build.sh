@@ -15,7 +15,6 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "$0")" && pwd); cd "$ROOT"
 GAME=${GAME:-"$ROOT/../GAME"}
 PROFILE=${PROFILE:-balanced}
-XENON_COMMIT=ddd128bcca99fe8bfbb99bea583c972351fa6ace
 CMAKE_CC=${CMAKE_CC:-/usr/bin/clang}; CMAKE_CXX=${CMAKE_CXX:-/usr/bin/clang++}
 JOBS=${JOBS:-$(getconf _NPROCESSORS_ONLN)}   # every core; override with JOBS=n
 unset PYTHONPATH PYTHONHOME   # tools/*.py import title.py from their own directory
@@ -28,17 +27,13 @@ case "$PROFILE" in
     *) echo "PROFILE must be safe, balanced or aggressive"; exit 1 ;;
 esac
 
-echo "==> 1. fetch + patch XenonRecomp"
-if [ ! -d XenonRecomp ]; then
-    git clone --recursive https://github.com/hedge-dev/XenonRecomp.git
-    git -C XenonRecomp checkout -q "$XENON_COMMIT"
-    git -C XenonRecomp submodule update --init --recursive -q
-    git -C XenonRecomp apply "$ROOT/patches/xenonrecomp-pes17.patch"
-fi
+echo "==> 1. XenonRecomp (vendored in third_party/XenonRecomp, see UPSTREAM.md there)"
+XENON=third_party/XenonRecomp
+[ -f "$XENON/CMakeLists.txt" ] || { echo "$XENON is missing"; exit 1; }
 echo "==> 2. build XenonRecomp / XenonAnalyse"
-cmake -B XenonRecomp/build -S XenonRecomp -DCMAKE_BUILD_TYPE=Release \
+cmake -B $XENON/build -S $XENON -DCMAKE_BUILD_TYPE=Release \
       -DCMAKE_C_COMPILER=$CMAKE_CC -DCMAKE_CXX_COMPILER=$CMAKE_CXX >/dev/null 2>&1
-cmake --build XenonRecomp/build -j"$JOBS" >/dev/null 2>&1
+cmake --build $XENON/build -j"$JOBS" >/dev/null 2>&1
 
 echo "==> 3. the executable"
 mkdir -p pes
@@ -47,7 +42,7 @@ echo "==> 4. decrypt/decompress XEX -> flat PE image"
 [ -f pes/default.pe ] || python3 tools/xexdump.py pes/default.xex pes/default.pe
 
 echo "==> 5. jump tables, save/restore helpers"
-./XenonRecomp/build/XenonAnalyse/XenonAnalyse pes/default.xex config/pes_switch_tables.toml >logs-analyse.txt 2>&1
+./$XENON/build/XenonAnalyse/XenonAnalyse pes/default.xex config/pes_switch_tables.toml >logs-analyse.txt 2>&1
 python3 tools/trim_switch_tables.py config/pes_switch_tables.toml
 python3 tools/fix_switch_regs.py config/pes_switch_tables.toml --apply >/dev/null || true
 # Dispatches the analyser missed (stores between the guard and the bctr): without them the bctr is an
@@ -72,7 +67,7 @@ open(sys.argv[1], "w").write(s)
 PY
 for pass in 1 2 3 4 5; do
     rm -rf ppc && mkdir ppc
-    ( cd config && ../XenonRecomp/build/XenonRecomp/XenonRecomp PES.active.toml ../XenonRecomp/XenonUtils/ppc_context.h ) >logs-recomp.txt 2>&1
+    ( cd config && ../$XENON/build/XenonRecomp/XenonRecomp PES.active.toml ../$XENON/XenonUtils/ppc_context.h ) >logs-recomp.txt 2>&1
     changed=0
     python3 tools/fixbounds.py config/pes_switch_tables.toml logs-recomp.txt --apply config/PES.toml >/dev/null || changed=1
     python3 tools/fix_ladders.py ppc --apply config/PES.toml >/dev/null 2>&1 || changed=1

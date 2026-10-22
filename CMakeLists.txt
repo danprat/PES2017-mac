@@ -47,7 +47,7 @@ if(NOT PPC_SOURCES)
 endif()
 
 add_library(ppc_recomp STATIC ${PPC_SOURCES})
-set(SIMDE_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/XenonRecomp/thirdparty/simde")
+set(SIMDE_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/third_party/XenonRecomp/thirdparty/simde")
 if(NOT EXISTS "${SIMDE_INCLUDE_DIR}/simde/simde-common.h" AND EXISTS "${CMAKE_SOURCE_DIR}/third_party/simde/simde/simde-common.h")
     set(SIMDE_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/third_party/simde")
 endif()
@@ -106,10 +106,10 @@ if(ANDROID)
     # apply the update on the device after copying the disc.
     list(APPEND RUNTIME_SOURCES "${CMAKE_SOURCE_DIR}/launcher/package.cpp")
     # XenonRecomp's patcher, which turns the disc's executables into the
-    # update's. Present when the tree was recompiled on this machine (build.sh
-    # clones it); absent for a bare checkout, where TU6 apps report that the
+    # update's. Vendored in third_party/XenonRecomp, so present in every checkout;
+    # kept conditional in case the tree is trimmed, where TU6 apps report that the
     # APK must come from CI instead of failing to link.
-    set(XENON "${CMAKE_SOURCE_DIR}/XenonRecomp")
+    set(XENON "${CMAKE_SOURCE_DIR}/third_party/XenonRecomp")
     if(EXISTS "${XENON}/XenonUtils/xex_patcher.cpp" AND EXISTS "${XENON}/XenonUtils/xex_patcher.h")
         enable_language(C)
         list(APPEND RUNTIME_SOURCES
@@ -381,7 +381,7 @@ if(PES17_USE_SDL)
     target_include_directories(pes17 PRIVATE "${imgui_SOURCE_DIR}")
     target_compile_definitions(pes17 PRIVATE PES17_SIGNIN_PICTURE=1)
 
-    set(XENON "${CMAKE_SOURCE_DIR}/XenonRecomp")
+    set(XENON "${CMAKE_SOURCE_DIR}/third_party/XenonRecomp")
     file(GLOB LAUNCHER_SOURCES CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/launcher/*.cpp")
     add_executable(launcher ${LAUNCHER_SOURCES}
         "${PES17_FONTS_SOURCE}"

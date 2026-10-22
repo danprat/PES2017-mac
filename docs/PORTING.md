@@ -108,7 +108,7 @@ What made the dialogs and menus draw as empty boxes, and how it was found.
    the game's sin/cos routine (`sub_832106B0`) used `vandc`, so a register kept a
    stale value and the result depended on what ran before it: cos(0) came out
    +-infinity, every UI text matrix got an infinite scale, and the glyphs
-   collapsed. The cases are in `XenonRecomp/XenonRecomp/recompiler.cpp` (helpers in
+   collapsed. The cases are in `third_party/XenonRecomp/XenonRecomp/recompiler.cpp` (helpers in
    `XenonUtils/ppc_context.h`); `patches/xenonrecomp-pes17.patch` is regenerated from
    them. After a recompile, check `grep -c Unrecognized logs-recomp.txt`.
    The same fix made the intro movie draw.

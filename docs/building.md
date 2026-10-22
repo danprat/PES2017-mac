@@ -6,7 +6,8 @@ are converted to C++ with
 x86-64, and linked with a host runtime that stands in for the console's kernel,
 GPU (through Vulkan) and audio hardware ([runtime.md](runtime.md)).
 
-The game data, the generated C++ and the XenonRecomp checkout are gitignored.
+The game data and the generated C++ are gitignored. XenonRecomp is vendored in
+`third_party/XenonRecomp` (see `UPSTREAM.md` there for the upstream commit).
 Everything under version control is hand-written or a patch.
 
 For a phone, see [android.md](android.md): the steps below are done first on
@@ -31,9 +32,7 @@ a desktop (the recompiler runs there), and Gradle then builds the same
 
 `./build.sh` does everything, in order:
 
-1. clones XenonRecomp at a pinned commit and applies
-   `patches/xenonrecomp-pes17.patch` (an existing `XenonRecomp/` is reused as it
-   is);
+1. checks that `third_party/XenonRecomp` is there (it is part of the repository);
 2. builds XenonRecomp and XenonAnalyse;
 3. extracts `default.xex` and `default_mp.xex` from the ISO into `pes17/tu0/`,
    and every `.ff`, `.pak` and `.bik` into `pes17/game/` (files already there
@@ -298,7 +297,6 @@ It packages `pes17-launcher` with them, and the fonts' licence.
 |---|---|
 | `build.sh` | the whole build |
 | `CMakeLists.txt`, `cmake/` | the runtime's build; the Windows toolchain and Vulkan import library |
-| `patches/` | local changes to XenonRecomp |
 | `config/MW2.toml`, `config/MW2MP.toml` | recompiler config, campaign and multiplayer; `*.tu0.toml` for the disc version |
 | `ppc/`, `ppc_mp/` | generated C++ and its generated glue (gitignored) |
 | `runtime/` | the host runtime |
@@ -410,7 +408,8 @@ failing with `0xc0000139` before it can run a single check.
 
 ## Local changes to XenonRecomp
 
-`patches/xenonrecomp-pes17.patch`, applied by `build.sh`:
+Made directly in `third_party/XenonRecomp` (`git log -- third_party/XenonRecomp` has
+them; they were `patches/xenonrecomp-pes17.patch` before it was vendored):
 
 - **`XenonRecomp/recompiler.cpp`**
   - Instructions MW2 uses that the recompiler did not handle: load/store update

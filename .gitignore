@@ -14,9 +14,8 @@
 *.pe
 *.iso
 
-# ---- upstream tool checkout (121 MB + 6 submodules) ----
-# Cloned and patched by build.sh; local changes live in patches/.
-/XenonRecomp/
+# ---- XenonRecomp is vendored in third_party/XenonRecomp (UPSTREAM.md); only its build is ignored ----
+/third_party/XenonRecomp/build/
 
 # ---- generated C++ (~2.2M lines, 64 MB) ----
 /ppc/
