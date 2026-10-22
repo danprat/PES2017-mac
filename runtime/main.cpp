@@ -129,6 +129,31 @@ namespace
         return true;
     }
 
+    // PES17_ASPECT=<width/height> of a screen wider than 16:9: the title's
+    // cameras are given that aspect, so they see further to the sides, and the
+    // presenter shows the 1280x720 frame stretched to it -- the two cancel, and
+    // the pitch keeps its shape. The interface is drawn in the frame's pixels
+    // and is stretched with it.
+    void Widen()
+    {
+        const double aspect = env::Real("PES17_ASPECT");
+        if (aspect <= 16.0 / 9.0 + 0.01 || aspect > 3.0) return;
+        const float value = float(aspect);
+        uint32_t bits;
+        std::memcpy(&bits, &value, 4);
+        for (uint32_t address : { T_DATA_Aspect16x9, T_DATA_Aspect16x9b })
+        {
+            be32* word = GuestPtr<be32>(address);
+            if (uint32_t(*word) != 0x3FE38E39u)
+            {
+                LOGW("widescreen: %08X holds %08X, not 16:9; left alone", address, uint32_t(*word));
+                continue;
+            }
+            *word = bits;
+        }
+        LOGI("widescreen: cameras at aspect %.4f", aspect);
+    }
+
     // PPC_CALL_INDIRECT_FUNC (mmio_hook.h) indexes this table by (guest - PPC_CODE_BASE) * 2.
     size_t BuildFunctionTable()
     {
@@ -208,6 +233,7 @@ int pes17::Run(int argc, char** argv)
     if (!guest::Initialise()) return 1;
     if (!LoadImage(launch.image)) return 1;
     launch.image = {};
+    Widen();
     watchpoint::Install();
 
     size_t mapped = BuildFunctionTable();

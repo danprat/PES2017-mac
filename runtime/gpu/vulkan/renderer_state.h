@@ -459,6 +459,13 @@ namespace vk::renderer::detail
         // The open pass's size and sample count. Values, not the target: a
         // target that grows is replaced, and a pointer to it would dangle.
         uint32_t currentWidth = 0, currentHeight = 0, currentSamples = 1;
+        // How much of that the open pass's render area covers, in the title's pixels. A
+        // pass loads and stores its whole render area, and on a tile-based GPU that is
+        // memory traffic for every pixel of it: the scene's surface is far taller than
+        // what is drawn (measured: 960x1536 passes for a 960x540 picture), so a pass
+        // opens over what its first draw touches and grows if a later one reaches past.
+        uint32_t passAreaWidth = 0, passAreaHeight = 0;
+        bool smallPasses = false;     // files/small_passes turns it on, for comparing
 
         // So a frame is not overwritten while it is on screen.
         VkImage present[kPresentImages]{};
@@ -696,14 +703,15 @@ namespace vk::renderer::detail
     // Opens a rendering instance over the two targets (closing the one open,
     // if it is another), with the barriers a render pass's dependencies were.
     void BeginRendering(const Target& colour, const Target& depth, uint32_t width,
-                        uint32_t height);
+                        uint32_t height, uint32_t areaWidth = 0, uint32_t areaHeight = 0);
     // What a copy out of a target reads, in TRANSFER_SRC; a multisampled
     // target is resolved into its single-sampled twin first. Outside any pass.
     VkImage BeginReadingColour(Target& target, VkOffset2D at, uint32_t width, uint32_t height);
     void EndReadingColour(Target& target);
     VkImage BeginReadingDepth(Target& target, VkOffset2D at, uint32_t width, uint32_t height);
     void EndReadingDepth(Target& target);
-    void ClearAliasedDepth(uint32_t fromTile, uint32_t endTile, float depth);
+    void ClearAliasedStencil(const Target& except, uint32_t baseTile, uint32_t value);
+    void ClearAliasedDepth(uint32_t fromTile, uint32_t endTile, float depth, bool clearStencil = true, uint32_t stencilValue = 0);
     void ClearAliasedColour(uint32_t tile);
     void ClearAfterResolve(const gpu::RegisterFile& r, const gpu::CopyControl& control);
 

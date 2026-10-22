@@ -286,6 +286,16 @@ bool vk::renderer::Initialise()
     if (vkCreateQueryPool(g.device, &queries, nullptr, &g.guestQueries) != VK_SUCCESS)
         g.guestQueries = VK_NULL_HANDLE;
 
+    // Render passes opened over what their draws touch, not the whole 2048-row surface (a
+    // clearing rectangle is sized from its own corners): files/small_passes or
+    // PES17_SMALL_PASSES=1. Off by default. It saved about 20% of pass GPU time but not a measurable
+    // frame rate, and it clipped the crowd's data passes to a rectangle (docs/performance.md).
+    g.smallPasses = env::Flag("PES17_SMALL_PASSES");
+#ifdef PES17_ANDROID
+    if (access((android::GetPaths().external + "/small_passes").c_str(), F_OK) == 0) g.smallPasses = true;
+#endif
+    LOGI("renderer: render passes are opened over %s", g.smallPasses ? "the area their draws touch" : "the whole surface");
+
     // GPU timing of the render passes (files/gpu_timing).
     {
         VkPhysicalDeviceProperties props{};

@@ -154,7 +154,7 @@ namespace vk::renderer::detail
     // the images it names, and the rectangles themselves are not drawn. It is not
     // a model of EDRAM, but it is what this particular idiom means.
 
-    void ClearAliasedDepth(uint32_t fromTile, uint32_t endTile, float depth)
+    void ClearAliasedDepth(uint32_t fromTile, uint32_t endTile, float depth, bool clearStencil, uint32_t stencilValue)
     {
         bool ended = false;
         for (auto& [key, target] : g.targets)
@@ -183,8 +183,13 @@ namespace vk::renderer::detail
             // GEQUAL), PES 2017's at 1 (it tests LESS). A fixed 0 left every
             // PES depth buffer at the near plane, nothing passed, and the 3D
             // view was the one full-screen pass that tests no depth: white.
-            const VkClearDepthStencilValue value{ std::clamp(depth, 0.0f, 1.0f), 0 };
-            const VkImageSubresourceRange range{ aspect, 0, 1, 0, 1 };
+            // The stencil goes only when the rectangle writes it: a clear drawn with the stencil test
+            // off leaves the stencil bits of the word alone on the console, and PES 2017's crowd
+            // marks its pixels in stencil in one pass and tests the mark two passes later, with
+            // exactly such a depth clear in between (the whole crowd was drawn against a zeroed mask).
+            const VkClearDepthStencilValue value{ std::clamp(depth, 0.0f, 1.0f), stencilValue };
+            const VkImageSubresourceRange range{ clearStencil ? aspect : VkImageAspectFlags(VK_IMAGE_ASPECT_DEPTH_BIT),
+                                                 0, 1, 0, 1 };
             const VkImage image = target.image;
             Record([=](VkCommandBuffer command) {
                 vkCmdClearDepthStencilImage(command, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
@@ -197,6 +202,40 @@ namespace vk::renderer::detail
                           VK_PIPELINE_STAGE_TRANSFER_BIT, kDepthStages);
             target.clearedAtDraw = g.drawsRecorded;
             target.depthClearedIn = g.frames;
+        }
+    }
+
+    // A clearing rectangle that replaces the stencil clears it in every depth image at the same tile, not
+    // only the one it is drawn into: EDRAM holds one depth/stencil buffer, and here a 1x and a 4x image
+    // of it are two. PES 2017's crowd marks its pixels in the 1x image's stencil, the interface then clears
+    // through the 4x one, and its sprites test the stencil for EQUAL 1 -- with the marks left in the 1x
+    // image they failed wherever there was crowd behind them (a half-time board with the crowd drawn
+    // through its text).
+    void ClearAliasedStencil(const Target& except, uint32_t baseTile, uint32_t value)
+    {
+        bool ended = false;
+        for (auto& [key, target] : g.targets)
+        {
+            if (!target.depth || key.baseTile != baseTile || target.image == except.image) continue;
+            if (g_dumpDraws) LOGW("DUMP   stencil of the %ux depth image at tile %u cleared to %u along with the clear's own image", unsigned(target.samples), baseTile, value);
+            if (!ended) { EndPass(); ended = true; }
+            const VkImageAspectFlags both = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+            RecordBarrier(target.image, both,
+                          VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                          VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                          VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_ACCESS_TRANSFER_WRITE_BIT,
+                          kDepthStages, VK_PIPELINE_STAGE_TRANSFER_BIT);
+            const VkClearDepthStencilValue clear{ 0.0f, value };
+            const VkImageSubresourceRange range{ VK_IMAGE_ASPECT_STENCIL_BIT, 0, 1, 0, 1 };
+            const VkImage image = target.image;
+            Record([=](VkCommandBuffer command) {
+                vkCmdClearDepthStencilImage(command, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clear, 1, &range);
+            });
+            RecordBarrier(target.image, both,
+                          VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                          VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                          VK_ACCESS_TRANSFER_WRITE_BIT, kDepthAccess,
+                          VK_PIPELINE_STAGE_TRANSFER_BIT, kDepthStages);
         }
     }
 
@@ -644,7 +683,7 @@ namespace vk::renderer::detail
     }
 
     void BeginRendering(const Target& colour, const Target& depth, uint32_t width,
-                        uint32_t height)
+                        uint32_t height, uint32_t areaWidth, uint32_t areaHeight)
     {
         EndPass();
         const VkImageView colourView = colour.view, depthView = depth.view;
@@ -671,7 +710,17 @@ namespace vk::renderer::detail
             maxW = std::min(maxW, HostOf(depth.width, depth.scale));
             maxH = std::min(maxH, HostOf(depth.height, depth.scale));
         }
-        const VkExtent2D area{ std::max(1u, maxW), std::max(1u, maxH) };
+        const VkExtent2D full{ std::max(1u, maxW), std::max(1u, maxH) };
+        // The part of it this pass is opened over: never more than all of it.
+        VkExtent2D area = full;
+        uint32_t coveredW = width, coveredH = height;
+        if (g.smallPasses && areaWidth && areaHeight && (areaWidth < width || areaHeight < height))
+        {
+            coveredW = std::min(areaWidth, width);
+            coveredH = std::min(areaHeight, height);
+            area.width = std::clamp(HostOf(coveredW, scale), 1u, full.width);
+            area.height = std::clamp(HostOf(coveredH, scale), 1u, full.height);
+        }
 
         const bool legacy = vk::pipeline::LegacyMode();
         VkRenderPass legacyPass = VK_NULL_HANDLE;
@@ -683,7 +732,7 @@ namespace vk::renderer::detail
             VkSampleCountFlagBits samples = (cFmt != VK_FORMAT_UNDEFINED) ? colour.samples : depth.samples;
             if (samples == 0) samples = VK_SAMPLE_COUNT_1_BIT;
             legacyPass = GetRenderPass(cFmt, dFmt, samples);
-            legacyFb = GetFramebuffer(legacyPass, colourView, depthView, area.width, area.height);
+            legacyFb = GetFramebuffer(legacyPass, colourView, depthView, full.width, full.height);
             if (!legacyPass || !legacyFb)
             {
                 LOGE("renderer: BeginRendering failed to acquire render pass (%p) or framebuffer (%p)",
@@ -753,6 +802,8 @@ namespace vk::renderer::detail
         g.currentWidth = width;
         g.currentHeight = height;
         g.currentScale = scale;
+        g.passAreaWidth = coveredW;
+        g.passAreaHeight = coveredH;
     }
 
     // The Xenos clears the EDRAM surface as part of the resolve that reads it

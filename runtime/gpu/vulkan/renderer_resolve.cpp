@@ -11,6 +11,7 @@
 // Resolves: EDRAM copied out to a texture the title reads back, or the
 // finished frame copied out for the window.
 #include "renderer_state.h"
+#include <sys/stat.h>
 #include "display_table.h"
 #include "presenter.h"
 #include "texture_cache.h"
@@ -512,6 +513,36 @@ void vk::renderer::Resolve(const gpu::RegisterFile& r)
                   VK_PIPELINE_STAGE_TRANSFER_BIT, kShaderStages);
     EndReadingColour(*source);
 
+    // In a frame dump, the resolve as it was at this point of the frame, for the crowd's two G-buffers:
+    // the same address is resolved to again later, and the end-of-frame images only keep the last.
+    if (g_dumpDraws && !exact && (destination == 0x07EB0000u || destination == 0x08370000u || destination == 0x075D0000u) && into.format == VK_FORMAT_R8G8B8A8_UNORM)
+    {
+        Submit(true);
+        const std::vector<uint8_t> pixels = ReadColourImage(
+            into.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, into.width, into.height, 4);
+#ifdef PES17_ANDROID
+        if (!pixels.empty())
+        {
+            const std::string dir = android::GetPaths().external + "/frame_images";
+            mkdir(dir.c_str(), 0775);
+            char name[96];
+            std::snprintf(name, sizeof name, "/at_%08X_%u", destination, g_dumpIndex);
+            if (std::FILE* out = std::fopen((dir + name + ".pnm").c_str(), "wb"))
+            {
+                std::fprintf(out, "P6\n%u %u\n255\n", into.width, into.height);
+                for (size_t i = 0; i + 3 < pixels.size(); i += 4) std::fwrite(&pixels[i], 1, 3, out);
+                std::fclose(out);
+            }
+            if (std::FILE* out = std::fopen((dir + name + "_a.pgm").c_str(), "wb"))
+            {
+                std::fprintf(out, "P5\n%u %u\n255\n", into.width, into.height);
+                for (size_t i = 0; i + 3 < pixels.size(); i += 4) std::fwrite(&pixels[i + 3], 1, 1, out);
+                std::fclose(out);
+            }
+        }
+#endif
+    }
+
     // (Up to 1024x1024: an unlicensed team's kit pattern is drawn on the GPU at that size and resolved,
     // and the title's CPU converts it to the 5_6_5 texture the kit is composed from. Held to 512 it read
     // zeros and every unlicensed kit came out black.)
@@ -523,8 +554,12 @@ void vk::renderer::Resolve(const gpu::RegisterFile& r)
     // the first couple of times their destination is used: synchronously, since
     // the title reads them as soon as its fence passes, which the command
     // processor signals without waiting for this GPU.
+    // The crowd's colour atlas is the other case: the title draws 256x2048 swatches, resolves them, and
+    // packs the memory into the DXT1 atlas on the CPU, so a resolve that tall has to land in memory too
+    // (held to 1024 it read zeros and the whole crowd was black). Area, not each side, is what costs.
     if (destInfo.Format() == 6 && into.format == VK_FORMAT_R8G8B8A8_UNORM &&
-        surfaceWidth <= 1024 && surfaceHeight <= 1024 && g.scale == 1 && into.scale == 1.0f)
+        surfaceWidth <= 2048 && surfaceHeight <= 2048 &&
+        uint64_t(surfaceWidth) * surfaceHeight <= 1024u * 1024u && g.scale == 1 && into.scale == 1.0f)
     {
         // The first 64 resolves of a destination. The kits reuse their scratch
         // destinations player after player -- a few dozen times in a load, in

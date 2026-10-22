@@ -553,9 +553,14 @@ namespace
 
     // Where the frame lands in a window of another shape: as large as fits
     // at the frame's own proportions, centred, the rest black. Nothing is
-    // squashed, and the window can be any shape at all.
+    // squashed, and the window can be any shape at all. Under PES17_ASPECT the
+    // title's cameras were made for that shape (main.cpp's Widen), so the frame
+    // is shown at it rather than at its own 16:9.
     void Letterbox(uint32_t frameWidth, uint32_t frameHeight, VkOffset3D& from, VkOffset3D& to)
     {
+        static const double aspect = env::Real("PES17_ASPECT");
+        if (aspect > 16.0 / 9.0 + 0.01 && aspect <= 3.0)
+            frameWidth = std::max(uint32_t(frameHeight * aspect + 0.5), 1u);
         const uint64_t byWidth = uint64_t(g.extent.width) * frameHeight;
         const uint64_t byHeight = uint64_t(g.extent.height) * frameWidth;
         uint32_t width = g.extent.width, height = g.extent.height;

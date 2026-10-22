@@ -135,6 +135,19 @@
                     android:layout_height="wrap_content"
                     android:text="@string/prefer_60_hint" />
 
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/widescreen"
+                    style="@style/SettingSwitch"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/widescreen" />
+
+                <TextView
+                    style="@style/SettingHint"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/widescreen_hint" />
+
             </LinearLayout>
 
             <LinearLayout
@@ -299,6 +312,19 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="@string/gamepad_hint" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/gamepad_p2"
+                    style="@style/SettingSwitch"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/gamepad_p2" />
+
+                <TextView
+                    style="@style/SettingHint"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/gamepad_p2_hint" />
 
                 <androidx.appcompat.widget.SwitchCompat
                     android:id="@+id/vibration"

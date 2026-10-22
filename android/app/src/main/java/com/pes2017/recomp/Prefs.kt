@@ -58,6 +58,14 @@ class Prefs(context: Context) {
         get() = store.getFloat(KEY_FSR_SHARP, 0.2f).coerceIn(0f, 2f)
         set(value) = store.edit().putFloat(KEY_FSR_SHARP, value.coerceIn(0f, 2f)).apply()
 
+    /**
+     * Fill a screen wider than 16:9 (PES17_ASPECT): the game's cameras are widened to the
+     * screen's shape and the frame is stretched to it, instead of black bars at the sides.
+     */
+    var widescreen: Boolean
+        get() = store.getBoolean(KEY_WIDESCREEN, true)
+        set(value) = store.edit().putBoolean(KEY_WIDESCREEN, value).apply()
+
     /** Limit the match to 30 frames a second (PES17_FPS_LIMIT=30), for heat and battery. */
     var cap30: Boolean
         get() = store.getBoolean(KEY_CAP30, false)
@@ -131,6 +139,14 @@ class Prefs(context: Context) {
     var gamepadEnabled: Boolean
         get() = store.getBoolean(KEY_GAMEPAD, true)
         set(value) = store.edit().putBoolean(KEY_GAMEPAD, value).apply()
+
+    /**
+     * Test aid: physical pads start at player 2, so the touch controls keep
+     * player 1 and one phone can drive both sides of a scenario.
+     */
+    var padAsPlayer2: Boolean
+        get() = store.getBoolean(KEY_PAD_P2, false)
+        set(value) = store.edit().putBoolean(KEY_PAD_P2, value).apply()
 
     var vibration: Boolean
         get() = store.getBoolean(KEY_VIBRATION, true)
@@ -215,6 +231,7 @@ class Prefs(context: Context) {
         private const val KEY_FSR = "fsr"
         private const val KEY_FSR_SHARP = "fsrSharpness"
         private const val KEY_CAP30 = "cap30"
+        private const val KEY_WIDESCREEN = "widescreen"
         private const val KEY_LOW_MEMORY = "lowMemory"
         private const val KEY_PENDING_FOLDER = "pendingFolder"
         private const val KEY_RENDER_SCALE = "renderScale"
@@ -225,6 +242,7 @@ class Prefs(context: Context) {
         private const val KEY_AUDIO = "audio"
         private const val KEY_TOUCH = "touchControls"
         private const val KEY_GAMEPAD = "gamepad"
+        private const val KEY_PAD_P2 = "padAsPlayer2"
         private const val KEY_VIBRATION = "vibration"
         private const val KEY_LOOK_X = "lookX"
         private const val KEY_LOOK_Y = "lookY"

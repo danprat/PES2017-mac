@@ -202,11 +202,12 @@ class TouchOverlayView @JvmOverloads constructor(
                 ControlKind.LOOK -> Unit   // sent as deltas, not as a stick
             }
         }
-        NativeBridge.nativeTouchState(
-            buttons, leftTrigger, rightTrigger,
-            leftX.coerceIn(-1f, 1f), leftY.coerceIn(-1f, 1f),
-            rightX.coerceIn(-1f, 1f), rightY.coerceIn(-1f, 1f),
-        )
+        // A macro is playing: the fingers are not heard, so a run repeats exactly.
+        if (Macro.playing) return
+        val lx = leftX.coerceIn(-1f, 1f); val ly = leftY.coerceIn(-1f, 1f)
+        val rx = rightX.coerceIn(-1f, 1f); val ry = rightY.coerceIn(-1f, 1f)
+        Macro.record(Macro.TOUCH, buttons, leftTrigger, rightTrigger, lx, ly, rx, ry)
+        NativeBridge.nativeTouchState(buttons, leftTrigger, rightTrigger, lx, ly, rx, ry)
     }
 
     /** Everything up: called when the pad is hidden, edited, or paused. */

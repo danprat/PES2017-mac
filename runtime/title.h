@@ -37,6 +37,14 @@
 // last fence issued. Found from the main thread stalled in it (d3d_hooks.cpp).
 #define T_D3D_BlockOnFence     823F70F8
 
+// The title's 16:9 aspect, as floats it loads (lfs) when a camera is made: the
+// first sits next to 4/3 and the 34.1/52.6 degree FOVs and is copied into the
+// camera objects (sub_828F1BC8, sub_834C5168, sub_83568020, ...); the second
+// follows the far (1000) and near (5) planes of sub_83B51BE0's projection.
+// PES17_ASPECT writes the screen's own aspect over both (main.cpp).
+#define T_DATA_Aspect16x9      0x82042C08u
+#define T_DATA_Aspect16x9b     0x8234808Cu
+
 // Hooking a recompiled function by address: GUEST_HOOK(T_x) { ... GUEST_ORIG(T_x)(ctx, base); }
 #define PES17_CAT_(a, b) a##b
 #define PES17_CAT(a, b) PES17_CAT_(a, b)

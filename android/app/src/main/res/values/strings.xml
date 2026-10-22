@@ -194,6 +194,8 @@
     <string name="fsr">Sharper upscaling (FSR)</string>
     <string name="fsr_hint">Uses an AMD FSR upscale and sharpen pass instead of a plain stretch. Costs a few frames on a hot phone.</string>
     <string name="fsr_sharp">Sharpness: %1$.1f</string>
+    <string name="widescreen">Widescreen (fill the screen)</string>
+    <string name="widescreen_hint">Widens the game\'s camera to the phone\'s shape and fills the whole screen instead of showing black bars at the sides (PES17_ASPECT). Menus and the score bar are stretched sideways. Takes effect on the next start.</string>
     <string name="cap30">Cap at 30 FPS (battery saver)</string>
     <string name="cap30_hint">Takes the match off the 60 Hz pacing and limits it to 30 frames a second (PES17_FPS_LIMIT). Cooler and longer-lasting, at the cost of smoothness.</string>
     <string name="low_memory">Low-memory mode</string>
@@ -208,6 +210,8 @@
     <string name="audio_on">Sound</string>
     <string name="touch_controls">On-screen controls</string>
     <string name="use_gamepad">Use a physical controller</string>
+    <string name="gamepad_p2">Physical controller is player 2 (testing)</string>
+    <string name="gamepad_p2_hint">Touch controls stay player 1; the first physical controller drives player 2. Takes effect when a match is started.</string>
     <string name="gamepad_hint">Turn off to ignore controllers entirely. Some phones report an accessory as a gamepad with a stick that is not centred, which makes a player run on his own.</string>
     <string name="vibration">Vibration</string>
     <string name="edit_controls_where">The on-screen pad is edited in the match: pause and choose \u201cEdit controls\u201d.</string>

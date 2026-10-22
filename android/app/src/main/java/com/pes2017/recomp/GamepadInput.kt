@@ -22,6 +22,22 @@ class GamepadInput {
 
     private var enabled = true
 
+    /** First player slot a physical pad takes; 1 leaves slot 0 to the touch controls. */
+    var firstSlot = 0
+        set(value) {
+            val v = value.coerceIn(0, 1)
+            if (field == v) return
+            field = v
+            // Every pad is let go and numbered again from the new base.
+            for (slot in 0 until 4) {
+                if (slots.containsValue(slot)) NativeBridge.nativePadConnected(slot, false)
+                buttons[slot] = 0; axes[slot].fill(0f); triggers[slot].fill(0)
+                push(slot)
+            }
+            slots.clear()
+            if (enabled) refreshDevices()
+        }
+
     /** Android device id -> player slot, 0..3. */
     private val slots = HashMap<Int, Int>()
     private val buttons = IntArray(4)
@@ -56,7 +72,7 @@ class GamepadInput {
             if (!isPad(device)) continue
             seen.add(id)
             if (!slots.containsKey(id)) {
-                val slot = (0 until 4).firstOrNull { free -> !slots.containsValue(free) } ?: continue
+                val slot = (firstSlot until 4).firstOrNull { free -> !slots.containsValue(free) } ?: continue
                 slots[id] = slot
                 if (enabled) NativeBridge.nativePadConnected(slot, true)
             }
@@ -85,7 +101,7 @@ class GamepadInput {
     private fun slotFor(deviceId: Int): Int {
         slots[deviceId]?.let { return it }
         // A device that sent an event before the enumeration saw it.
-        val slot = (0 until 4).firstOrNull { free -> !slots.containsValue(free) } ?: 0
+        val slot = (firstSlot until 4).firstOrNull { free -> !slots.containsValue(free) } ?: firstSlot
         slots[deviceId] = slot
         NativeBridge.nativePadConnected(slot, true)
         return slot

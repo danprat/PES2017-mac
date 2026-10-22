@@ -316,3 +316,40 @@ run `build.sh` again; it re-derives them.
 No game code, data or generated translations belong in version control; the
 `.gitignore` excludes `pes/`, `ppc/`, `GAME/` and the build trees. Build only
 from a disc you own.
+
+## Crowd, second pass (October 2026): the kill that was never emitted
+
+How the crowd is drawn (all from one frame dump during the match intro):
+
+1. **Atlases** `06C50000` and `06EA0000` (128x3328, resolved from EDRAM tile 0, pitch 160): about 25 seated-person sprites,
+   drawn by the person shader `AB28D67A…` as **data, not colour**: R,G = the person texture's UV, B,A = a tangent-space normal.
+   The background is cleared to (0,0,1,1).
+2. **Two G-buffers** (`07EB0000` and `08370000`, 1280x720, tile 0 pitch 1280): the billboards (primitive 13 quad lists, 4 to 6 draws, ps `B4BBEA…`
+   then `70F64A…`) sample an atlas and write what they find. Their pixel shader discards the sprite's empty background:
+   `mad r1.x = -r0.z*r0.w + c255.x; kill_gt _, c255.yyyy, r1.xxxx` with c255 = (0.998, 0, 0, 0), so a texel with z*w = 1 (the background) is killed.
+3. **The composite**, one full-screen rectangle (ps `4934EC…`, stencil-tested, into the HDR scene target): reads both G-buffers, the crowd's colour
+   texture (256x2048 DXT1) and the exposure, and lights the crowd.
+
+**Bug found and fixed:** the translator skipped any vector instruction whose write mask is empty ("the vector unit carries no state"). A `kill_*`
+that writes to `_` is exactly that, so no kill ever ran: every billboard drew its whole quad (solid blue boxes in the G-buffer). `TranslateAlu` now
+always builds the kill opcodes. This is not crowd-specific: any shader that discards through a masked kill (alpha-tested foliage, fences, sprites)
+was affected. Verified: the G-buffer now holds only the spectators (alpha 240/245 where it held 255 boxes), and `08370000` looks right.
+
+**Fixed (same day), two more causes:**
+
+1. **A depth-only clear wiped the crowd's stencil mask.** PES marks crowd pixels in the stencil buffer (REPLACE, ref 0x10) in the first G-buffer pass and
+   tests the mark (EQUAL 0x10) in the second pass and the composite, with a depth clear drawn in between whose stencil test is **off**. On the console that
+   clear leaves the stencil bits alone; `ClearAliasedDepth` cleared depth and stencil together, so every later pass tested against zero. It now clears the
+   stencil only when the clear rectangle has the stencil test on with REPLACE and a full write mask (to the reference). Found by dumping the stencil
+   buffer before every crowd draw (`DUMP   stencil before draw …`).
+2. **The crowd's colour atlas was black because a resolve was never copied back to memory.** The title draws 256x2048 colour swatches, resolves them
+   (8_8_8_8), and **packs that memory into the 256x2048 DXT1 colour atlas on the CPU**. The write-back of small resolves (kits) was limited to 1024 on each
+   side, so this 2048-tall resolve stayed on the GPU, the CPU packed zeros, and the atlas held `00000000 FFFFFFFF` (black) blocks for the whole run. The limit
+   is now an area (at most 1M pixels, each side up to 2048). Checked: the dump's `crowd colour atlas` line goes from 0 to 32768 of 32768 blocks lit, and the
+   stands fill with supporters in red.
+
+Also found, and why small render passes are off by default: with `small_passes` the crowd's two data passes were clipped to a rectangle.
+
+Tools added while hunting this: `files/crowd_hunt` (finds the black DXT1 pattern in physical memory as soon as it appears and watches it for writers),
+`DUMP   stencil before draw`, `frame_images/at_<addr>_<draw>.pnm` (a resolve as it was when made), `frame_images/tex_*.pnm` (the crowd composite's textures
+as the GPU has them), and a `shader:` log line for any program whose memory exports are dropped.

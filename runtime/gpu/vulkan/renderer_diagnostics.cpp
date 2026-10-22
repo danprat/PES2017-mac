@@ -797,11 +797,15 @@ namespace vk::renderer::detail
                 {
                     std::fprintf(out, "P6\n%u %u\n255\n", w, h);
                     std::vector<uint8_t> row(size_t(w) * 3);
+                    // The alpha channel as a picture of its own (<name>_a.pgm): the PNM above drops it, and
+                    // the crowd's atlas keeps what is a sprite and what is not in it.
+                    std::vector<uint8_t> alpha(format == VK_FORMAT_R8G8B8A8_UNORM ? size_t(w) * h : 0);
                     for (uint32_t y = 0; y < h; y++)
                     {
                         for (uint32_t x = 0; x < w; x++)
                         {
                             const uint8_t* t = &bytes[(size_t(y) * w + x) * texel];
+                            if (!alpha.empty()) alpha[size_t(y) * w + x] = t[3];
                             for (int c = 0; c < 3; c++)
                             {
                                 float v = 0;
@@ -815,6 +819,13 @@ namespace vk::renderer::detail
                         std::fwrite(row.data(), 1, row.size(), out);
                     }
                     std::fclose(out);
+                    if (!alpha.empty())
+                        if (std::FILE* a = std::fopen((dir + "/" + file + "_a.pgm").c_str(), "wb"))
+                        {
+                            std::fprintf(a, "P5\n%u %u\n255\n", w, h);
+                            std::fwrite(alpha.data(), 1, alpha.size(), a);
+                            std::fclose(a);
+                        }
                 }
 #endif
             }

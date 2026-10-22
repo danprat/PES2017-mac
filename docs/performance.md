@@ -7,7 +7,7 @@ is the same input from game start to a match. Tools added for it:
   `gpu:` line every 600 frames lists the costliest pass kinds (size, samples, depth) and ms a frame.
 - `files/yield_tuning` ("<sleep us> <free yields>") and `PES17_YIELD_SLEEP_US`: back-off for the
   guest's `NtYieldExecution` spin loops (`runtime/kernel/yield_backoff.h`).
-- Render passes open over what their draws touch (a clearing rectangle is sized from its own corners, `ClearRectangleReach`); `files/full_passes` (or `PES17_FULL_PASSES=1`) restores whole-surface passes.
+- `files/small_passes` (or `PES17_SMALL_PASSES=1`): render passes open over what their draws touch (a clearing rectangle is sized from its own corners, `ClearRectangleReach`). Off by default: it clipped the crowd to a rectangle.
 - `files/scene_scale`, `files/no_msaa`: existing overrides.
 
 ## What was found

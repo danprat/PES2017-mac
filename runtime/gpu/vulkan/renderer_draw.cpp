@@ -17,6 +17,7 @@
 #include "../../guest_memory.h"
 #include <cmath>
 #include <unistd.h>
+#include <sys/stat.h>
 #include <string>
 #include <cstring>
 
@@ -66,6 +67,33 @@ namespace vk::renderer::detail
 #else
         return false;
 #endif
+    }
+
+    // How far a clearing rectangle really reaches, in the surface's pixels: its own
+    // corners, run through its vertex shader on the CPU as the depth-only clear does.
+    // Its scissor is left at the reset value (8192 square) and says nothing; the
+    // pass that clear opens would otherwise cover the whole 2048-row surface.
+    bool ClearRectangleReach(const gpu::RegisterFile& r, const vk::renderer::DrawCall& call, uint32_t& reachX, uint32_t& reachY)
+    {
+        if (!call.vertexCode || call.indexed) return false;
+        xe_memexport::Job job{};
+        job.registers = r.values; job.vertexCode = call.vertexCode; job.vertexWords = call.vertexWords;
+        job.vertexCount = 1;
+        job.firstVertex = r[0x2102] & 0xFFFFFFu;
+        job.physicalBase = GuestPtr<uint8_t>(kernel::FromPhysical(0)); job.physicalSize = 0x20000000;
+        float corner[4]{}, maxX = 0, maxY = 0;
+        bool have = false;
+        for (uint32_t v = 0; v < 3 && v < call.indexCount; v++)
+            if (xe_memexport::Position(job, v, corner))
+            {
+                maxX = std::max(maxX, corner[0] + 0.5f);
+                maxY = std::max(maxY, corner[1] + 0.5f);
+                have = true;
+            }
+        if (!have || !(maxX > 0) || !(maxY > 0) || maxX > 8192.0f || maxY > 8192.0f) return false;
+        reachX = uint32_t(std::ceil(maxX));
+        reachY = uint32_t(std::ceil(maxY));
+        return true;
     }
 
     void ScissorOf(const gpu::RegisterFile& r, VkRect2D& scissor)
@@ -269,6 +297,61 @@ namespace vk::renderer::detail
             }
             ids[slot] = vk::textures::Upload(fetch, nullptr);
             if (g_dumpDraws) LogKitTexture(slot, fetch, "guest");
+#ifdef PES17_ANDROID
+            // The crowd composite's colour sources, as the GPU has them (files/frame_images/tex_<addr>_<w>x<h>.pnm).
+            if (g_dumpDraws && ids[slot] &&
+                ((fetch.Width() == 256 && fetch.Height() == 2048) || (fetch.Width() == 512 && fetch.Height() == 512) ||
+                 (fetch.Width() == 256 && fetch.Height() == 256) || (fetch.Width() == 32 && fetch.Height() == 32)))
+            {
+                if (fetch.Width() == 256 && fetch.Height() == 2048)
+                {
+                    // How much of the crowd's colour atlas holds any colour in guest memory (DXT1: two 565 words a block).
+                    const uint32_t va = kernel::FromPhysical(fetch.BaseAddress());
+                    const uint8_t* mem = va ? guest::Base() + va : nullptr;
+                    uint32_t blocks = 0, lit = 0;
+                    for (uint32_t b = 0; mem && b < 256u * 2048u / 16u; b++)
+                    {
+                        blocks++;
+                        if (mem[b * 8] | mem[b * 8 + 1] | mem[b * 8 + 2] | mem[b * 8 + 3]) lit++;
+                    }
+                    LOGW("DUMP   crowd colour atlas %08X: %u of %u blocks have a colour in guest memory", fetch.BaseAddress(), lit, blocks);
+                }
+                std::vector<uint8_t> bytes;
+                const char* error = nullptr;
+                if (vk::textures::Readback(ids[slot] & 0xFFFFFFFFull, bytes, &error) &&
+                    bytes.size() >= size_t(fetch.Width()) * fetch.Height() * 4)
+                {
+                    {
+                        // The texture's first block as the title left it, next to what the GPU copy holds
+                        // at the same corner: a decode that disagrees with its source shows here.
+                        const uint32_t va = kernel::FromPhysical(fetch.BaseAddress());
+                        const uint8_t* mem = va ? guest::Base() + va : nullptr;
+                        uint32_t row2 = fetch.Pitch() ? fetch.Pitch() : fetch.Width();
+                        LOGW("DUMP   tex %08X %ux%u fmt %u %s words %08X %08X %08X %08X %08X %08X: memory[0..15] %02X%02X%02X%02X %02X%02X%02X%02X %02X%02X%02X%02X %02X%02X%02X%02X; gpu pixel(0,0) %02X%02X%02X, pixel(%u,%u) %02X%02X%02X; bytes %zu",
+                             fetch.BaseAddress(), fetch.Width(), fetch.Height(), fetch.Format(), fetch.Tiled() ? "tiled" : "linear",
+                             fetch.d[0], fetch.d[1], fetch.d[2], fetch.d[3], fetch.d[4], fetch.d[5],
+                             mem ? mem[0] : 0, mem ? mem[1] : 0, mem ? mem[2] : 0, mem ? mem[3] : 0, mem ? mem[4] : 0, mem ? mem[5] : 0, mem ? mem[6] : 0, mem ? mem[7] : 0,
+                             mem ? mem[8] : 0, mem ? mem[9] : 0, mem ? mem[10] : 0, mem ? mem[11] : 0, mem ? mem[12] : 0, mem ? mem[13] : 0, mem ? mem[14] : 0, mem ? mem[15] : 0,
+                             bytes[0], bytes[1], bytes[2], fetch.Width() - 4, 0u, bytes[(fetch.Width() - 4) * 4], bytes[(fetch.Width() - 4) * 4 + 1],
+                             bytes[(fetch.Width() - 4) * 4 + 2], bytes.size());
+                        (void)row2;
+                    }
+                    const std::string dir = android::GetPaths().external + "/frame_images";
+                    mkdir(dir.c_str(), 0775);
+                    char name[96];
+                    std::snprintf(name, sizeof name, "/tex_%08X_%ux%u.pnm", fetch.BaseAddress(), fetch.Width(), fetch.Height());
+                    if (std::FILE* out = std::fopen((dir + name).c_str(), "wb"))
+                    {
+                        std::fprintf(out, "P6\n%u %u\n255\n", fetch.Width(), fetch.Height());
+                        for (size_t i = 0; i < size_t(fetch.Width()) * fetch.Height(); i++) std::fwrite(&bytes[i * 4], 1, 3, out);
+                        std::fclose(out);
+                    }
+                }
+                else
+                    LOGW("DUMP   tex slot %u: readback of %ux%u failed (%s, %zu bytes)", slot, fetch.Width(), fetch.Height(),
+                         error ? error : "?", bytes.size());
+            }
+#endif
             if (g_dumpDraws)
             {
                 // The first kilobyte as the title left it: all zero means the CPU
@@ -497,6 +580,14 @@ void vk::renderer::Draw(const gpu::RegisterFile& r, const DrawCall& call)
                 if (v[0] != 0 || v[1] != 0 || v[2] != 0 || v[3] != 0)
                     LOGW("DUMP   ps c%u (base %u) = %g %g %g %g", c, psBase, v[0], v[1], v[2], v[3]);
             }
+            // The last pixel constant is where D3D9 titles keep their literals (the crowd's alpha
+            // threshold is in it), so it is shown for every draw, not only the first of a shader.
+            if (!first)
+            {
+                float v[4];
+                for (int k = 0; k < 4; k++) v[k] = std::bit_cast<float>(r[gpu::kConstantBaseAlu + 4 * (std::min(psBase, 256u) + 255) + k]);
+                LOGW("DUMP   ps c255 (base %u) = %g %g %g %g", psBase, v[0], v[1], v[2], v[3]);
+            }
         }
         {
             // Registers (outside the constant windows) that changed since the last draw.
@@ -636,7 +727,14 @@ void vk::renderer::Draw(const gpu::RegisterFile& r, const DrawCall& call)
             static std::atomic<int> told{ 0 };
             if (told++ < 6) LOGI("renderer: EDRAM depth clear to %g, tiles %u..%u", depth, depthInfo.BaseTile(), endTile);
         }
-        ClearAliasedDepth(depthInfo.BaseTile(), endTile, depth);
+        {
+            // The stencil is replaced only by a clear that has the stencil test on with a REPLACE op
+            // (the reference is then what lands there); with it off the stencil bits are untouched.
+            const gpu::StencilRefMask stencilRef{ r[gpu::RB_STENCILREFMASK] };
+            const bool writesStencil = depthState.StencilEnable() && depthState.StencilZPass() == 2 &&
+                                       (stencilRef.WriteMask() & 0xFF) == 0xFF;
+            ClearAliasedDepth(depthInfo.BaseTile(), endTile, depth, writesStencil, stencilRef.Reference());
+        }
         if (std::abs(depth) < 1e-6f && (r[gpu::RB_STENCILREFMASK] & 0xFF) == 0)
             ClearAliasedColour(depthInfo.BaseTile());
         Skip("EDRAM depth clear");
@@ -704,7 +802,65 @@ void vk::renderer::Draw(const gpu::RegisterFile& r, const DrawCall& call)
                                         width, height, depthInfo.Format());
     if (!colourTarget || !depthTarget) return;
 
+    // In a frame dump, what the stencil buffer holds when a draw that tests it for EQUAL begins: the
+    // crowd's composite is one, and it draws only where the billboard passes marked the stencil.
+    static int uiStencilDumps = 0;
+    static uint64_t uiStencilFrame = UINT64_MAX;
+    if (uiStencilFrame != g.frames) { uiStencilFrame = g.frames; uiStencilDumps = 0; }
+    // The first few draws of the interface's sprite shader as well: it tests stencil for EQUAL 1.
+    const bool uiSprite = call.pixelHash == 0xB401ACD7DE3D19F7ull && uiStencilDumps < 6 && uiStencilDumps++ >= 0;
+    const bool crowdShader = uiSprite || call.pixelHash == 0xB4BBEAC4E75DDB31ull || call.pixelHash == 0x70F64A42C2C649AAull ||
+                             call.pixelHash == 0xD0C7E9595FC160B9ull;
+    if (g_dumpDraws && ((depthState.StencilEnable() && depthState.StencilFunc() == 2) || crowdShader) && depthTarget->image)
+    {
+        if (g.recording) Submit(true);
+        const uint32_t w = HostOf(depthTarget->width, depthTarget->scale);
+        const uint32_t h = HostOf(depthTarget->height, depthTarget->scale);
+        const std::vector<uint8_t> stencil = ReadColourImage(depthTarget->image,
+            VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, w, h, 1, VK_IMAGE_ASPECT_STENCIL_BIT);
+        if (!stencil.empty())
+        {
+            uint64_t counts[256]{};
+            for (uint8_t v : stencil) counts[v]++;
+            std::string line;
+            for (int v = 0; v < 256; v++)
+                if (counts[v]) { char t[40]; std::snprintf(t, sizeof t, " %02X:%llu", v, (unsigned long long)counts[v]); line += t; }
+            const gpu::StencilRefMask ref{ r[gpu::RB_STENCILREFMASK] };
+            LOGW("DUMP   stencil before draw %u (%ux%u, tile %u samples %u; stencil %s func %u ref %02X mask %02X wmask %02X, ops fail %u zpass %u zfail %u):%s",
+                 g_dumpIndex - 1, w, h, depthInfo.BaseTile(), unsigned(depthTarget->samples), depthState.StencilEnable() ? "on" : "off",
+                 depthState.StencilFunc(), ref.Reference(), ref.Mask(), ref.WriteMask(), depthState.StencilFail(), depthState.StencilZPass(),
+                 depthState.StencilZFail(), line.c_str());
+#ifdef PES17_ANDROID
+            const std::string dir = android::GetPaths().external + "/frame_images";
+            mkdir(dir.c_str(), 0775);
+            char name[96]; std::snprintf(name, sizeof name, "/stencil_before_%u.pgm", g_dumpIndex - 1);
+            if (std::FILE* out = std::fopen((dir + name).c_str(), "wb"))
+            {
+                std::fprintf(out, "P5\n%u %u\n255\n", w, h);
+                std::fwrite(stencil.data(), 1, stencil.size(), out);
+                std::fclose(out);
+            }
+#endif
+        }
+    }
+
     if (!BeginFrame()) { Skip("no command buffer"); return; }
+
+    // A colour-and-depth clearing rectangle clears the stencil of the depth image it is drawn into, and
+    // -- as the console's one EDRAM buffer would -- of the same tile's images at other sample counts.
+    if (clearRectangles && edramMode != gpu::EdramMode::DepthOnly && depthState.StencilEnable() &&
+        depthState.StencilZPass() == 2)
+    {
+        const gpu::StencilRefMask clearRef{ r[gpu::RB_STENCILREFMASK] };
+        if (g_dumpDraws)
+        {
+            int others = 0;
+            for (const auto& [k, t] : g.targets) if (t.depth && k.baseTile == depthInfo.BaseTile() && t.image != depthTarget->image) others++;
+            LOGW("DUMP   clearing rectangle with stencil replace: tile %u, wmask %02X, %d other depth image(s) at the tile", depthInfo.BaseTile(), clearRef.WriteMask(), others);
+        }
+        if ((clearRef.WriteMask() & 0xFF) == 0xFF)
+            ClearAliasedStencil(*depthTarget, depthInfo.BaseTile(), clearRef.Reference());
+    }
 
     // Both keys carry the surface's sample count, so the two agree unless a
     // depth image made under another count is reused; a framebuffer cannot mix
@@ -712,7 +868,22 @@ void vk::renderer::Draw(const gpu::RegisterFile& r, const DrawCall& call)
     if (colourTarget->samples != depthTarget->samples) { Skip("sample counts differ"); return; }
     const uint32_t passWidth = std::min(colourTarget->width, depthTarget->width);
     const uint32_t passHeight = std::min(colourTarget->height, depthTarget->height);
-    if (colourTarget->view != g.currentColour || depthTarget->view != g.currentDepth)
+    // What this draw touches of the pass, in the title's pixels and rounded up to
+    // 64: the render area it asks for (see State::passAreaWidth).
+    uint32_t reachX = std::max(0, scissor.offset.x) + scissor.extent.width;
+    uint32_t reachY = std::max(0, scissor.offset.y) + scissor.extent.height;
+    if (g.smallPasses && clearRectangles)
+    {
+        // Only the rectangle's own extent counts: see ClearRectangleReach.
+        uint32_t rectX = 0, rectY = 0;
+        if (ClearRectangleReach(r, call, rectX, rectY)) { reachX = std::min(reachX, rectX); reachY = std::min(reachY, rectY); }
+    }
+    const uint32_t touchedWidth = std::min(passWidth, (reachX + 63u) & ~63u);
+    const uint32_t touchedHeight = std::min(passHeight, (reachY + 63u) & ~63u);
+    const bool sameViews = colourTarget->view == g.currentColour && depthTarget->view == g.currentDepth;
+    const bool outgrown = sameViews && g.smallPasses &&
+        (touchedWidth > g.passAreaWidth || touchedHeight > g.passAreaHeight);
+    if (!sameViews || outgrown)
     {
         gpu::detail::SetCurrentDrawStage("Draw_BeginRendering");
         if (diag::kOn && TracePasses() && DiagnoseHere() && g.passFrames <= TracePasses())
@@ -727,7 +898,10 @@ void vk::renderer::Draw(const gpu::RegisterFile& r, const DrawCall& call)
                  depthInfo.BaseTile(), unsigned(depthTarget->samples),
                  (unsigned long long)depthTarget->draws,
                  depthTarget->depthClearedIn == g.frames ? "this frame" : "not this frame");
-        BeginRendering(*colourTarget, *depthTarget, passWidth, passHeight);
+        // A pass that is outgrown is reopened over the whole surface, so one pass breaks
+        // at most once for it.
+        BeginRendering(*colourTarget, *depthTarget, passWidth, passHeight,
+                       outgrown ? passWidth : touchedWidth, outgrown ? passHeight : touchedHeight);
     }
 
     if (Timing())
@@ -1003,13 +1177,17 @@ void vk::renderer::Draw(const gpu::RegisterFile& r, const DrawCall& call)
         scissor.extent.height = uint32_t(int32_t(scissor.extent.height) + scissor.offset.y);
         scissor.offset.y = 0;
     }
-    if (uint32_t(scissor.offset.x) >= g.currentWidth || uint32_t(scissor.offset.y) >= g.currentHeight)
+    // A pass opened over part of the surface draws within it: whatever reaches past was
+    // made a bigger pass above (outgrown), except a clearing rectangle's reset scissor.
+    const uint32_t clipWidth = g.smallPasses && g.passAreaWidth ? std::min(g.currentWidth, g.passAreaWidth) : g.currentWidth;
+    const uint32_t clipHeight = g.smallPasses && g.passAreaHeight ? std::min(g.currentHeight, g.passAreaHeight) : g.currentHeight;
+    if (uint32_t(scissor.offset.x) >= clipWidth || uint32_t(scissor.offset.y) >= clipHeight)
     { Skip("scissor outside target"); return; }
 
     scissor.extent.width = std::min(scissor.extent.width,
-                                    g.currentWidth - uint32_t(scissor.offset.x));
+                                    clipWidth - uint32_t(scissor.offset.x));
     scissor.extent.height = std::min(scissor.extent.height,
-                                     g.currentHeight - uint32_t(scissor.offset.y));
+                                     clipHeight - uint32_t(scissor.offset.y));
     if (!scissor.extent.width || !scissor.extent.height) { Skip("empty scissor"); return; }
 
     State::Bound& bound = g.bound;
@@ -1078,8 +1256,8 @@ void vk::renderer::Draw(const gpu::RegisterFile& r, const DrawCall& call)
     {
         scissor.offset.x = std::max(0, scissor.offset.x);
         scissor.offset.y = std::max(0, scissor.offset.y);
-        const int32_t maxX = int32_t(HostOf(g.currentWidth, g.currentScale));
-        const int32_t maxY = int32_t(HostOf(g.currentHeight, g.currentScale));
+        const int32_t maxX = int32_t(HostOf(clipWidth, g.currentScale));
+        const int32_t maxY = int32_t(HostOf(clipHeight, g.currentScale));
         if (scissor.offset.x >= maxX || scissor.offset.y >= maxY)
         {
             scissor.offset = { 0, 0 };

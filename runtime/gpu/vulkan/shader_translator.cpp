@@ -1133,9 +1133,16 @@ namespace
         m_condition = ConditionFor(op.IsPredicated(), op.PredicateCondition());
 
         // The vector unit carries no state between instructions, so a fully masked
-        // operation need not be built. The scalar unit does, so it always runs.
+        // operation need not be built -- except a kill, whose whole effect is the
+        // discard: `kill_gt _, c255.yyyy, r1.xxxx` writes nowhere, and skipping it
+        // left every pixel it was meant to throw away on the screen (the crowd's
+        // sprite backgrounds, drawn as solid boxes). The scalar unit carries state,
+        // so it always runs.
+        const VectorOpcode vectorOpcode = op.Vector();
+        const bool isKill = vectorOpcode == VectorOpcode::KillEq || vectorOpcode == VectorOpcode::KillGt ||
+                            vectorOpcode == VectorOpcode::KillGe || vectorOpcode == VectorOpcode::KillNe;
         Id vectorResult = 0;
-        if (op.IsExport() ? op.VectorResultMask() != 0 : op.VectorWriteMask() != 0)
+        if (isKill || (op.IsExport() ? op.VectorResultMask() != 0 : op.VectorWriteMask() != 0))
         {
             vectorResult = VectorOperation(op);
             if (op.VectorClamp())

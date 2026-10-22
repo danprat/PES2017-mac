@@ -56,6 +56,7 @@ class SettingsActivity : AppCompatActivity() {
             { getString(R.string.render_scale, it + 1) }) { prefs.renderScale = it + 1 }
         switch(R.id.msaa, prefs.multisampling) { prefs.multisampling = it }
         switch(R.id.prefer60, prefs.prefer60Hz) { prefs.prefer60Hz = it }
+        switch(R.id.widescreen, prefs.widescreen) { prefs.widescreen = it }
 
         // ---- match performance (the runtime's own switches) ----
         bar(R.id.scene_scale, R.id.scene_scale_label, 10, (prefs.sceneScalePercent - 50) / 5,
@@ -76,6 +77,7 @@ class SettingsActivity : AppCompatActivity() {
         switch(R.id.audio, prefs.audioEnabled) { prefs.audioEnabled = it }
         switch(R.id.touch, prefs.touchControls) { prefs.touchControls = it }
         switch(R.id.gamepad, prefs.gamepadEnabled) { prefs.gamepadEnabled = it }
+        switch(R.id.gamepad_p2, prefs.padAsPlayer2) { prefs.padAsPlayer2 = it }
         switch(R.id.vibration, prefs.vibration) { prefs.vibration = it }
 
         // ---- the game files ----

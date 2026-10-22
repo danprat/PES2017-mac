@@ -17,9 +17,16 @@ import java.io.File
  *
  * The numbers are exactly what NativeBridge.nativePadState takes, so a file
  * can be read, trimmed or written by hand. Lines starting with # are ignored.
+ *
+ * Slots 0..3 are physical pads. Slot 4 ([TOUCH]) is the on-screen overlay's
+ * buttons, triggers and sticks, so a scenario can mix both players. The look
+ * area is sent as finger movement, not a stick, and is not recorded.
  */
 object Macro {
     private const val TAG = "PES17.Macro"
+
+    /** The overlay controls, as a slot of their own in a macro file. */
+    const val TOUCH = 4
 
     private class Frame(
         val ms: Long, val slot: Int, val buttons: Int, val lt: Int, val rt: Int,
@@ -27,7 +34,7 @@ object Macro {
     )
 
     private val frames = ArrayList<Frame>()
-    private val last = arrayOfNulls<Frame>(4)
+    private val last = arrayOfNulls<Frame>(5)
     private var startedAt = 0L
 
     @Volatile var recording = false
@@ -61,7 +68,7 @@ object Macro {
 
     /** Called with every state a physical pad sends; a no-op unless recording. */
     fun record(slot: Int, buttons: Int, lt: Int, rt: Int, lx: Float, ly: Float, rx: Float, ry: Float) {
-        if (!recording || slot !in 0..3) return
+        if (!recording || slot !in 0..TOUCH) return
         synchronized(frames) {
             val previous = last[slot]
             if (previous != null && previous.buttons == buttons && previous.lt == lt && previous.rt == rt &&
@@ -132,13 +139,13 @@ object Macro {
         val thread = Thread({
             var message = "finished"
             try {
-                for (slot in slots) NativeBridge.nativePadConnected(slot, true)
+                for (slot in slots) if (slot < TOUCH) NativeBridge.nativePadConnected(slot, true)
                 var round = 0
                 while (playing && (loops == 0 || round < loops)) {
                     val t0 = SystemClock.elapsedRealtime()
                     for (f in events) {
                         if (!sleepUntil(t0 + f.ms)) break
-                        NativeBridge.nativePadState(f.slot, f.buttons, f.lt, f.rt, f.lx, f.ly, f.rx, f.ry)
+                        send(f.slot, f.buttons, f.lt, f.rt, f.lx, f.ly, f.rx, f.ry)
                     }
                     sleepUntil(t0 + endMs)
                     round++
@@ -148,7 +155,7 @@ object Macro {
                 message = "failed: ${error.message}"
             } finally {
                 // Every input let go, or the last pressed one stays pressed.
-                for (slot in slots) NativeBridge.nativePadState(slot, 0, 0, 0, 0f, 0f, 0f, 0f)
+                for (slot in slots) send(slot, 0, 0, 0, 0f, 0f, 0f, 0f)
                 playing = false
                 player = null
                 Log.i(TAG, "playback $message")
@@ -160,6 +167,11 @@ object Macro {
         thread.start()
         Log.i(TAG, "playing ${file.name}: ${events.size} events, ${endMs} ms, loops=$loops")
         return true
+    }
+
+    private fun send(slot: Int, buttons: Int, lt: Int, rt: Int, lx: Float, ly: Float, rx: Float, ry: Float) {
+        if (slot == TOUCH) NativeBridge.nativeTouchState(buttons, lt, rt, lx, ly, rx, ry)
+        else NativeBridge.nativePadState(slot, buttons, lt, rt, lx, ly, rx, ry)
     }
 
     fun stopPlayback() {

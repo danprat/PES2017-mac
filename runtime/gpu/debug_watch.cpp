@@ -4,6 +4,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdio>
+#include <cstring>
 #include <thread>
 
 #include <sys/mman.h>
@@ -53,6 +54,37 @@ void debugwatch::ArmFromFile(const std::string& path)
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
             if (g_open.exchange(false) && g_reports.load() < 900) Protect(false);
             static int tick = 0;
+            // `touch files/crowd_hunt`: looks (every 20 ms) for a 256 KB run of the black DXT1 pattern
+            // 00000000 FFFFFFFF -- the crowd's colour atlas, freshly made -- and arms the watch on it, so the
+            // next writes to it are reported with their call stacks. The atlas moves from run to run, so it
+            // cannot be named beforehand.
+            {
+                static bool hunting = false, found = false;
+                if (tick % 300 == 150 && !found && guest::Base())
+                    if (FILE* h = std::fopen((path.substr(0, path.rfind('/') + 1) + "crowd_hunt").c_str(), "r")) { std::fclose(h); hunting = true; }
+                if (hunting && !found && guest::Base() && tick % 20 == 0)
+                {
+                    static const uint8_t pattern[8] = { 0, 0, 0, 0, 0xFF, 0xFF, 0xFF, 0xFF };
+                    const uint8_t* physical = guest::Base() + guest::kPhysicalBase;
+                    uint32_t run = 0;
+                    for (uint32_t page = 0x10000; page < 0x14000; page++)   // 0x10000000 .. 0x14000000
+                    {
+                        const uint8_t* at = physical + (uint64_t(page) << 12);
+                        const bool match = std::memcmp(at, pattern, 8) == 0 && std::memcmp(at + 8, pattern, 8) == 0 &&
+                                           std::memcmp(at + 4088, pattern, 8) == 0;
+                        run = match ? run + 1 : 0;
+                        if (run == 64)
+                        {
+                            if (g_armed) Protect(true);
+                            g_raw = false; g_first = uint64_t(page - 63) << 12; g_pages = 64; g_reports = 0; g_armed = true;
+                            Protect(false);
+                            found = true;
+                            LOGW("crowd_hunt: the black DXT1 pattern, 64 pages at physical %08llX; watching it", (unsigned long long)g_first);
+                            break;
+                        }
+                    }
+                }
+            }
             if (++tick % 300) continue;
             if (!guest::Base()) continue;   // a request left from the last run waits for the guest space
             {

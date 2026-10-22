@@ -394,6 +394,7 @@ class GameActivity : AppCompatActivity(), NativeListener {
         // load again (GameService.kt).
         GameService.start(this)
         Trail.clear(this)
+        pads.firstSlot = if (prefs.padAsPlayer2) 1 else 0
         pads.setEnabled(prefs.gamepadEnabled)
         pads.refreshDevices()
         startHardwareMonitor()
@@ -666,6 +667,22 @@ class GameActivity : AppCompatActivity(), NativeListener {
         return if (hz < 20f) 60f else hz
     }
 
+    /** The whole screen's long side over its short side, cutout included (the game is laid out into it). */
+    private fun screenAspect(): Float {
+        val (w, h) = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val bounds = windowManager.maximumWindowMetrics.bounds
+            bounds.width() to bounds.height()
+        } else {
+            val metrics = android.util.DisplayMetrics()
+            @Suppress("DEPRECATION")
+            windowManager.defaultDisplay.getRealMetrics(metrics)
+            metrics.widthPixels to metrics.heightPixels
+        }
+        val long = maxOf(w, h).toFloat()
+        val short = minOf(w, h).toFloat()
+        return if (short > 0f) long / short else 16f / 9f
+    }
+
     private fun goFullscreen() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         val controller = WindowInsetsControllerCompat(window, window.decorView)
@@ -703,6 +720,10 @@ class GameActivity : AppCompatActivity(), NativeListener {
         NativeBridge.nativeSetOption("PES17_UPSCALER", if (prefs.fsr) "fsr" else "")
         NativeBridge.nativeSetOption("PES17_FSR_SHARPNESS", String.format(Locale.US, "%.1f", prefs.fsrSharpness))
         NativeBridge.nativeSetOption("PES17_FPS_LIMIT", if (prefs.cap30) "30" else "")
+        NativeBridge.nativeSetOption(
+            "PES17_ASPECT",
+            if (prefs.widescreen) String.format(Locale.US, "%.4f", screenAspect()) else "",
+        )
         NativeBridge.nativeSetOption("PES17_NO_SHADOW", if (prefs.lowMemory) "1" else "")
         // Full synchronous precompile at boot when the player asked for it in
         // Settings; otherwise the tiered instant-boot budget + background warmup.
@@ -1049,6 +1070,7 @@ class GameActivity : AppCompatActivity(), NativeListener {
         // Without this it stays cut, and every texture is uploaded again on
         // every draw for the rest of the run.
         NativeBridge.nativeRestoreMemory()
+        pads.firstSlot = if (prefs.padAsPlayer2) 1 else 0
         pads.setEnabled(prefs.gamepadEnabled)
         pads.refreshDevices()
         handler.post(statsTick)
