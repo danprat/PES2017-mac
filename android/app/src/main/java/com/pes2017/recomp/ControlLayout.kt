@@ -1,4 +1,4 @@
-package com.mw2.recomp
+package com.pes2017.recomp
 
 import android.content.Context
 import org.json.JSONArray
@@ -148,7 +148,7 @@ class ControlLayout private constructor(val elements: MutableList<ControlElement
          * movement and aiming live there; the face buttons sit above the
          * right thumb in the diamond a controller has, because that is the
          * shape the muscle memory of anyone who played this game has. (The defaults
-         * were the MW2 port's; Start/Back and the trigger labels are PES 2017's.)
+         * follow the Xbox 360 pad; Start/Back and the trigger labels are PES 2017's.)
          */
         fun defaults(): ControlLayout = ControlLayout(
             mutableListOf(

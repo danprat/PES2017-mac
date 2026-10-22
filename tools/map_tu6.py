@@ -10,10 +10,10 @@ found (title.h header comment): same instructions except what the linker
 filled in, masked out -- branch displacements and the halves of absolute
 addresses.
 
-    MW2_VERSION=tu6 python3 tools/map_tu6.py [--words N]
+    PES17_VERSION=tu6 python3 tools/map_tu6.py [--words N]
 
-Reads mw2/tu0/default{,_mp}.pe (made with tools/xexdump.py when missing) and
-mw2/default{,_mp}.pe, and prints, per title, the title.h lines the TU6 blocks
+Reads pes17/tu0/default{,_mp}.pe (made with tools/xexdump.py when missing) and
+pes17/default{,_mp}.pe, and prints, per title, the title.h lines the TU6 blocks
 should hold. Only unambiguous same-size matches are trusted; the rest are
 flagged for reading. A unique match of another size, or several matches, is
 printed with its sizes so a human can decide.
@@ -40,7 +40,7 @@ def block_addrs(text):
 
 def load(pe):
     if not os.path.exists(pe):
-        xex = pe.replace(".pe", ".xex").replace("mw2/default", "mw2/tu0/default")
+        xex = pe.replace(".pe", ".xex").replace("pes17/default", "pes17/tu0/default")
         print(f"  making {pe} from the disc executable...")
         r = os.system(f"python3 tools/xexdump.py {xex} {pe} >/dev/null 2>&1")
         if r != 0 or not os.path.exists(pe):
@@ -63,10 +63,10 @@ def main():
     tu6mp, tu6sp, tu0mp, tu0sp = (block_addrs(b) for b in blocks)
 
     images = {}
-    for key, pe in (("tu0sp", "mw2/tu0/default.pe"),
-                    ("tu6sp", "mw2/default.pe"),
-                    ("tu0mp", "mw2/tu0/default_mp.pe"),
-                    ("tu6mp", "mw2/default_mp.pe")):
+    for key, pe in (("tu0sp", "pes17/tu0/default.pe"),
+                    ("tu6sp", "pes17/default.pe"),
+                    ("tu0mp", "pes17/tu0/default_mp.pe"),
+                    ("tu6mp", "pes17/default_mp.pe")):
         images[key] = load(pe)
 
     for title_name, tu6, tu0, tu0img, tu6img in (

@@ -54,8 +54,8 @@ def main():
     title = sys.argv[1] if len(sys.argv) > 1 else "mp"
     focus = int(sys.argv[2], 16) if len(sys.argv) > 2 else None
     pe = "default_mp.pe" if title == "mp" else "default.pe"
-    a = read(f"mw2/tu0/{pe}")
-    b = read(f"mw2/{pe}")
+    a = read(f"pes17/tu0/{pe}")
+    b = read(f"pes17/{pe}")
     fa, fb = functions(a), functions(b)
     print(f"tu0 functions: {len(fa)}, tu6 functions: {len(fb)}")
     only_b = sorted(set(fb) - set(fa))

@@ -3,7 +3,7 @@
 // The predicate waits every engine stall ends in (predicate_waits.cpp).
 namespace engine
 {
-#if MW2_DIAGNOSTICS
+#if PES17_DIAGNOSTICS
     void ReportPredicateWaits();
 #else
     inline void ReportPredicateWaits() {}

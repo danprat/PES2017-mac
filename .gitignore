@@ -1,14 +1,14 @@
 # ---- game data: extracted from the retail disc, never commit ----
-# Anchored with a leading slash, and that matters: "mw2/" on its own matches
+# Anchored with a leading slash, and that matters: "pes17/" on its own matches
 # a directory of that name at any depth, and the app's Kotlin lives in
-# android/app/src/main/java/com/mw2/recomp. That rule silently swallowed the
+# android/app/src/main/java/com/pes2017/recomp. That rule silently swallowed the
 # whole app once -- it built, installed, and died on a manifest pointing at
 # classes that were never committed. Anchor anything meant for the root.
-/mw2/
-/mw2-iso/
+/pes17/
+/pes17-iso/
 /pes/
 /GAME/
-/_mw2_specific/
+/_pes17_specific/
 *.xex
 *.xexp
 *.pe
@@ -58,7 +58,7 @@ __pycache__/
 /ppc_mp/
 /build-mp/
 /build-mp-release/
-config/mw2mp_switch_tables.toml
+config/pes17mp_switch_tables.toml
 
 # ---- the Android app's build output ----
 android/build/

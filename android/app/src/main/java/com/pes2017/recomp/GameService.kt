@@ -1,4 +1,4 @@
-package com.mw2.recomp
+package com.pes2017.recomp
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -95,7 +95,7 @@ class GameService : Service() {
     }
 
     companion object {
-        private const val CHANNEL = "mw2-run"
+        private const val CHANNEL = "pes17-run"
         private const val NOTIFICATION_ID = 0x4D57
 
         /** Once the run has started. The caller is in ":game" as well. */

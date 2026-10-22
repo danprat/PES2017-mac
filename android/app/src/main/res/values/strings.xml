@@ -1,39 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- app_name comes from the product flavour (campaign or multiplayer). -->
-    <string name="subtitle">A recompilation, running natively</string>
-    <string name="wordmark">MODERN WARFARE 2</string>
-    <string name="wordmark_recompiled">MW2 RECOMPILED</string>
-    <string name="disclaimer">UNOFFICIAL. NOT AFFILIATED WITH ACTIVISION, INFINITY WARD OR MICROSOFT.</string>
-    <string name="hint_choose">TAP TO CHOOSE</string>
-    <string name="network_settings">NETWORK</string>
-    <string name="entry_settings">SETTINGS</string>
-    <string name="entry_mods">MODS</string>
-    <string name="entry_tu6">GET TU6 BUILD</string>
-    <string name="entry_tu0">GET TU0 BUILD</string>
-    <string name="mods_detail_phone">Extra maps, weapons and modes for this install\'s game version. Its .ff, .pak and .bik files are copied into the game folder. Scripts and plugins are reported and left alone — this port runs no plugin system.</string>
-    <string name="tu6_detail_phone">Title Update 6, which mods need, as its own app beside this one (MW2 Campaign TU6 / MW2 Multiplayer TU6) on the releases page. TU6 plays only with TU6, never with this disc-version (TU0) build. The TU6 app installs from the same disc, then downloads the update itself.</string>
-    <string name="tu0_detail_phone">The disc-version build, which phones and crossplay started with, as its own app beside this one on the releases page. It plays only with disc-version copies, never with this title-update one.</string>
-    <string name="tu6_same_version">Same-version rule: TU0 plays only with TU0, TU6 only with TU6.</string>
-    <string name="tu6_downloading">Downloading title update 6…</string>
-    <string name="tu6_applying">Applying title update 6…</string>
-    <string name="tab_graphics">GRAPHICS</string>
-    <string name="tab_controls">CONTROLS</string>
-    <string name="tab_network">NETWORK</string>
-    <string name="tab_files">FILES</string>
+    <!-- app_name is set in build.gradle.kts. -->
     <string name="check_updates">CHECK FOR UPDATES</string>
     <string name="quit_launcher">QUIT</string>
     <string name="up_to_date">This is the newest version.</string>
-    <string name="detail_default_title">DEPLOYMENT</string>
-    <string name="detail_default_text">Pick an entry: its details show here, and choosing it acts at once.</string>
-    <string name="launch_other">Launch %1$s</string>
-    <string name="other_name_campaign">MW2 Campaign</string>
-    <string name="other_name_multiplayer">MW2 Multiplayer</string>
-    <string name="other_missing">%1$s is not installed.</string>
 
     <!-- launcher -->
-    <string name="play">Play</string>
-    <string name="install_game">Install the game files</string>
     <string name="graphics_driver">Graphics driver</string>
     <string name="settings">Settings</string>
     <string name="view_log">Log</string>
@@ -42,14 +14,10 @@
     <string name="reset">Reset</string>
     <string name="done">Done</string>
     <string name="share">Share</string>
-
-    <string name="status_ready">Ready to play.\nThe game files are in %1$s.</string>
-    <string name="status_not_installed">The game files are not installed yet.\n\nThis app contains no game data. You supply your own copy: a disc image of the game you own, or a folder with its files in it.</string>
     <string name="status_library_missing">The runtime could not be loaded:\n%1$s</string>
     <string name="footer">%1$s\nDriver: %2$s\nBuild %3$s, %4$s</string>
 
     <!-- installing -->
-    <string name="install_hint">Point this at a disc image (.iso) of your own PES 2017 copy, or at the folder its files were extracted to (default.xex and the .cpk archives). Only the files the game needs are copied into the app\'s own storage; about 7 GB of free space is wanted.</string>
     <string name="choose_source">Browse the phone\u2019s storage</string>
     <string name="begin_install">Install</string>
     <string name="no_source">Nothing chosen yet.</string>
@@ -77,19 +45,12 @@
     <!-- bringing a file in through the system picker -->
     <string name="pick_with_files">Choose with the Files app</string>
     <string name="import_file">Import</string>
-    <string name="pick_folder">Choose an extracted game folder (no permission needed)</string>
-    <string name="folder_no_xex">That folder has no default.xex. Pick the folder that holds default.xex and the .cpk files.</string>
-    <string name="folder_wrong_game">This default.xex is not the PES 2017 (Europe) executable this app was built from.</string>
-    <string name="folder_import_explained">Copy %1$s of game files (default.xex, the .cpk archives) into the app? %2$s is free.</string>
     <string name="copying_file">Copying %1$s (%2$d%%)</string>
     <string name="import_explained">The Files app hands over a document rather than a path, so the file is copied into this app first: %1$s now, and about 7 GB again for the installed game. %2$s is free.\n\nIf space is tight, use “Browse the phone’s storage” instead — it reads the file where it lies.</string>
     <string name="import_explained_unknown">The Files app hands over a document rather than a path, so the file is copied into this app first. A disc image is several gigabytes, and the installed game needs about 7 GB more.\n\nIf space is tight, use “Browse the phone’s storage” instead — it reads the file where it lies.</string>
     <string name="copying">Copying in: %1$s</string>
 
     <!-- the file browser -->
-    <string name="use_this_folder">Use this folder</string>
-    <string name="allow_storage">Allow storage access</string>
-    <string name="storage_explained">Android only lets an app read files outside its own folder once you allow it. Without that, put the disc image in Android/data/%1$s/files and pick it from there.</string>
     <string name="up_one">..  (up one)</string>
 
     <!-- the driver screen -->
@@ -105,78 +66,20 @@
     <string name="driver_api">Vulkan %1$s, for Android API %2$d and later</string>
 
     <!-- settings -->
-    <string name="section_picture">Picture</string>
-    <string name="section_sound">Sound</string>
-    <string name="section_controls">Controls</string>
-    <string name="section_files">Game files</string>
-    <string name="resolution">Display resolution: %1$d%%</string>
-    <string name="resolution_hint">How many pixels are actually drawn, as a share of the screen. The display scales the result up, which costs nothing. This is the single biggest thing a weaker phone can be given; 60 to 75 percent looks close to the original console.</string>
-    <string name="render_scale">Internal render multiplier: %1$dx</string>
-    <string name="render_scale_hint">Vulkan internal render scale (MW2_SCALE). Multiplies the title\'s base framebuffer dimensions: 1x native, 2x (supersampled), 3x (high-end). Higher multipliers require significant GPU horsepower.</string>
-    <string name="msaa">Smooth edges (multisampling)</string>
-    <string name="prefer_60">Lock display to 60 FPS (Hardware Lock)</string>
-    <string name="fov">Field of View (FOV): %1$d°</string>
-    <string name="fov_hint">85° is recommended for ultrawide 20:9 mobile displays. (65° was original 16:9 console FOV).</string>
-    <string name="show_stats">Show frames per second</string>
-    <string name="hide_stats">Hide frames per second</string>
-    <string name="texture_budget_auto">Texture memory: chosen for this phone</string>
-    <string name="texture_budget">Texture memory: %1$d MB</string>
-    <string name="texture_hint">How much the texture cache may hold before it starts letting go of what has not been drawn for a while. Left alone, the runtime picks a figure from the memory this phone has.</string>
-    <string name="audio_on">Sound</string>
-    <string name="touch_controls">On-screen controls</string>
-    <string name="use_gamepad">Use a physical controller</string>
-    <string name="gamepad_hint">Turn this off to ignore controllers entirely. Some phones report an accessory, or their own sensors, as a gamepad with a stick that is not centred, which makes the character walk on its own.</string>
-    <string name="vibration">Vibration</string>
-    <string name="invert_look">Invert looking up and down</string>
-    <string name="look_x">Look sensitivity, sideways: %1$.1f</string>
-    <string name="look_y">Look sensitivity, up and down: %1$.1f</string>
-    <string name="smoothing">Look smoothing: %1$d%%</string>
-    <string name="smoothing_hint">Evens out a finger\'s jitter on glass. Too much and aiming feels like it is on ice.</string>
-    <string name="edit_controls_where">The on-screen pad is edited in the game: pause and choose “Edit controls”.</string>
-    <string name="forget_install">Forget the installed files</string>
-    <string name="forget_explained">The files stay on the phone; the app simply stops using them, and the next install can point somewhere else.</string>
     <string name="section_storage">Storage</string>
     <string name="storage_computing">Measuring…</string>
     <string name="saves_files">Saves</string>
     <string name="storage_line">%1$s: %2$s</string>
     <string name="clear_shaders">Clear shader cache</string>
     <string name="clear_logs">Clear logs</string>
-    <string name="install_mods">Install mod files</string>
-    <string name="install_mods_hint">Extra maps, weapons and modes for this install\'s game version. Choose the extracted folder: its .ff, .pak and .bik files are copied into the game folder. Scripts and plugins are reported and left alone — this port runs no plugin system.</string>
-    <string name="mods_installed">Installed %1$d file(s) into the game folder.%2$s</string>
-    <string name="mods_skipped">\n\nSkipped:\n%1$s</string>
-    <string name="mods_nothing">That folder holds nothing to install: no .ff, .pak or .bik files.</string>
     <string name="shaders_cleared">Shader cache cleared. Shaders rebuild as you play.</string>
     <string name="logs_cleared">Logs cleared.</string>
-    <string name="paths_line">Installed in:\n%1$s</string>
-    <string name="paths_none">Nothing installed yet.</string>
 
     <!-- split-screen (a physical controller means a second player) -->
-    <string name="splitscreen_title">Two-player split-screen?</string>
-    <string name="splitscreen_warning">A controller is attached, so a second player can join: Spec Ops co-op and split-screen multiplayer take a second player through the game\u2019s sign-in screen.\n\nHeads-up: two viewports cost frames. Expect dips below 60 FPS, a hot phone, and fast battery drain — lower the display resolution first on weaker devices.</string>
-    <string name="play_anyway">Play anyway</string>
-    <string name="dont_show_again">Don\u2019t show again</string>
 
     <!-- shader prewarming -->
-    <string name="prewarm_all">Compile all shaders at boot</string>
-    <string name="prewarm_all_hint">Compiles every recorded pipeline before the title screen instead of warming them up during play. Boot takes minutes on a cold cache and the phone gets warm, but there is almost no in-game shader stutter left afterwards. Off means the quick 2-second boot with background warmup.</string>
 
     <!-- network play -->
-    <string name="player_name">Network player name</string>
-    <string name="player_name_hint">The name other players on the network see (15 characters at most). Empty means the profile\u2019s name, which on a fresh install is \u201cPlayer 1\u201d.</string>
-    <string name="lan_accept">Accept network invites automatically</string>
-    <string name="lan_accept_hint">When another player on the network invites this phone to their lobby, join without asking. Off means invites are only logged.</string>
-    <string name="lan_iface">Announced adapter (blank = auto)</string>
-    <string name="lan_iface_hint">Which connection sessions invite to: a name or address piece (WiFi, wlan0, 192.168.1). Needed with a VPN and WiFi at once, so guests are told a door they can reach.</string>
-    <string name="invite_players">Invite network players</string>
-    <string name="join_game">Join network game</string>
-    <string name="no_peers">Nobody heard on the network yet — host a lobby on the other machine first, on the same WiFi.</string>
-    <string name="max_rank">Max rank 70</string>
-    <string name="unlock_all">Unlock everything</string>
-    <string name="prestige_up">Prestige +1</string>
-    <string name="cheats_done">%1$s: %2$d file(s) changed. Restart the match to play on them.</string>
-    <string name="cheats_failed">Cheat failed: %1$s</string>
-    <string name="lan_peers">LAN players: %1$d</string>
 
     <!-- self-update -->
     <string name="update_title">Update available: %1$s</string>
@@ -203,7 +106,6 @@
     <string name="error_library">The runtime library would not load:\n%1$s</string>
     <string name="error_not_installed">The game files are not installed. Install them from the launcher first.</string>
     <string name="error_start">The runtime would not start. The log has the details.</string>
-    <string name="stats_line">%1$.0f fps   %2$d MB textures   %3$d×%4$d</string>
 
     <!-- the run's own notification, which is there so the process is not the
          first thing the system reclaims (GameService.kt) -->
@@ -222,4 +124,94 @@
     <string name="reset_one">Reset this</string>
     <string name="reset_all">Reset all</string>
     <string name="reset_all_explained">Every control goes back where it started, at its original size.</string>
+
+    <!-- identity -->
+    <string name="wordmark">PRO EVOLUTION SOCCER</string>
+    <string name="wordmark_year">2017</string>
+    <string name="disclaimer">UNOFFICIAL FAN PORT. NOT AFFILIATED WITH KONAMI. BRING YOUR OWN COPY.</string>
+    <string name="detail_default_title">MAIN MENU</string>
+    <string name="detail_default_text">Pick an entry: its details show here, and choosing it acts at once.</string>
+
+    <string name="version_tag">%1$s \u00b7 build %2$d \u00b7 EUROPE</string>
+    <string name="install_and_play">INSTALL &amp; KICK OFF</string>
+
+    <!-- main menu entries -->
+    <string name="play">KICK OFF</string>
+    <string name="entry_select_folder">SELECT GAME FOLDER</string>
+    <string name="entry_install">INSTALL FROM DISC IMAGE</string>
+    <string name="entry_settings">SETTINGS</string>
+    <string name="direct_launch">Kick off straight away when the app opens</string>
+    <string name="select_folder_hint">Point the app at the folder that holds your PES 2017 files (default.xex and the .cpk archives). If Android has not yet let the app read that part of the storage, it asks first.</string>
+    <string name="settings_hint">Picture, performance, controls and game files for this port.</string>
+    <string name="install_game">Install the game files</string>
+    <string name="install_hint">Point this at a disc image (.iso) of your own PES 2017 copy, or at the folder its files were extracted to (default.xex and the .cpk archives). Only the files the game needs are copied into the app\'s own storage; about 7 GB of free space is wanted.</string>
+    <string name="status_not_installed">No game folder chosen yet.\n\nThis app contains no game data. Choose the folder with your own copy of PES 2017, or install from a disc image.</string>
+    <string name="status_ready">Match ready.\nGame folder: %1$s</string>
+    <string name="status_folder_missing">The chosen game folder is gone or unreadable:\n%1$s\n\nChoose it again.</string>
+    <string name="status_needs_access">The game folder is set, but Android has not given the app access to read it:\n%1$s</string>
+
+    <!-- choosing the game folder -->
+    <string name="pick_folder">Copy an extracted game folder (no permission needed)</string>
+    <string name="folder_title">Game folder</string>
+    <string name="folder_no_xex">That folder has no default.xex. Pick the folder that holds default.xex and the .cpk files.</string>
+    <string name="folder_found_inside">Found the game one level down:\n%1$s</string>
+    <string name="folder_wrong_game">This default.xex is not the PES 2017 (Europe) executable this app was recompiled from. It may not run.</string>
+    <string name="folder_use_anyway">Use anyway</string>
+    <string name="folder_use_here">Use this folder</string>
+    <string name="folder_set">The game will run from:\n%1$s\n\nSaves and caches are kept in its parent folder.</string>
+    <string name="folder_unreadable_path">Android hands over this folder as a document, not a path, so the game cannot be run from where it is.</string>
+    <string name="folder_import_explained">Copy %1$s of game files (default.xex, the .cpk archives) into the app? %2$s is free.</string>
+    <string name="access_title">Storage access needed</string>
+    <string name="access_explained">The game reads its files by path, and Android only lets an app do that outside its own folder once you allow \u201cAll files access\u201d. Allow it in the next screen, then come back: the folder you chose is remembered.\n\nOr copy the files into the app instead; that needs no permission but uses the space twice.</string>
+    <string name="allow_storage">Allow storage access</string>
+    <string name="copy_instead">Copy into the app</string>
+    <string name="storage_granted">Storage access: allowed</string>
+    <string name="storage_not_granted">Storage access: not allowed (needed to run from a folder outside the app)</string>
+    <string name="storage_explained">Android only lets an app read files outside its own folder once you allow it. Without that, put the disc image in Android/data/%1$s/files and pick it from there.</string>
+    <string name="use_this_folder">Use this folder</string>
+
+    <!-- settings tabs and sections -->
+    <string name="tab_picture">PICTURE</string>
+    <string name="tab_port">PERFORMANCE</string>
+    <string name="tab_controls">CONTROLS</string>
+    <string name="tab_files">GAME FILES</string>
+    <string name="section_picture">Picture</string>
+    <string name="section_port">Match performance</string>
+    <string name="section_sound">Sound</string>
+    <string name="section_controls">Controls</string>
+    <string name="section_files">Game files</string>
+    <string name="resolution">Display resolution: %1$d%%</string>
+    <string name="resolution_hint">How many pixels are drawn on the screen, as a share of it. The display scales the result up. PES draws at a fixed 1280\u00d7720, so this mostly trades sharpness for battery.</string>
+    <string name="render_scale">Internal render multiplier: %1$dx</string>
+    <string name="render_scale_hint">Draws the match at 2x or 3x the console\u2019s 1280\u00d7720 (PES17_SCALE). Needs a lot of GPU; leave at 1x unless the phone has room to spare.</string>
+    <string name="msaa">Smooth edges (multisampling)</string>
+    <string name="msaa_hint">Keeps thin pitch lines from breaking into dashes. Cheap on most phones; turn it off if the match stutters.</string>
+    <string name="prefer_60">Lock display to 60 Hz</string>
+    <string name="prefer_60_hint">The console\u2019s frame is a 60 Hz frame. Locking avoids uneven pacing and saves battery on 90/120 Hz screens.</string>
+    <string name="scene_scale">Match render quality: %1$d%%</string>
+    <string name="scene_scale_hint">How large the 3D scene is drawn before it is stretched to the frame (PES17_SCENE_SCALE). 75% is the default: about 44% fewer pixels for a picture most players cannot tell apart. Go to 100% on a strong phone.</string>
+    <string name="fsr">Sharper upscaling (FSR)</string>
+    <string name="fsr_hint">Uses an AMD FSR upscale and sharpen pass instead of a plain stretch. Costs a few frames on a hot phone.</string>
+    <string name="fsr_sharp">Sharpness: %1$.1f</string>
+    <string name="cap30">Cap at 30 FPS (battery saver)</string>
+    <string name="cap30_hint">Takes the match off the 60 Hz pacing and limits it to 30 frames a second (PES17_FPS_LIMIT). Cooler and longer-lasting, at the cost of smoothness.</string>
+    <string name="low_memory">Low-memory mode</string>
+    <string name="low_memory_hint">Skips the large vertex shadow buffer (PES17_NO_SHADOW). Use it on 6 GB phones or less, or if the match is killed in the background.</string>
+    <string name="texture_budget_auto">Texture memory: chosen for this phone</string>
+    <string name="texture_budget">Texture memory: %1$d MB</string>
+    <string name="texture_hint">How much the texture cache may hold before it lets go of what has not been drawn lately. Left alone, the runtime picks a figure from this phone\u2019s memory.</string>
+    <string name="prewarm_all">Compile all shaders at boot</string>
+    <string name="prewarm_all_hint">Compiles every recorded pipeline before the title screen instead of during play. Boot takes minutes on a cold cache, but kick-off is free of shader stutter afterwards.</string>
+    <string name="show_stats">Show frames per second</string>
+    <string name="hide_stats">Hide frames per second</string>
+    <string name="audio_on">Sound</string>
+    <string name="touch_controls">On-screen controls</string>
+    <string name="use_gamepad">Use a physical controller</string>
+    <string name="gamepad_hint">Turn off to ignore controllers entirely. Some phones report an accessory as a gamepad with a stick that is not centred, which makes a player run on his own.</string>
+    <string name="vibration">Vibration</string>
+    <string name="edit_controls_where">The on-screen pad is edited in the match: pause and choose \u201cEdit controls\u201d.</string>
+    <string name="forget_install">Forget the game folder</string>
+    <string name="forget_explained">The files stay on the phone; the app simply stops using them, and a new folder can be chosen.</string>
+    <string name="paths_line">Game folder:\n%1$s</string>
+    <string name="paths_none">No game folder chosen yet.</string>
 </resources>

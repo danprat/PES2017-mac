@@ -37,7 +37,7 @@
 #  include <winsock2.h>
 #  include <ws2tcpip.h>
    using socket_t = SOCKET;
-#  define MW2_CLOSESOCKET closesocket
+#  define PES17_CLOSESOCKET closesocket
 #else
 #  include <sys/socket.h>
 #  include <netinet/in.h>
@@ -47,7 +47,7 @@
 #  include <errno.h>
    using socket_t = int;
 #  define INVALID_SOCKET (-1)
-#  define MW2_CLOSESOCKET ::close
+#  define PES17_CLOSESOCKET ::close
 #endif
 
 namespace
@@ -209,12 +209,12 @@ namespace
         return address;
     }
 
-    // MW2_TRACE_ONLINE: every datagram through the service, with the start of
+    // PES17_TRACE_ONLINE: every datagram through the service, with the start of
     // its text -- the title's out-of-band packets begin FF FF FF FF and a word.
     void Trace(const char* what, uint64_t peer, uint16_t from, uint16_t to,
                const void* bytes, size_t size)
     {
-        static const bool traced = diag::Flag("MW2_TRACE_ONLINE");
+        static const bool traced = diag::Flag("PES17_TRACE_ONLINE");
         if (!traced) return;
         char text[401];
         size_t n = 0;
@@ -298,7 +298,7 @@ PPC_FUNC(__imp__NetDll_WSAStartup)
         std::memset(data, 0, 400);
         *reinterpret_cast<be16*>(data + 0) = requested ? requested : 0x0202;   // wVersion
         *reinterpret_cast<be16*>(data + 2) = 0x0202;                           // wHighVersion
-        std::snprintf(reinterpret_cast<char*>(data) + 4, 256, "mw2recomp sockets");
+        std::snprintf(reinterpret_cast<char*>(data) + 4, 256, "pes17recomp sockets");
         std::snprintf(reinterpret_cast<char*>(data) + 261, 128, "Running");
         *reinterpret_cast<be16*>(data + 390) = 64;      // iMaxSockets
         *reinterpret_cast<be16*>(data + 392) = 1264;    // iMaxUdpDg
@@ -310,18 +310,18 @@ PPC_FUNC(__imp__NetDll_WSAStartup)
 // multiplayer refuses to start any match without one -- "You must have an
 // active network connection to play online or systemlink matches" -- and a
 // system-link match is the only way it has of reaching a map, so that build
-// reports a 100 Mb/s full-duplex link. MW2_NET_LINK=0|1 overrides either.
+// reports a 100 Mb/s full-duplex link. PES17_NET_LINK=0|1 overrides either.
 namespace
 {
     bool EthernetLinkUp()
     {
         static const bool up = [] {
-#ifdef MW2_TITLE_MP
+#ifdef PES17_TITLE_MP
             bool value = true;
 #else
             bool value = false;
 #endif
-            if (env::Text("MW2_NET_LINK")) value = env::Flag("MW2_NET_LINK");
+            if (env::Text("PES17_NET_LINK")) value = env::Flag("PES17_NET_LINK");
             return value;
         }();
         return up;
@@ -460,7 +460,7 @@ PPC_FUNC(__imp__NetDll_closesocket)
 {
     std::lock_guard g(g_socketLock);
     auto it = g_sockets.find(ctx.r4.u32);
-    if (it != g_sockets.end()) { MW2_CLOSESOCKET(it->second.host); g_sockets.erase(it); }
+    if (it != g_sockets.end()) { PES17_CLOSESOCKET(it->second.host); g_sockets.erase(it); }
     ctx.r3.u64 = 0;
 }
 

@@ -33,8 +33,8 @@ disagree is a misparse of the command stream and is refused, because its
 payload is command buffer rather than microcode.
 
 A shader is identified by a hash of its microcode. With diagnostics compiled in
-(the default; `-DMW2_DIAGNOSTICS=OFF` removes them, see
-[building.md](building.md)), `MW2_DUMP_SHADERS=<dir>` writes each distinct
+(the default; `-DPES17_DIAGNOSTICS=OFF` removes them, see
+[building.md](building.md)), `PES17_DUMP_SHADERS=<dir>` writes each distinct
 program as
 `vertex_<hash>.ucode` / `pixel_<hash>.ucode`, big-endian as the guest holds it
 (see [switches.md](switches.md)).
@@ -124,7 +124,7 @@ push constants
   pixel  (offset 0, 16 B)   alpha function, alpha reference, colour scale, gamma-target flag
   vertex (offset 16, 16 B)  float2 scale, float2 offset: window to clip space
   both   (offset 32, 4 B)   a bit per texture slot bound to a resolve's copy;
-                            only in shaders built under MW2_SCALE
+                            only in shaders built under PES17_SCALE
 ```
 
 - The hardware constant file holds 512 vec4; `SQ_VS_CONST` and `SQ_PS_CONST`
@@ -272,7 +272,7 @@ constant ([textures.md](textures.md)). The translator:
   axis (Xenia's value) so a point sample on a texel boundary lands where the
   console's fixed-point coordinates (8 fractional bits) put it. Offsets and
   unnormalised coordinates are in texels of the bound image's size, which
-  under `MW2_SCALE` is divided by the scale for a slot bound to a resolve's
+  under `PES17_SCALE` is divided by the scale for a slot bound to a resolve's
   copy ([rendering.md](rendering.md#resolution-scale));
 - computes LOD from the fetch constant's LOD bias (dword 4 bits 12..21, signed,
   in 32nds, read from binding 1 at run time), the instruction's own bias (in

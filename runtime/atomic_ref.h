@@ -17,12 +17,12 @@
 // a weaker order would be a bet on that code's behaviour rather than a
 // translation of it.
 //
-// MW2_NO_STD_ATOMIC_REF forces the hand-written one, which is how the
+// PES17_NO_STD_ATOMIC_REF forces the hand-written one, which is how the
 // fallback gets tested on a machine whose library has the real thing.
-namespace mw2
+namespace pes17
 {
 
-#if !defined(MW2_NO_STD_ATOMIC_REF) && defined(__cpp_lib_atomic_ref) && \
+#if !defined(PES17_NO_STD_ATOMIC_REF) && defined(__cpp_lib_atomic_ref) && \
     __cpp_lib_atomic_ref >= 201806L
 
 template <class T>

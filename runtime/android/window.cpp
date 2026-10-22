@@ -11,7 +11,7 @@
 //     driver still presenting into it is a crash in the driver, not in us.
 //   * the presenter never blocks the guest on a window. With no surface,
 //     frames are let go the moment they arrive.
-#ifdef MW2_ANDROID
+#ifdef PES17_ANDROID
 
 #include "android.h"
 #include "../log.h"
@@ -178,4 +178,4 @@ namespace android::detail
     }
 }
 
-#endif  // MW2_ANDROID
+#endif  // PES17_ANDROID

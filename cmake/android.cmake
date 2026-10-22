@@ -11,30 +11,30 @@ if(NOT CMAKE_ANDROID_ARCH_ABI STREQUAL "arm64-v8a")
         " 32-bit offset from one base pointer (runtime/guest_memory.cpp).")
 endif()
 
-target_compile_definitions(mw2 PRIVATE MW2_ANDROID=1)
+target_compile_definitions(pes17 PRIVATE PES17_ANDROID=1)
 
 # 16 KB pages. Android 15 devices ship with them, and a library linked for 4 KB
 # will not load at all there. Nothing in the runtime assumes a page size --
 # everything asks sysconf -- so this is purely the linker's alignment.
-target_link_options(mw2 PRIVATE -Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384)
+target_link_options(pes17 PRIVATE -Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384)
 
 # Calls between the 600+ generated units never need the PLT: bind them at link
 # time (the Pinyon Shift port measured PLT stubs falling from 1.6% to 0.1% of cycles).
-target_link_options(mw2 PRIVATE -Wl,-Bsymbolic-functions)
+target_link_options(pes17 PRIVATE -Wl,-Bsymbolic-functions)
 
 # The Vulkan entry points are pointers filled in while the process runs, from
 # whichever driver was opened, rather than symbols resolved against the
 # platform's libvulkan.so at load time. Only the files that call Vulkan see
 # the header, and they see it before anything else (runtime/gpu/vulkan/loader.h).
-file(GLOB MW2_VULKAN_SOURCES CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/runtime/gpu/vulkan/*.cpp")
-set_source_files_properties(${MW2_VULKAN_SOURCES} PROPERTIES
+file(GLOB PES17_VULKAN_SOURCES CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/runtime/gpu/vulkan/*.cpp")
+set_source_files_properties(${PES17_VULKAN_SOURCES} PROPERTIES
     COMPILE_OPTIONS "-include;${CMAKE_SOURCE_DIR}/runtime/gpu/vulkan/loader.h")
-target_compile_definitions(mw2 PRIVATE MW2_VULKAN_DYNAMIC=1)
+target_compile_definitions(pes17 PRIVATE PES17_VULKAN_DYNAMIC=1)
 
 # aaudio  the low-latency audio sink (runtime/android/audio.cpp)
 # android ANativeWindow and the asset manager (runtime/android/window.cpp)
 # log     __android_log_write, where the runtime's log goes (runtime/log.h)
-target_link_libraries(mw2 PRIVATE aaudio android log dl)
+target_link_libraries(pes17 PRIVATE aaudio android log dl)
 
 # Symbols keep their default visibility. The crash handler resolves addresses
 # through dladdr (runtime/platform.cpp), and the recompiled functions are
@@ -47,16 +47,16 @@ target_link_libraries(mw2 PRIVATE aaudio android log dl)
 # has not been rooted, by giving the driver the linker namespace it expects.
 # It is not vendored here (android/fetch_deps.sh clones it); without it the
 # app still runs on the system's driver and says so.
-set(MW2_ADRENOTOOLS_DIR "${CMAKE_SOURCE_DIR}/third_party/libadrenotools")
-if(EXISTS "${MW2_ADRENOTOOLS_DIR}/CMakeLists.txt")
+set(PES17_ADRENOTOOLS_DIR "${CMAKE_SOURCE_DIR}/third_party/libadrenotools")
+if(EXISTS "${PES17_ADRENOTOOLS_DIR}/CMakeLists.txt")
     # Not EXCLUDE_FROM_ALL: its hook libraries have to be in the apk, and a
     # target excluded from the default build is not something the Android
     # plugin reliably packages. They are small.
-    add_subdirectory("${MW2_ADRENOTOOLS_DIR}" adrenotools)
-    target_link_libraries(mw2 PRIVATE adrenotools)
-    target_compile_definitions(mw2 PRIVATE MW2_HAVE_ADRENOTOOLS=1)
+    add_subdirectory("${PES17_ADRENOTOOLS_DIR}" adrenotools)
+    target_link_libraries(pes17 PRIVATE adrenotools)
+    target_compile_definitions(pes17 PRIVATE PES17_HAVE_ADRENOTOOLS=1)
     # Its two hook libraries are dlopened by the driver at run time, so they
-    # have to be in the apk beside libmw2.so. Building them as part of this
+    # have to be in the apk beside libpes17.so. Building them as part of this
     # build is what puts them there: the Gradle plugin packages every shared
     # library this CMake project produces.
     # main_hook and hook_impl are the loader itself; file_redirect_hook is
@@ -64,7 +64,7 @@ if(EXISTS "${MW2_ADRENOTOOLS_DIR}/CMakeLists.txt")
     # and a driver that asks for it and cannot find it does not load.
     foreach(hook main_hook hook_impl file_redirect_hook)
         if(TARGET ${hook})
-            add_dependencies(mw2 ${hook})
+            add_dependencies(pes17 ${hook})
         endif()
     endforeach()
     message(STATUS "Custom Vulkan drivers: libadrenotools")
@@ -79,12 +79,12 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebI
     # No frame pointer on the guest's own functions would make a crash report
     # useless, and the unwinder is what every backtrace here goes through.
     target_compile_options(ppc_recomp PRIVATE -fno-omit-frame-pointer)
-    target_compile_options(mw2 PRIVATE -fno-omit-frame-pointer)
+    target_compile_options(pes17 PRIVATE -fno-omit-frame-pointer)
 endif()
 
 # The library is tens of megabytes of recompiled code and the debug info is
 # several times that. It is stripped out of the apk and kept beside the build
 # (android/app/build), which is what a crash report is read against.
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    target_link_options(mw2 PRIVATE -Wl,--build-id=sha1)
+    target_link_options(pes17 PRIVATE -Wl,--build-id=sha1)
 endif()

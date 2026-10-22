@@ -27,7 +27,7 @@
             android:layout_height="wrap_content"
             android:layout_gravity="center_vertical"
             android:minWidth="56dp"
-            android:textColor="#C8D0D8"
+            android:textColor="#D6E2FF"
             android:textSize="12sp"
             android:text="@string/size" />
 
@@ -44,7 +44,7 @@
             android:minWidth="64dp"
             android:paddingStart="8dp"
             android:paddingEnd="0dp"
-            android:textColor="#C8D0D8"
+            android:textColor="#D6E2FF"
             android:textSize="12sp"
             android:text="@string/opacity" />
 
@@ -66,7 +66,7 @@
             android:id="@+id/edit_visible"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="#C8D0D8"
+            android:textColor="#D6E2FF"
             android:textSize="12sp"
             android:text="@string/shown" />
 
@@ -75,7 +75,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="14dp"
-            android:textColor="#C8D0D8"
+            android:textColor="#D6E2FF"
             android:textSize="12sp"
             android:text="@string/toggle" />
 
@@ -84,7 +84,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="14dp"
-            android:textColor="#C8D0D8"
+            android:textColor="#D6E2FF"
             android:textSize="12sp"
             android:text="@string/snap" />
 

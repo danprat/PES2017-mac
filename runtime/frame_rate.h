@@ -1,5 +1,5 @@
 #pragma once
-// MW2_FPS_LIMIT: how many frames a second the title draws at most.
+// PES17_FPS_LIMIT: how many frames a second the title draws at most.
 //
 // Unset or 60 is the console's pacing: D3D retires a frame at the display's
 // blank and the title's own limiter (com_maxfps) is at its 60. Any other
@@ -18,7 +18,7 @@ namespace frame_rate
     // com_maxfps: 0 is no limit, and 1000 is the most the title takes.
     inline uint32_t Limit()
     {
-        static const uint32_t limit = uint32_t(std::min<uint64_t>(env::Number("MW2_FPS_LIMIT", kConsole), 1000));
+        static const uint32_t limit = uint32_t(std::min<uint64_t>(env::Number("PES17_FPS_LIMIT", kConsole), 1000));
         return limit;
     }
 

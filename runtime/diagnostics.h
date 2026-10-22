@@ -2,26 +2,26 @@
 // What the game does not need to run: traces, dumps, statistics, the end-of-run
 // reports, the stutter detector and the headless test harness.
 //
-// -DMW2_DIAGNOSTICS=0 (RELEASE=1 ./build.sh, which sets that) builds without it;
+// -DPES17_DIAGNOSTICS=0 (RELEASE=1 ./build.sh, which sets that) builds without it;
 // the value is a number because kOn below compares it, not a word like OFF,
 // which the preprocessor would leave as an identifier and fail on. The code is
 // still compiled in that build, behind a constant false, so it cannot rot
 // unnoticed; the optimiser removes it. Only what must not exist at all -- a hook
-// on a guest function, a whole file of dumps -- is behind #if MW2_DIAGNOSTICS.
+// on a guest function, a whole file of dumps -- is behind #if PES17_DIAGNOSTICS.
 #include <cstdint>
 #include <type_traits>
 #include "counter.h"
 #include "env.h"
 
-#ifndef MW2_DIAGNOSTICS
-#   define MW2_DIAGNOSTICS 1
+#ifndef PES17_DIAGNOSTICS
+#   define PES17_DIAGNOSTICS 1
 #endif
 
 namespace diag
 {
-    inline constexpr bool kOn = MW2_DIAGNOSTICS != 0;
+    inline constexpr bool kOn = PES17_DIAGNOSTICS != 0;
 
-    // The MW2_* debug switches, read as env:: reads them; unset in a release build.
+    // The PES17_* debug switches, read as env:: reads them; unset in a release build.
     inline bool Flag(const char* name)
     {
         if constexpr (kOn) return env::Flag(name);

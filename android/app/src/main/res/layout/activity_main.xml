@@ -1,15 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- PC-launcher mirror, compact single screen (landscape, no scrolling):
-     right-aligned condensed entries with dividers left, detail pane with
-     gold rule right, version tag top-right, glowing wordmark bottom-right,
-     smoky BackdropView behind. Every entry keeps its action. -->
+<!-- The launcher, laid out like the game's own main menu: a right-aligned
+     list of entries on the left, the chosen entry's details on the right,
+     the wordmark bottom-right. Landscape, one screen, nothing scrolls. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#141417">
+    android:background="#070D1C">
 
-    <com.mw2.recomp.BackdropView
+    <com.pes2017.recomp.BackdropView
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
@@ -27,10 +26,10 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="end"
-            android:textColor="#8B949E"
+            android:textColor="#8FA0C2"
             android:textSize="9sp"
             android:fontFamily="sans-serif"
-            tools:text="v0.1.0-alpha · TU0 · DISC VERSION 1.0.557" />
+            tools:text="0.0.2-alpha · build 16 · EUROPE" />
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -48,77 +47,18 @@
 
                 <Button
                     android:id="@+id/play"
-                    android:layout_width="match_parent"
-                    android:layout_height="0dp"
-                    android:layout_weight="1"
-                    android:minHeight="0dp"
-                    android:background="@android:color/transparent"
-                    android:gravity="end|center_vertical"
-                    android:text="@string/play"
-                    android:textColor="#FFFFFF"
-                    android:textSize="14sp"
-                    android:fontFamily="sans-serif-condensed"
-                    android:letterSpacing="0.12"
-                    android:stateListAnimator="@null" />
+                    style="@style/MenuEntry"
+                    android:text="@string/play" android:textColor="#FFFFFF" android:textSize="15sp" />
 
                 <Button
-                    android:id="@+id/other_app"
-                    android:layout_width="match_parent"
-                    android:layout_height="0dp"
-                    android:layout_weight="1"
-                    android:minHeight="0dp"
-                    android:background="@android:color/transparent"
-                    android:gravity="end|center_vertical"
-                    android:textColor="#E8EAED"
-                    android:textSize="12sp"
-                    android:fontFamily="sans-serif-condensed"
-                    android:letterSpacing="0.12"
-                    android:stateListAnimator="@null" />
+                    android:id="@+id/select_folder"
+                    style="@style/MenuEntry"
+                    android:text="@string/entry_select_folder" />
 
                 <Button
                     android:id="@+id/install"
-                    android:layout_width="match_parent"
-                    android:layout_height="0dp"
-                    android:layout_weight="1"
-                    android:minHeight="0dp"
-                    android:background="@android:color/transparent"
-                    android:gravity="end|center_vertical"
-                    android:text="@string/install_game"
-                    android:textColor="#E8EAED"
-                    android:textSize="12sp"
-                    android:fontFamily="sans-serif-condensed"
-                    android:letterSpacing="0.12"
-                    android:stateListAnimator="@null" />
-
-                <Button
-                    android:id="@+id/entry_mods"
-                    android:layout_width="match_parent"
-                    android:layout_height="0dp"
-                    android:layout_weight="1"
-                    android:minHeight="0dp"
-                    android:background="@android:color/transparent"
-                    android:gravity="end|center_vertical"
-                    android:text="@string/entry_mods"
-                    android:textColor="#E8EAED"
-                    android:textSize="12sp"
-                    android:fontFamily="sans-serif-condensed"
-                    android:letterSpacing="0.12"
-                    android:stateListAnimator="@null" />
-
-                <Button
-                    android:id="@+id/entry_tu6"
-                    android:layout_width="match_parent"
-                    android:layout_height="0dp"
-                    android:layout_weight="1"
-                    android:minHeight="0dp"
-                    android:background="@android:color/transparent"
-                    android:gravity="end|center_vertical"
-                    android:text="@string/entry_tu6"
-                    android:textColor="#E8EAED"
-                    android:textSize="12sp"
-                    android:fontFamily="sans-serif-condensed"
-                    android:letterSpacing="0.12"
-                    android:stateListAnimator="@null" />
+                    style="@style/MenuEntry"
+                    android:text="@string/entry_install" />
 
                 <View
                     android:layout_width="match_parent"
@@ -126,52 +66,22 @@
                     android:layout_marginTop="2dp"
                     android:layout_marginBottom="2dp"
                     android:layout_marginStart="32dp"
-                    android:background="#3A3A3E" />
-
-                <Button
-                    android:id="@+id/driver"
-                    android:layout_width="match_parent"
-                    android:layout_height="0dp"
-                    android:layout_weight="1"
-                    android:minHeight="0dp"
-                    android:background="@android:color/transparent"
-                    android:gravity="end|center_vertical"
-                    android:text="@string/graphics_driver"
-                    android:textColor="#E8EAED"
-                    android:textSize="12sp"
-                    android:fontFamily="sans-serif-condensed"
-                    android:letterSpacing="0.12"
-                    android:stateListAnimator="@null" />
+                    android:background="#243457" />
 
                 <Button
                     android:id="@+id/settings"
-                    android:layout_width="match_parent"
-                    android:layout_height="0dp"
-                    android:layout_weight="1"
-                    android:minHeight="0dp"
-                    android:background="@android:color/transparent"
-                    android:gravity="end|center_vertical"
-                    android:text="@string/entry_settings"
-                    android:textColor="#E8EAED"
-                    android:textSize="12sp"
-                    android:fontFamily="sans-serif-condensed"
-                    android:letterSpacing="0.12"
-                    android:stateListAnimator="@null" />
+                    style="@style/MenuEntry"
+                    android:text="@string/entry_settings" />
+
+                <Button
+                    android:id="@+id/driver"
+                    style="@style/MenuEntry"
+                    android:text="@string/graphics_driver" />
 
                 <Button
                     android:id="@+id/log"
-                    android:layout_width="match_parent"
-                    android:layout_height="0dp"
-                    android:layout_weight="1"
-                    android:minHeight="0dp"
-                    android:background="@android:color/transparent"
-                    android:gravity="end|center_vertical"
-                    android:text="@string/view_log"
-                    android:textColor="#E8EAED"
-                    android:textSize="12sp"
-                    android:fontFamily="sans-serif-condensed"
-                    android:letterSpacing="0.12"
-                    android:stateListAnimator="@null" />
+                    style="@style/MenuEntry"
+                    android:text="@string/view_log" />
 
                 <View
                     android:layout_width="match_parent"
@@ -179,37 +89,17 @@
                     android:layout_marginTop="2dp"
                     android:layout_marginBottom="2dp"
                     android:layout_marginStart="32dp"
-                    android:background="#3A3A3E" />
+                    android:background="#243457" />
 
                 <Button
                     android:id="@+id/entry_updates"
-                    android:layout_width="match_parent"
-                    android:layout_height="0dp"
-                    android:layout_weight="1"
-                    android:minHeight="0dp"
-                    android:background="@android:color/transparent"
-                    android:gravity="end|center_vertical"
-                    android:text="@string/check_updates"
-                    android:textColor="#E8EAED"
-                    android:textSize="12sp"
-                    android:fontFamily="sans-serif-condensed"
-                    android:letterSpacing="0.12"
-                    android:stateListAnimator="@null" />
+                    style="@style/MenuEntry"
+                    android:text="@string/check_updates" />
 
                 <Button
                     android:id="@+id/entry_quit"
-                    android:layout_width="match_parent"
-                    android:layout_height="0dp"
-                    android:layout_weight="1"
-                    android:minHeight="0dp"
-                    android:background="@android:color/transparent"
-                    android:gravity="end|center_vertical"
-                    android:text="@string/quit_launcher"
-                    android:textColor="#E8EAED"
-                    android:textSize="12sp"
-                    android:fontFamily="sans-serif-condensed"
-                    android:letterSpacing="0.12"
-                    android:stateListAnimator="@null" />
+                    style="@style/MenuEntry"
+                    android:text="@string/quit_launcher" />
 
                 <androidx.appcompat.widget.SwitchCompat
                     android:id="@+id/direct_launch_switch"
@@ -217,8 +107,8 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
                     android:gravity="end"
-                    android:text="Direct launch on app start"
-                    android:textColor="#8B949E"
+                    android:text="@string/direct_launch"
+                    android:textColor="#8FA0C2"
                     android:textSize="10sp"
                     android:fontFamily="sans-serif-medium" />
             </LinearLayout>
@@ -236,7 +126,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="@string/detail_default_title"
-                    android:textColor="#F0F6FC"
+                    android:textColor="#FFFFFF"
                     android:textSize="16sp"
                     android:fontFamily="sans-serif-condensed"
                     android:letterSpacing="0.1" />
@@ -245,7 +135,7 @@
                     android:layout_width="48dp"
                     android:layout_height="2dp"
                     android:layout_marginTop="4dp"
-                    android:background="#C9A227" />
+                    android:background="#2CC4FF" />
 
                 <TextView
                     android:id="@+id/detail_text"
@@ -255,7 +145,7 @@
                     android:maxLines="6"
                     android:ellipsize="end"
                     android:text="@string/detail_default_text"
-                    android:textColor="#B9BDC4"
+                    android:textColor="#B4C2E0"
                     android:textSize="11sp"
                     android:lineSpacingExtra="2dp"
                     android:fontFamily="sans-serif" />
@@ -265,9 +155,9 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
-                    android:maxLines="4"
+                    android:maxLines="5"
                     android:ellipsize="end"
-                    android:textColor="#C9D1D9"
+                    android:textColor="#D6E2FF"
                     android:textSize="11sp"
                     android:lineSpacingExtra="2dp"
                     android:fontFamily="sans-serif" />
@@ -288,7 +178,7 @@
                 android:layout_weight="1"
                 android:maxLines="3"
                 android:ellipsize="end"
-                android:textColor="#8B949E"
+                android:textColor="#8FA0C2"
                 android:textSize="9sp"
                 android:lineSpacingExtra="1dp"
                 android:fontFamily="sans-serif" />
@@ -302,13 +192,22 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/wordmark_recompiled"
-                    android:textColor="#8CE99A"
-                    android:textSize="16sp"
+                    android:text="@string/wordmark"
+                    android:textColor="#EAF1FF"
+                    android:textSize="10sp"
+                    android:fontFamily="sans-serif-condensed"
+                    android:letterSpacing="0.3" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/wordmark_year"
+                    android:textColor="#2CC4FF"
+                    android:textSize="20sp"
                     android:fontFamily="sans-serif-black"
-                    android:letterSpacing="0.14"
-                    android:shadowColor="#2E7D32"
-                    android:shadowRadius="10"
+                    android:letterSpacing="0.12"
+                    android:shadowColor="#0B5FD8"
+                    android:shadowRadius="12"
                     android:shadowDx="0"
                     android:shadowDy="0" />
 
@@ -317,19 +216,9 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="1dp"
                     android:text="@string/disclaimer"
-                    android:textColor="#6E7681"
+                    android:textColor="#6B7BA0"
                     android:textSize="7sp"
                     android:fontFamily="sans-serif" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:text="@string/hint_choose"
-                    android:textColor="#6E7681"
-                    android:textSize="9sp"
-                    android:fontFamily="sans-serif"
-                    android:letterSpacing="0.06" />
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>

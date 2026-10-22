@@ -3,7 +3,8 @@
 // RCAS, a contrast-adaptive sharpen -- from the renderer's 1280x720 frame to the size the window shows
 // it at. A bilinear blit (what the presenter did before) leaves a phone's 1920x1080 picture soft.
 //
-// MW2_UPSCALER=bilinear (or `touch files/upscaler_off`) turns it off; MW2_FSR_SHARPNESS is RCAS's
+// Off by default (it costs about 5 fps on a throttled phone): PES17_UPSCALER=fsr or `touch files/upscaler_on` turns it on,
+// `touch files/upscaler_off` forces it off; PES17_FSR_SHARPNESS is RCAS's
 // sharpness reduction in stops, 0 the sharpest (default 0.2, as Xenia).
 #include <cstdint>
 #include "loader.h"

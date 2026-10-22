@@ -18,7 +18,7 @@
 
 namespace
 {
-    // MW2_FPS_LIMIT (frame_rate.h) takes the title off the display's blank
+    // PES17_FPS_LIMIT (frame_rate.h) takes the title off the display's blank
     // with what the console has for it. D3D's present puts the device's
     // D3DRS_PRESENTINTERVAL in the flip request, and its flip handler retires
     // a frame asked for with D3DPRESENT_INTERVAL_IMMEDIATE when the command
@@ -105,7 +105,7 @@ GUEST_HOOK(T_D3D_ArenaWait)
 }
 #endif
 
-#if MW2_DIAGNOSTICS && defined(T_D3D_ReplayRecording)
+#if PES17_DIAGNOSTICS && defined(T_D3D_ReplayRecording)
 namespace
 {
     std::atomic<uint64_t> g_endless{ 0 };

@@ -220,7 +220,7 @@ namespace
                             char perms[8] = {};
                             if (std::sscanf(line.c_str(), "%llx-%llx %7s", &from, &to, perms) == 3 &&
                                 perms[0] == 'r' && perms[2] == 'x' &&
-                                line.find("libmw2.so") != std::string::npos)
+                                line.find("libpes17.so") != std::string::npos)
                             {
                                 libFrom = from;
                                 libTo = to;
@@ -270,7 +270,7 @@ namespace
         _exit(3);
     }
 
-    // MW2_DUMP=<hexaddr>[:words][,...] prints blocks of guest memory when the
+    // PES17_DUMP=<hexaddr>[:words][,...] prints blocks of guest memory when the
     // watchdog fires. Several blocks, because the state that explains a stall is
     // rarely all in one place.
     void DumpOneBlock(const char* spec)
@@ -292,7 +292,7 @@ namespace
 
     void DumpGuestMemory()
     {
-        const char* spec = diag::Text("MW2_DUMP");
+        const char* spec = diag::Text("PES17_DUMP");
         if (!spec || !guest::Base()) return;
         for (const char* at = spec; at && *at; )
         {
@@ -322,7 +322,7 @@ namespace
             if (pthread_equal(t.handle, self)) continue;
             std::fprintf(stderr, "\n[E] ==== %s ====\n", t.name);
             std::fflush(stderr);
-#ifndef MW2_ANDROID
+#ifndef PES17_ANDROID
             g_dumping.store(true, std::memory_order_release);
             if (pthread_kill(t.handle, SIGUSR1) != 0) { g_dumping.store(false); continue; }
             // A last-gasp diagnostic, so a thread that never responds is skipped.
@@ -450,7 +450,7 @@ void crash::RegisterThread(const char* name)
     g_threads.push_back({ pthread_self(), t_name });
     // The system's name as well, so a profiler or /proc tells the threads apart.
     // Fifteen characters is all it keeps. Not the main thread's: its name is
-    // the process's, and `pgrep mw2` has to go on finding it.
+    // the process's, and `pgrep pes17` has to go on finding it.
     if (!platform::IsMainThread()) platform::SetThreadName(name);
 }
 
@@ -483,7 +483,7 @@ void crash::Install()
     sigaction(SIGUSR1, &dump, nullptr);
     if constexpr (diag::kOn) std::signal(SIGUSR2, SampleHandler);
 
-    if (const unsigned seconds = unsigned(diag::Number("MW2_WATCHDOG")))
+    if (const unsigned seconds = unsigned(diag::Number("PES17_WATCHDOG")))
     {
         std::signal(SIGALRM, AlarmHandler);
         alarm(seconds);
@@ -526,7 +526,7 @@ static void DescribeGuestContext(const PPCContext& ctx, const uint8_t* base)
     std::fprintf(stderr, "\n");
 }
 
-extern "C" void MW2ReportBadIndirectCall(unsigned int guestAddress, const void* guestContext, const uint8_t* base)
+extern "C" void PES17ReportBadIndirectCall(unsigned int guestAddress, const void* guestContext, const uint8_t* base)
 {
     std::fprintf(stderr, "\n[W] ---- indirect call to %08X has no recompiled function ----\n", guestAddress);
     if (guestContext && base) DescribeGuestContext(*static_cast<const PPCContext*>(guestContext), base);
@@ -537,7 +537,7 @@ extern "C" void MW2ReportBadIndirectCall(unsigned int guestAddress, const void* 
     else
         std::fprintf(stderr, "[W] target is inside the code range but was not identified as a function start\n");
     DumpBacktrace("indirect call backtrace");
-#ifndef MW2_ANDROID
+#ifndef PES17_ANDROID
     crash::OnFault();
     std::exit(4);
 #endif
@@ -613,7 +613,7 @@ namespace
 void crash::Install()
 {
     AddVectoredExceptionHandler(1, Handler);
-    if (const unsigned seconds = unsigned(diag::Number("MW2_WATCHDOG")))
+    if (const unsigned seconds = unsigned(diag::Number("PES17_WATCHDOG")))
     {
         LOGI("watchdog armed for %u seconds", seconds);
         std::thread([seconds] {
@@ -644,7 +644,7 @@ void crash::DumpAllThreads(const char* reason)
 void crash::StartHangMonitor() {}
 void crash::StopHangMonitor() {}
 
-extern "C" void MW2ReportBadIndirectCall(unsigned int guestAddress, const void*, const uint8_t*)
+extern "C" void PES17ReportBadIndirectCall(unsigned int guestAddress, const void*, const uint8_t*)
 {
     std::fprintf(stderr, "\n[E] ---- indirect call to %08X has no recompiled function ----\n", guestAddress);
     platform::PrintBacktrace("indirect call backtrace");

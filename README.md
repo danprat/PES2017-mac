@@ -1,7 +1,7 @@
 # PES 2017 — Xbox 360 → Android recompilation (work in progress)
 
 Ahead-of-time recompilation of *Pro Evolution Soccer 2017* (Xbox 360) to native
-ARM64 Android code, built on the `mw2-android` runtime. Read
+ARM64 Android code, built on the `pes17-android` runtime. Read
 [docs/PORTING.md](docs/PORTING.md) for exactly what works and what is left.
 
 ```bash

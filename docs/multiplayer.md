@@ -7,16 +7,16 @@ the recompiled tree it is linked against and the table of guest addresses it
 hooks.
 
     TITLE=mp ./build.sh
-    MW2_CONSOLE="8:map mp_afghan" ./build-mp/mw2 mw2/default_mp.pe mw2/game
+    PES17_CONSOLE="8:map mp_afghan" ./build-mp/pes17 pes17/default_mp.pe pes17/game
 
 ## One runtime, two titles
 
 | | campaign | multiplayer |
 |---|---|---|
-| executable | `mw2/default.xex` | `mw2/default_mp.xex` |
-| flat image | `mw2/default.pe` | `mw2/default_mp.pe` |
+| executable | `pes17/default.xex` | `pes17/default_mp.xex` |
+| flat image | `pes17/default.pe` | `pes17/default_mp.pe` |
 | recompiler config | `config/MW2.toml` | `config/MW2MP.toml` |
-| switch tables | `config/mw2_switch_tables.toml` | `config/mw2mp_switch_tables.toml` |
+| switch tables | `config/pes17_switch_tables.toml` | `config/pes17mp_switch_tables.toml` |
 | generated C++ | `ppc/` | `ppc_mp/` |
 | build directory | `build/` (`build-release/`) | `build-mp/` (`build-mp-release/`) |
 
@@ -25,8 +25,8 @@ are a build option with names of their own
 ([building.md](building.md#the-disc-version)).
 
 `build.sh` takes `TITLE=sp` (the default) or `TITLE=mp`. CMake takes
-`-DMW2_TITLE=sp|mp`, which selects the recompiled tree and, for `mp`, defines
-`MW2_TITLE_MP`. The Python tools make the same choice through the `MW2_TITLE`
+`-DPES17_TITLE=sp|mp`, which selects the recompiled tree and, for `mp`, defines
+`PES17_TITLE_MP`. The Python tools make the same choice through the `PES17_TITLE`
 environment variable (`tools/title.py`), which reads the PE section table from
 the image because the two executables lay their sections out differently.
 
@@ -81,7 +81,7 @@ beside them ([gameplay.md](gameplay.md#movies)); the multiplayer plays none.
 **A network link.** The multiplayer refuses to start any match without one, and
 a system-link match is how it reaches a map. `XNetGetEthernetLinkStatus`
 (`runtime/kernel/net.cpp`) reports an active 100 Mb/s full-duplex link in the
-multiplayer build and no link in the campaign build; `MW2_NET_LINK=0|1`
+multiplayer build and no link in the campaign build; `PES17_NET_LINK=0|1`
 overrides either.
 
 **Sessions through XAM.** The title's session, matchmaking and statistics calls
@@ -102,7 +102,7 @@ worker polls for the result, so `EVENT_WRITE_ZPD` must always write its
 sample-count record. See [rendering.md](rendering.md).
 
 **No `setviewpos`.** The multiplayer refuses it, so a spot is reached by walking
-there (`MW2_WALK_TO`, `MW2_WALK_PATH`; [switches.md](switches.md)).
+there (`PES17_WALK_TO`, `PES17_WALK_PATH`; [switches.md](switches.md)).
 
 ## The online service
 
@@ -126,7 +126,7 @@ sockets, ports -- and asks the service only for what a service does:
     ONLINE=steam TITLE=mp ./build.sh    # through the player's Steam client, or lan without it
 
 A backend is one file, `runtime/online/<name>.cpp`, with a function that makes
-it (`online::MakeLan`). `ONLINE` (CMake `MW2_ONLINE`) says which are built in,
+it (`online::MakeLan`). `ONLINE` (CMake `PES17_ONLINE`) says which are built in,
 and `online::Get()` tries them in `service.cpp`'s order and keeps the first
 whose `Start()` succeeds: `steam` builds Steam and then lan, so a player whose
 Steam is not running plays over the local network instead, as another player
@@ -159,39 +159,39 @@ by the host's `connect` line.
 A system-link host logs the line another machine joins with:
 `online: hosting; another machine joins with "connect <xnaddr> <key> <id>
 <public> <private> <nonce>"` -- the same command the title's server browser
-issues after a search. `MW2_TRACE_ONLINE=1` logs every datagram through the
+issues after a search. `PES17_TRACE_ONLINE=1` logs every datagram through the
 service (diagnostic builds).
 
 ### LAN
 
 `runtime/online/lan.cpp`: plain UDP on the local network. Each copy sends from a
 port of its own, the first free one above the shared port; broadcasts go to the
-shared port, `MW2_LAN_PORT` (3074). A peer id is the IPv4 address in the top
+shared port, `PES17_LAN_PORT` (3074). A peer id is the IPv4 address in the top
 bits and the port in the low 16.
 
 The account is the profile at the first controller
 ([gameplay.md](gameplay.md#signing-in)) plus the copy's port slot, so a second
-copy on one machine is a second player; `MW2_NAME` is another name for him than
+copy on one machine is a second player; `PES17_NAME` is another name for him than
 the profile's. The log names the network connections found and the one
 announced, and says so when another machine on the network has the same
 account.
 
 Every copy announces who it is and what can be joined once a second on the
-shared port. `MW2_LAN_JOIN=<name>` joins that player's party or lobby as soon as
+shared port. `PES17_LAN_JOIN=<name>` joins that player's party or lobby as soon as
 it is seen, as choosing a friend and "Join Session" does on the console. The
 lobby's "Invite friends" invites every player seen; a copy started with
-`MW2_LAN_ACCEPT=1` accepts.
+`PES17_LAN_ACCEPT=1` accepts.
 
 ### Steam
 
 `runtime/online/steam.cpp` talks to the Steam client the player already runs.
 It loads the client library from the install -- the usual location, the snap,
-the Flatpak, or `MW2_STEAMCLIENT` on Linux; `steamclient64.dll` from the
+the Flatpak, or `PES17_STEAMCLIENT` on Linux; `steamclient64.dll` from the
 registry's `SteamPath` on Windows -- and calls its versioned interfaces through
 their vtables, as `libsteam_api` does. Nothing of Valve's is built in or
 shipped; the Steamworks SDK is a reference for slots and structures only.
 
-The game runs as Spacewar, app 480 (`MW2_STEAM_APPID`). The app id is put in the
+The game runs as Spacewar, app 480 (`PES17_STEAM_APPID`). The app id is put in the
 environment before the library loads, because the client reads it at load time
 and its networking has no interface to give otherwise. Environment variables the
 client adds for SDL are taken back, since they would hide every physical
@@ -265,13 +265,13 @@ refuses as signed out.
 |---|---|
 | `TITLE=sp\|mp` | `build.sh`: which executable to build |
 | `ONLINE=none\|lan\|steam` | `build.sh`: which online service to build in |
-| `MW2_NET_LINK=0\|1` | Ethernet link reported down or up (default: up in the multiplayer, down in the campaign) |
-| `MW2_NAME` | lan: the player's name |
-| `MW2_LAN_PORT` | lan: the shared broadcast port (3074) |
-| `MW2_LAN_JOIN=<name>` | lan: join that player's party or lobby when seen |
-| `MW2_LAN_ACCEPT=1` | lan: accept invitations |
-| `MW2_STEAMCLIENT=<path>` | steam: the client library to load |
-| `MW2_STEAM_APPID` | steam: the app id to run as (480) |
-| `MW2_TRACE_ONLINE=1` | log every datagram (diagnostic builds) |
+| `PES17_NET_LINK=0\|1` | Ethernet link reported down or up (default: up in the multiplayer, down in the campaign) |
+| `PES17_NAME` | lan: the player's name |
+| `PES17_LAN_PORT` | lan: the shared broadcast port (3074) |
+| `PES17_LAN_JOIN=<name>` | lan: join that player's party or lobby when seen |
+| `PES17_LAN_ACCEPT=1` | lan: accept invitations |
+| `PES17_STEAMCLIENT=<path>` | steam: the client library to load |
+| `PES17_STEAM_APPID` | steam: the app id to run as (480) |
+| `PES17_TRACE_ONLINE=1` | log every datagram (diagnostic builds) |
 
 The full list is in [switches.md](switches.md).

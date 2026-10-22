@@ -26,7 +26,7 @@ namespace
 
     const char* Path()
     {
-        static const char* path = diag::Text("MW2_TRACE_PACING");
+        static const char* path = diag::Text("PES17_TRACE_PACING");
         return path;
     }
 }
@@ -37,7 +37,7 @@ int64_t pacing::Microseconds()
                std::chrono::steady_clock::now() - g_began).count();
 }
 
-#if MW2_DIAGNOSTICS
+#if PES17_DIAGNOSTICS
 bool pacing::On() { return Path() != nullptr; }
 
 void pacing::Note(Event event, uint32_t value)

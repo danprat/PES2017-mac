@@ -11,7 +11,7 @@
 #include "../guest.h"
 #include "../log.h"
 
-#ifdef MW2_ANDROID
+#ifdef PES17_ANDROID
 #include "../android/android.h"
 #endif
 
@@ -80,7 +80,7 @@ namespace
 // (UserIndex*, Flags, XINPUT_KEYSTROKE*). The user is 0xFF for "any".
 PPC_FUNC(__imp__XamInputGetKeystrokeEx)
 {
-#ifdef MW2_ANDROID
+#ifdef PES17_ANDROID
     const uint32_t userPtr = ctx.r3.u32, out = ctx.r5.u32;
     const uint32_t requested = userPtr ? uint32_t(*GuestPtr<be32>(userPtr)) : 0xFF;
     if (!out) { ctx.r3.u64 = X_ERROR_EMPTY; return; }

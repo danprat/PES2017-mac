@@ -29,11 +29,11 @@ namespace vk::bc
     {
         static const AdrenoBC mode = []
         {
-            const char* value = env::Text("MW2_ADRENO_BC");
+            const char* value = env::Text("PES17_ADRENO_BC");
             if (!value) return AdrenoBC::kAll;
             if (!std::strcmp(value, "hw")) return AdrenoBC::kHardware;
             if (!std::strcmp(value, "dxt1") || !std::strcmp(value, "narrow")) return AdrenoBC::kDxt1Only;
-            LOGW("vulkan: MW2_ADRENO_BC=%s is neither hw nor dxt1; the whole workaround applies", value);
+            LOGW("vulkan: PES17_ADRENO_BC=%s is neither hw nor dxt1; the whole workaround applies", value);
             return AdrenoBC::kAll;
         }();
         return mode;

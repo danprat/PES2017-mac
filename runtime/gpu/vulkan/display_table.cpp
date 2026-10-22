@@ -5,7 +5,7 @@
 #include "../gpu.h"
 #include "../../log.h"
 
-#ifndef MW2_HAVE_VULKAN
+#ifndef PES17_HAVE_VULKAN
 bool vk::display::Initialise() { return false; }
 void vk::display::Shutdown() {}
 bool vk::display::Ready() { return false; }

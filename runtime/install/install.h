@@ -89,7 +89,7 @@ namespace install
     // and the next install carries on from there.
     void CancelInstall();
 
-#ifdef MW2_ANDROID
+#ifdef PES17_ANDROID
     // Applies downloaded title update 6 to an installed disc (TU6 builds
     // only): patches both executables in memory exactly as the PC launcher's
     // install does, and lays the update's fastfiles beside the disc's. The

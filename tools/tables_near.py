@@ -4,7 +4,7 @@ bounds when the analyser split wrongly. Prints each [[switch]] block whose
 addresses come within 0x400 of the address: its range, how many addresses it
 holds, and its first lines. Addresses only, no game data.
 
-    python3 tools/tables_near.py config/mw2mp_switch_tables.toml 0x8241A84C
+    python3 tools/tables_near.py config/pes17mp_switch_tables.toml 0x8241A84C
 """
 import re
 import sys

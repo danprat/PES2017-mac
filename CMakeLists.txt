@@ -26,24 +26,24 @@ endif()
 # off there whatever the cache says -- and a default the Gradle build does not
 # have to repeat.
 if(ANDROID)
-    set(MW2_USE_SDL OFF CACHE BOOL "Use SDL3 (not on Android)" FORCE)
+    set(PES17_USE_SDL OFF CACHE BOOL "Use SDL3 (not on Android)" FORCE)
 endif()
-option(MW2_USE_SDL "Use SDL3 for gamepad input (and later window/audio)" ON)
-option(MW2_TRACE_INDIRECT "Report indirect calls with no recompiled target instead of jumping to null" ON)
-option(MW2_LOGGING "Emit the runtime's log" ON)
-option(MW2_PORTABLE "Link the C++ runtime statically, for a binary that runs on other machines" OFF)
-option(MW2_DIAGNOSTICS "Build the traces, dumps, statistics, reports and test harness (runtime/diagnostics.h)" ON)
+option(PES17_USE_SDL "Use SDL3 for gamepad input (and later window/audio)" ON)
+option(PES17_TRACE_INDIRECT "Report indirect calls with no recompiled target instead of jumping to null" ON)
+option(PES17_LOGGING "Emit the runtime's log" ON)
+option(PES17_PORTABLE "Link the C++ runtime statically, for a binary that runs on other machines" OFF)
+option(PES17_DIAGNOSTICS "Build the traces, dumps, statistics, reports and test harness (runtime/diagnostics.h)" ON)
 
 # ---- which executable ------------------------------------------------------
 # PES 2017 ships one executable, default.xex; build.sh recompiles it into ppc/.
-set(MW2_TITLE "sp")
-set(MW2_VERSION "tu0")
-set(MW2_PPC_DIR "${CMAKE_SOURCE_DIR}/ppc")
+set(PES17_TITLE "sp")
+set(PES17_VERSION "tu0")
+set(PES17_PPC_DIR "${CMAKE_SOURCE_DIR}/ppc")
 
-file(GLOB PPC_SOURCES CONFIGURE_DEPENDS "${MW2_PPC_DIR}/ppc_recomp.*.cpp")
-list(APPEND PPC_SOURCES "${MW2_PPC_DIR}/ppc_func_mapping.cpp")
+file(GLOB PPC_SOURCES CONFIGURE_DEPENDS "${PES17_PPC_DIR}/ppc_recomp.*.cpp")
+list(APPEND PPC_SOURCES "${PES17_PPC_DIR}/ppc_func_mapping.cpp")
 if(NOT PPC_SOURCES)
-    message(FATAL_ERROR "${MW2_PPC_DIR} is empty -- run TITLE=${MW2_TITLE} VERSION=${MW2_VERSION} ./build.sh first to generate it")
+    message(FATAL_ERROR "${PES17_PPC_DIR} is empty -- run TITLE=${PES17_TITLE} VERSION=${PES17_VERSION} ./build.sh first to generate it")
 endif()
 
 add_library(ppc_recomp STATIC ${PPC_SOURCES})
@@ -52,7 +52,7 @@ if(NOT EXISTS "${SIMDE_INCLUDE_DIR}/simde/simde-common.h" AND EXISTS "${CMAKE_SO
     set(SIMDE_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/third_party/simde")
 endif()
 target_include_directories(ppc_recomp PUBLIC
-    "${MW2_PPC_DIR}"
+    "${PES17_PPC_DIR}"
     "${SIMDE_INCLUDE_DIR}"
     "${SIMDE_INCLUDE_DIR}/simde")
 # The generated code is machine output; its warnings are noise.
@@ -70,13 +70,13 @@ option(PES_TRAP_INF "Report stores of infinity (arm with files/trap_inf); slows 
 if(PES_TRAP_INF)
     target_compile_definitions(ppc_recomp PRIVATE PES_TRAP_INF=1)
 endif()
-if(NOT MW2_LOGGING)
+if(NOT PES17_LOGGING)
     # Compiles every LOGI/LOGW/LOGE/LOGK call to nothing, warnings included.
-    add_compile_definitions(MW2_NO_LOGGING=1)
+    add_compile_definitions(PES17_NO_LOGGING=1)
 endif()
 
-if(MW2_TRACE_INDIRECT)
-    target_compile_definitions(ppc_recomp PUBLIC MW2_TRACE_INDIRECT=1)
+if(PES17_TRACE_INDIRECT)
+    target_compile_definitions(ppc_recomp PUBLIC PES17_TRACE_INDIRECT=1)
 endif()
 
 # ---- runtime ---------------------------------------------------------------
@@ -117,7 +117,7 @@ if(ANDROID)
             "${XENON}/XenonUtils/memory_mapped_file.cpp"
             "${XENON}/thirdparty/libmspack/libmspack/mspack/lzxd.c"
             "${XENON}/thirdparty/tiny-AES-c/aes.c")
-        set(MW2_XENON_INCLUDES
+        set(PES17_XENON_INCLUDES
             "${XENON}/XenonUtils"
             "${XENON}/thirdparty/simde"
             "${XENON}/thirdparty/libmspack/libmspack/mspack"
@@ -134,93 +134,93 @@ endif()
 # system link on this machine, "lan" is plain UDP between machines, "steam" is
 # Steam, with lan behind it for when Steam is not running. A backend is the one
 # file runtime/online/<name>.cpp; the runtime tries them in service.cpp's order.
-set(MW2_ONLINE "none" CACHE STRING "Online service: none, lan or steam")
-if(MW2_ONLINE STREQUAL "none")
-    set(MW2_ONLINE_BACKENDS "")
-elseif(MW2_ONLINE STREQUAL "lan")
-    set(MW2_ONLINE_BACKENDS lan)
-elseif(MW2_ONLINE STREQUAL "steam")
-    set(MW2_ONLINE_BACKENDS steam lan)
+set(PES17_ONLINE "none" CACHE STRING "Online service: none, lan or steam")
+if(PES17_ONLINE STREQUAL "none")
+    set(PES17_ONLINE_BACKENDS "")
+elseif(PES17_ONLINE STREQUAL "lan")
+    set(PES17_ONLINE_BACKENDS lan)
+elseif(PES17_ONLINE STREQUAL "steam")
+    set(PES17_ONLINE_BACKENDS steam lan)
 else()
-    message(FATAL_ERROR "MW2_ONLINE=${MW2_ONLINE}: none, lan or steam")
+    message(FATAL_ERROR "PES17_ONLINE=${PES17_ONLINE}: none, lan or steam")
 endif()
-set(MW2_ONLINE_SOURCES "")
-set(MW2_ONLINE_DEFINITIONS "")
-foreach(backend ${MW2_ONLINE_BACKENDS})
-    list(APPEND MW2_ONLINE_SOURCES "${CMAKE_SOURCE_DIR}/runtime/online/${backend}.cpp")
+set(PES17_ONLINE_SOURCES "")
+set(PES17_ONLINE_DEFINITIONS "")
+foreach(backend ${PES17_ONLINE_BACKENDS})
+    list(APPEND PES17_ONLINE_SOURCES "${CMAKE_SOURCE_DIR}/runtime/online/${backend}.cpp")
     string(TOUPPER "${backend}" backend_upper)
-    list(APPEND MW2_ONLINE_DEFINITIONS "MW2_ONLINE_${backend_upper}=1")
+    list(APPEND PES17_ONLINE_DEFINITIONS "PES17_ONLINE_${backend_upper}=1")
 endforeach()
-message(STATUS "Online service: ${MW2_ONLINE}")
+message(STATUS "Online service: ${PES17_ONLINE}")
 
 # On Android there is no process of ours to be the executable: the app's
-# activity is the process, and this is what it loads (libmw2.so, System
-# .loadLibrary("mw2"), runtime/android/jni.cpp). Everywhere else it is the
+# activity is the process, and this is what it loads (libpes17.so, System
+# .loadLibrary("pes17"), runtime/android/jni.cpp). Everywhere else it is the
 # program itself.
 if(ANDROID)
-    add_library(mw2 SHARED ${RUNTIME_SOURCES}
+    add_library(pes17 SHARED ${RUNTIME_SOURCES}
         "${CMAKE_SOURCE_DIR}/runtime/online/service.cpp"
-        ${MW2_ONLINE_SOURCES}
-        "${MW2_PPC_DIR}/stubs_generated.cpp")
+        ${PES17_ONLINE_SOURCES}
+        "${PES17_PPC_DIR}/stubs_generated.cpp")
 else()
-    add_executable(mw2 ${RUNTIME_SOURCES}
+    add_executable(pes17 ${RUNTIME_SOURCES}
         "${CMAKE_SOURCE_DIR}/runtime/online/service.cpp"
-        ${MW2_ONLINE_SOURCES}
-        "${MW2_PPC_DIR}/stubs_generated.cpp")
+        ${PES17_ONLINE_SOURCES}
+        "${PES17_PPC_DIR}/stubs_generated.cpp")
 endif()
-target_link_libraries(mw2 PRIVATE ppc_recomp)
+target_link_libraries(pes17 PRIVATE ppc_recomp)
 # ppc_recomp_shared.h declares a function taking uint8_t before every includer has <cstdint>.
-target_compile_options(mw2 PRIVATE $<$<COMPILE_LANGUAGE:CXX>:SHELL:-include cstdint>)
-target_compile_definitions(mw2 PRIVATE ${MW2_ONLINE_DEFINITIONS})
-if(MW2_DIAGNOSTICS)
-    target_compile_definitions(mw2 PRIVATE MW2_DIAGNOSTICS=1)
+target_compile_options(pes17 PRIVATE $<$<COMPILE_LANGUAGE:CXX>:SHELL:-include cstdint>)
+target_compile_definitions(pes17 PRIVATE ${PES17_ONLINE_DEFINITIONS})
+if(PES17_DIAGNOSTICS)
+    target_compile_definitions(pes17 PRIVATE PES17_DIAGNOSTICS=1)
 else()
-    target_compile_definitions(mw2 PRIVATE MW2_DIAGNOSTICS=0)
+    target_compile_definitions(pes17 PRIVATE PES17_DIAGNOSTICS=0)
 endif()
-target_include_directories(mw2 PRIVATE "${CMAKE_SOURCE_DIR}/runtime")
+target_include_directories(pes17 PRIVATE "${CMAKE_SOURCE_DIR}/runtime")
 # The runtime checks the disc's executable against this hash before installing.
-if(NOT MW2_XEX_SHA256_SP)
+if(NOT PES17_XEX_SHA256_SP)
     if(EXISTS "${CMAKE_SOURCE_DIR}/pes/default.xex")
         set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/pes/default.xex")
-        file(SHA256 "${CMAKE_SOURCE_DIR}/pes/default.xex" MW2_XEX_SHA256_SP)
+        file(SHA256 "${CMAKE_SOURCE_DIR}/pes/default.xex" PES17_XEX_SHA256_SP)
     else()
         message(FATAL_ERROR "pes/default.xex is missing -- build.sh extracts it from the ISO")
     endif()
 endif()
-set(MW2_XEX_SHA256_MP "${MW2_XEX_SHA256_SP}")
-set(MW2_DISC_SHA256_SP "${MW2_XEX_SHA256_SP}")
-set(MW2_DISC_SHA256_MP "${MW2_XEX_SHA256_SP}")
-target_compile_definitions(mw2 PRIVATE
-    MW2_XEX_SHA256_SP="${MW2_XEX_SHA256_SP}" MW2_XEX_SHA256_MP="${MW2_XEX_SHA256_MP}"
-    MW2_DISC_SHA256_SP="${MW2_DISC_SHA256_SP}" MW2_DISC_SHA256_MP="${MW2_DISC_SHA256_MP}"
-    MW2_UPDATE_SHA256_PATCH_MP="" MW2_UPDATE_SHA256_DLC1_UI_MP="" MW2_UPDATE_SHA256_DLC2_UI_MP="")
-if(MW2_XENON_INCLUDES)
-    target_include_directories(mw2 PRIVATE ${MW2_XENON_INCLUDES})
-    target_compile_definitions(mw2 PRIVATE MW2_HAVE_XEX_PATCHER=1)
+set(PES17_XEX_SHA256_MP "${PES17_XEX_SHA256_SP}")
+set(PES17_DISC_SHA256_SP "${PES17_XEX_SHA256_SP}")
+set(PES17_DISC_SHA256_MP "${PES17_XEX_SHA256_SP}")
+target_compile_definitions(pes17 PRIVATE
+    PES17_XEX_SHA256_SP="${PES17_XEX_SHA256_SP}" PES17_XEX_SHA256_MP="${PES17_XEX_SHA256_MP}"
+    PES17_DISC_SHA256_SP="${PES17_DISC_SHA256_SP}" PES17_DISC_SHA256_MP="${PES17_DISC_SHA256_MP}"
+    PES17_UPDATE_SHA256_PATCH_MP="" PES17_UPDATE_SHA256_DLC1_UI_MP="" PES17_UPDATE_SHA256_DLC2_UI_MP="")
+if(PES17_XENON_INCLUDES)
+    target_include_directories(pes17 PRIVATE ${PES17_XENON_INCLUDES})
+    target_compile_definitions(pes17 PRIVATE PES17_HAVE_XEX_PATCHER=1)
 endif()
 if(WIN32)
     # One executable with nothing beside it: the C++ runtime and the threads
     # linked in. The recompiled code nests deep on the host stack, and a thread
     # Windows starts gets the size the executable asks for: 16 MB, where Linux
     # gives 8.
-    target_link_libraries(mw2 PRIVATE ws2_32 iphlpapi winmm bcrypt)
-    target_link_options(mw2 PRIVATE -static -Wl,--stack,16777216)
+    target_link_libraries(pes17 PRIVATE ws2_32 iphlpapi winmm bcrypt)
+    target_link_options(pes17 PRIVATE -static -Wl,--stack,16777216)
     # A player's build opens no console window (runtime/platform.cpp).
-    if(NOT MW2_DIAGNOSTICS)
-        target_link_options(mw2 PRIVATE -mwindows)
+    if(NOT PES17_DIAGNOSTICS)
+        target_link_options(pes17 PRIVATE -mwindows)
     endif()
 elseif(ANDROID)
     include(cmake/android.cmake)
 else()
     # -rdynamic so backtrace_symbols can resolve the sub_XXXXXXXX guest functions.
-    set_target_properties(mw2 PROPERTIES ENABLE_EXPORTS ON)
-    target_link_options(mw2 PRIVATE -rdynamic)
-    if(MW2_PORTABLE)
-        target_link_options(mw2 PRIVATE -static-libstdc++ -static-libgcc)
+    set_target_properties(pes17 PROPERTIES ENABLE_EXPORTS ON)
+    target_link_options(pes17 PRIVATE -rdynamic)
+    if(PES17_PORTABLE)
+        target_link_options(pes17 PRIVATE -static-libstdc++ -static-libgcc)
     endif()
 endif()
 
-if(MW2_USE_SDL)
+if(PES17_USE_SDL)
     include(FetchContent)
     FetchContent_Declare(SDL3
         GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
@@ -230,20 +230,20 @@ if(MW2_USE_SDL)
     set(SDL_STATIC ON  CACHE BOOL "" FORCE)
     set(SDL_TEST   OFF CACHE BOOL "" FORCE)
     FetchContent_MakeAvailable(SDL3)
-    target_link_libraries(mw2 PRIVATE SDL3::SDL3-static)
-    target_compile_definitions(mw2 PRIVATE MW2_USE_SDL=1)
+    target_link_libraries(pes17 PRIVATE SDL3::SDL3-static)
+    target_compile_definitions(pes17 PRIVATE PES17_USE_SDL=1)
 endif()
 
 # ---- XMA decoder ----------------------------------------------------------
 add_subdirectory(third_party/ffmpeg-xenia)
-target_link_libraries(mw2 PRIVATE ffmpeg_xma)
+target_link_libraries(pes17 PRIVATE ffmpeg_xma)
 
 # ---- Vulkan ----------------------------------------------------------------
 # Loaded through the loader rather than linked to a driver, so a machine without
 # a device still builds and runs; the presenter falls back to headless.
 if(WIN32)
     include(cmake/vulkan-windows.cmake)
-    add_dependencies(mw2 vulkan_import_library)
+    add_dependencies(pes17 vulkan_import_library)
 elseif(ANDROID)
     # The NDK's sysroot carries the headers and a libvulkan.so, but this build
     # links neither: which Vulkan the process talks to is decided while it
@@ -257,16 +257,16 @@ else()
 endif()
 if(Vulkan_FOUND)
     if(NOT ANDROID)
-        target_link_libraries(mw2 PRIVATE Vulkan::Vulkan)
+        target_link_libraries(pes17 PRIVATE Vulkan::Vulkan)
     endif()
-    target_compile_definitions(mw2 PRIVATE MW2_HAVE_VULKAN=1)
+    target_compile_definitions(pes17 PRIVATE PES17_HAVE_VULKAN=1)
     message(STATUS "Vulkan found: ${Vulkan_LIBRARY}")
 else()
     message(STATUS "Vulkan not found -- building without a window")
 endif()
 
 if(NOT WIN32 AND NOT ANDROID)
-    target_link_libraries(mw2 PRIVATE pthread)
+    target_link_libraries(pes17 PRIVATE pthread)
 endif()
 
 # The two tools below are for working on the renderer, on Linux.
@@ -288,7 +288,7 @@ target_include_directories(translate-shader PRIVATE "${CMAKE_SOURCE_DIR}/runtime
 # stronger check than spirv-val: it is the compiler that would run the shader.
 if(Vulkan_FOUND)
     target_link_libraries(translate-shader PRIVATE Vulkan::Vulkan)
-    target_compile_definitions(translate-shader PRIVATE MW2_HAVE_VULKAN=1)
+    target_compile_definitions(translate-shader PRIVATE PES17_HAVE_VULKAN=1)
 endif()
 
 # ---- offline texture upload ------------------------------------------------
@@ -308,7 +308,7 @@ add_executable(upload-texture
 target_include_directories(upload-texture PRIVATE "${CMAKE_SOURCE_DIR}/runtime")
 if(Vulkan_FOUND)
     target_link_libraries(upload-texture PRIVATE Vulkan::Vulkan)
-    target_compile_definitions(upload-texture PRIVATE MW2_HAVE_VULKAN=1)
+    target_compile_definitions(upload-texture PRIVATE PES17_HAVE_VULKAN=1)
 endif()
 
 # ---- the software decoder's speed ------------------------------------------
@@ -322,7 +322,7 @@ add_executable(bc-bench
 target_include_directories(bc-bench PRIVATE "${CMAKE_SOURCE_DIR}/runtime")
 if(Vulkan_FOUND)
     target_link_libraries(bc-bench PRIVATE Vulkan::Vulkan)
-    target_compile_definitions(bc-bench PRIVATE MW2_HAVE_VULKAN=1)
+    target_compile_definitions(bc-bench PRIVATE PES17_HAVE_VULKAN=1)
 endif()
 
 # ---- the checks `ctest` runs -----------------------------------------------
@@ -340,7 +340,7 @@ endif()
 # executable with nothing beside it, like the game's: Dear ImGui on SDL's own
 # renderer, the fonts as arrays, and XenonRecomp's patcher, which applies the
 # title update, compiled in from its checkout.
-if(MW2_USE_SDL)
+if(PES17_USE_SDL)
     enable_language(C)
     FetchContent_Declare(imgui
         GIT_REPOSITORY https://github.com/ocornut/imgui.git
@@ -349,7 +349,7 @@ if(MW2_USE_SDL)
     FetchContent_MakeAvailable(imgui)
 
     # third_party/fonts/*.ttf as C arrays.
-    set(MW2_FONTS_SOURCE "${CMAKE_BINARY_DIR}/launcher_fonts.cpp")
+    set(PES17_FONTS_SOURCE "${CMAKE_BINARY_DIR}/launcher_fonts.cpp")
     set(fonts_text "// Generated by CMake from third_party/fonts/.\n")
     foreach(font "Menu=BarlowCondensed-Regular" "Heading=BarlowCondensed-Medium" "Body=BarlowSemiCondensed-Regular")
         string(REPLACE "=" ";" font "${font}")
@@ -373,18 +373,18 @@ if(MW2_USE_SDL)
     string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," icon_bytes "${icon_hex}")
     string(APPEND fonts_text "extern const unsigned char kIcon[] = { ${icon_bytes} };\n"
                              "extern const unsigned kIconSize = ${icon_size};\n")
-    file(GENERATE OUTPUT "${MW2_FONTS_SOURCE}" CONTENT "${fonts_text}")
+    file(GENERATE OUTPUT "${PES17_FONTS_SOURCE}" CONTENT "${fonts_text}")
 
     # The game draws its sign-in screen (runtime/signin.cpp) with the same
     # fonts, rasterised by the stb_truetype that comes with Dear ImGui.
-    target_sources(mw2 PRIVATE "${MW2_FONTS_SOURCE}")
-    target_include_directories(mw2 PRIVATE "${imgui_SOURCE_DIR}")
-    target_compile_definitions(mw2 PRIVATE MW2_SIGNIN_PICTURE=1)
+    target_sources(pes17 PRIVATE "${PES17_FONTS_SOURCE}")
+    target_include_directories(pes17 PRIVATE "${imgui_SOURCE_DIR}")
+    target_compile_definitions(pes17 PRIVATE PES17_SIGNIN_PICTURE=1)
 
     set(XENON "${CMAKE_SOURCE_DIR}/XenonRecomp")
     file(GLOB LAUNCHER_SOURCES CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/launcher/*.cpp")
     add_executable(launcher ${LAUNCHER_SOURCES}
-        "${MW2_FONTS_SOURCE}"
+        "${PES17_FONTS_SOURCE}"
         "${CMAKE_SOURCE_DIR}/runtime/install/crypto.cpp"
         "${CMAKE_SOURCE_DIR}/runtime/install/xex.cpp"
         "${CMAKE_SOURCE_DIR}/runtime/install/spawn.cpp"
@@ -398,23 +398,23 @@ if(MW2_USE_SDL)
         "${XENON}/XenonUtils/memory_mapped_file.cpp"
         "${XENON}/thirdparty/libmspack/libmspack/mspack/lzxd.c"
         "${XENON}/thirdparty/tiny-AES-c/aes.c")
-    set_target_properties(launcher PROPERTIES OUTPUT_NAME mw2-launcher)
+    set_target_properties(launcher PROPERTIES OUTPUT_NAME pes17-launcher)
     target_include_directories(launcher PRIVATE
         "${imgui_SOURCE_DIR}" "${imgui_SOURCE_DIR}/backends"
         "${XENON}/XenonUtils" "${XENON}/thirdparty/simde"
         "${XENON}/thirdparty/libmspack/libmspack/mspack"
         "${XENON}/thirdparty/tiny-AES-c" "${XENON}/thirdparty/TinySHA1")
-    target_compile_definitions(launcher PRIVATE ${MW2_HASH_DEFINITIONS} NOMINMAX)
+    target_compile_definitions(launcher PRIVATE ${PES17_HASH_DEFINITIONS} NOMINMAX)
     # What release this is, for the launcher to look for a newer one: the
     # release workflow gives the tag. A build without one does not update.
-    set(MW2_RELEASE_TAG "" CACHE STRING "The release tag this build is published as, e.g. v0.3.0")
+    set(PES17_RELEASE_TAG "" CACHE STRING "The release tag this build is published as, e.g. v0.3.0")
     if(WIN32)
-        set(MW2_RELEASE_KIND "windows-${MW2_ONLINE}")
+        set(PES17_RELEASE_KIND "windows-${PES17_ONLINE}")
     else()
-        set(MW2_RELEASE_KIND "linux-${MW2_ONLINE}")
+        set(PES17_RELEASE_KIND "linux-${PES17_ONLINE}")
     endif()
     set_source_files_properties("${CMAKE_SOURCE_DIR}/launcher/update.cpp" PROPERTIES COMPILE_DEFINITIONS
-        "MW2_RELEASE_TAG=\"${MW2_RELEASE_TAG}\";MW2_RELEASE_KIND=\"${MW2_RELEASE_KIND}\"")
+        "PES17_RELEASE_TAG=\"${PES17_RELEASE_TAG}\";PES17_RELEASE_KIND=\"${PES17_RELEASE_KIND}\"")
     # The decoder the game has for its sound, for the menu sounds (launcher/sound.cpp).
     target_link_libraries(launcher PRIVATE SDL3::SDL3-static ffmpeg_xma)
     if(WIN32)
@@ -424,12 +424,12 @@ if(MW2_USE_SDL)
         target_include_directories(launcher PRIVATE "${CMAKE_SOURCE_DIR}/launcher/compat")
         target_link_libraries(launcher PRIVATE urlmon)
         target_link_options(launcher PRIVATE -static)
-        if(NOT MW2_DIAGNOSTICS)
+        if(NOT PES17_DIAGNOSTICS)
             target_link_options(launcher PRIVATE -mwindows)
         endif()
     else()
         target_link_libraries(launcher PRIVATE pthread)
-        if(MW2_PORTABLE)
+        if(PES17_PORTABLE)
             target_link_options(launcher PRIVATE -static-libstdc++ -static-libgcc)
         endif()
     endif()

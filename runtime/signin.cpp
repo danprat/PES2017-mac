@@ -22,7 +22,7 @@
 #include <windows.h>
 #endif
 
-#ifdef MW2_SIGNIN_PICTURE
+#ifdef PES17_SIGNIN_PICTURE
 #define STB_TRUETYPE_IMPLEMENTATION
 #define STBTT_STATIC
 #include <imstb_truetype.h>
@@ -168,7 +168,7 @@ namespace
         {
             Profile made;
             made.id = NewId(book);
-            const char* name = env::Text("MW2_NAME");
+            const char* name = env::Text("PES17_NAME");
 #ifdef _WIN32
             if (!name) name = std::getenv("USERNAME");
 #else
@@ -331,7 +331,7 @@ bool signin::Input(uint32_t user, uint16_t buttons)
     return true;
 }
 
-#ifdef MW2_SIGNIN_PICTURE
+#ifdef PES17_SIGNIN_PICTURE
 namespace
 {
     constexpr int kAtlas = 512;
@@ -453,9 +453,9 @@ bool signin::Picture(uint32_t windowHeight, Image& image)
     x = Text(image, g_small, x, float(at(326)), kAmber, "B");
     Text(image, g_small, x, float(at(326)), kDim, "  Back");
 
-    // MW2_DUMP_FRAMES keeps the screen too, which the frames do not show.
+    // PES17_DUMP_FRAMES keeps the screen too, which the frames do not show.
     if constexpr (diag::kOn)
-        if (const char* folder = diag::Text("MW2_DUMP_FRAMES"))
+        if (const char* folder = diag::Text("PES17_DUMP_FRAMES"))
         {
             const std::string path = std::string(folder) + "/signin_" + std::to_string(version) + ".ppm";
             if (std::FILE* out = std::fopen(path.c_str(), "wb"))

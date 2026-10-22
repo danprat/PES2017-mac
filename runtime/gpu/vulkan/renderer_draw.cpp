@@ -20,11 +20,11 @@
 #include <string>
 #include <cstring>
 
-#ifdef MW2_ANDROID
+#ifdef PES17_ANDROID
 #include "../../android/android.h"
 #endif
 
-#ifdef MW2_HAVE_VULKAN
+#ifdef PES17_HAVE_VULKAN
 
 namespace vk::renderer::detail
 {
@@ -35,7 +35,6 @@ namespace vk::renderer::detail
     std::vector<uint64_t> g_skipPixelShaders;
     uint32_t g_drawLo = 0, g_drawHi = 0xFFFFFFFFu, g_frameDraw = 0;
     bool g_noVertexReuse = false;
-    bool g_tracePasses = false;
 
     uint64_t SampleGuestMemory(uint32_t address, uint32_t bytes)
     {
@@ -59,7 +58,7 @@ namespace vk::renderer::detail
 
     bool DumpRequested()
     {
-#ifdef MW2_ANDROID
+#ifdef PES17_ANDROID
         const std::string trigger = android::GetPaths().external + "/dump_frame";
         if (access(trigger.c_str(), F_OK) != 0) return false;
         unlink(trigger.c_str());
@@ -191,8 +190,13 @@ namespace vk::renderer::detail
             // a different player's kit -- defenders in the keeper's, opponents
             // in ours.
             if (newest && newest->writtenBack) newest = nullptr;
-            // And memory the title has written since the resolve is not the resolve either.
+            // And memory the title has written since the resolve is not the resolve either --
+            // for a fetch that is a part of the copy. One that is exactly the copy's size is
+            // the title reading what it resolved (a kit composition: 256x256 resolved and
+            // fetched at 256x256, with the memory rewritten around it); applying the check
+            // there turned every kit but the first team's black.
             if (newest && newest->memorySignature &&
+                (fetch.Width() < newest->width || fetch.Height() < newest->height) &&
                 SampleGuestMemory(fetch.BaseAddress(), newest->memoryBytes) != newest->memorySignature)
             {
                 if (g_dumpDraws)
@@ -280,7 +284,7 @@ namespace vk::renderer::detail
                      fetch.Tiled() ? "tiled" : "linear", ids[slot] ? "bound" : "NOT BOUND", nonzero,
                      first[0], first[1], first[2], first[3], first[4], first[5], first[6], first[7]);
             }
-            // MW2_MARK_EMPTY: the world pass is the multisampled one; the
+            // PES17_MARK_EMPTY: the world pass is the multisampled one; the
             // interface and the post chain are not. A texture read from an empty
             // block matters when a draw into the world binds it.
             if constexpr (diag::kOn)
@@ -812,7 +816,7 @@ void vk::renderer::Draw(const gpu::RegisterFile& r, const DrawCall& call)
         indexOffset = expanded;
     }
 
-    // MW2_TRACE_SHADER_VERTS=<hex> dumps what a draw actually hands the GPU: the
+    // PES17_TRACE_SHADER_VERTS=<hex> dumps what a draw actually hands the GPU: the
     // fetch constants after rewriting, the vertices they name, and the first
     // float constants. A sprite the title projects on the CPU carries its clip
     // positions in the vertex data itself, so "why is this quad a fifth of the
@@ -893,8 +897,8 @@ void vk::renderer::Draw(const gpu::RegisterFile& r, const DrawCall& call)
     key.depthFormat = uint32_t(depthTarget->format);
     key.topology = uint32_t(topology);
     // A shader writing nothing and a depth test rejecting everything leave the
-    // same surface behind; MW2_NO_DEPTH_TEST tells them apart in one run.
-    static const bool noDepth = diag::Flag("MW2_NO_DEPTH_TEST");
+    // same surface behind; PES17_NO_DEPTH_TEST tells them apart in one run.
+    static const bool noDepth = diag::Flag("PES17_NO_DEPTH_TEST");
     // The depth and stencil tests and the culling are set per draw (below),
     // not built into the pipeline.
     uint32_t depthControl = noDepth ? 0 : r[gpu::RB_DEPTHCONTROL];
@@ -909,7 +913,7 @@ void vk::renderer::Draw(const gpu::RegisterFile& r, const DrawCall& call)
     }
     gpu::detail::SetCurrentDrawStage("Draw_EnsurePipeline");
     bool newPipeline = false;
-#ifdef MW2_ANDROID
+#ifdef PES17_ANDROID
     VkPipeline built = FindPipeline(key);
     // A draw into a small off-screen surface -- the kits PES 2017 composes once
     // per player during the load, their numbers and names, the crowd's atlas --
@@ -1301,4 +1305,4 @@ void vk::renderer::Draw(const gpu::RegisterFile& r, const DrawCall& call)
     gpu::detail::SetCurrentDrawStage("idle");
 }
 
-#endif  // MW2_HAVE_VULKAN
+#endif  // PES17_HAVE_VULKAN

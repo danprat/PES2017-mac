@@ -1,6 +1,6 @@
 #include "window_trace.h"
 #include "../log.h"
-#ifdef MW2_ANDROID
+#ifdef PES17_ANDROID
 #include "../android/android.h"
 #endif
 #include <atomic>
@@ -31,7 +31,7 @@ bool kernel::WindowTraceOn()
     if (opens >= 0)
         return now >= opens && now < g_closesUs.load(std::memory_order_relaxed) &&
                g_lines.load(std::memory_order_relaxed) < 30000;
-#ifdef MW2_ANDROID
+#ifdef PES17_ANDROID
     int64_t checked = g_checkedUs.load(std::memory_order_relaxed);
     if (now - checked > 200'000 && g_checkedUs.compare_exchange_strong(checked, now))
     {

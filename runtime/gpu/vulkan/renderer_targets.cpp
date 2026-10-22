@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <atomic>
 
-#ifdef MW2_HAVE_VULKAN
+#ifdef PES17_HAVE_VULKAN
 
 namespace vk::renderer::detail
 {
@@ -117,14 +117,14 @@ namespace vk::renderer::detail
     // The console's 1x, 2x and 4x, as the device can draw them. A count the
     // device lacks is rounded up to the next one it has; 1x is the last resort.
     //
-    // MW2_MSAA=<n> draws every surface the title multisamples at n instead --
+    // PES17_MSAA=<n> draws every surface the title multisamples at n instead --
     // 8 on most devices -- for seeing that it works: at the console's own 2x,
     // upscaled from 1024x600 to the window with a linear blit, the difference is
     // slight. A count past what the device offers is rounded down to what it has.
     VkSampleCountFlagBits HostSamples(uint32_t guestSamples)
     {
         if (!g.msaa) return VK_SAMPLE_COUNT_1_BIT;
-        static const uint32_t forced = uint32_t(env::Number("MW2_MSAA"));
+        static const uint32_t forced = uint32_t(env::Number("PES17_MSAA"));
         if (forced > 1 && guestSamples)
         {
             for (uint32_t bit = 64; bit > 1; bit >>= 1)
@@ -650,15 +650,6 @@ namespace vk::renderer::detail
         const VkImageView colourView = colour.view, depthView = depth.view;
         if (!colourView && !depthView) return;
 
-        if (g_tracePasses)
-        {
-            static std::atomic<uint32_t> traced{ 0 };
-            if (traced++ < 6000)
-                LOGW("TRACE frame %llu pass colour %ux%u scale %.2f x%u, depth %ux%u scale %.2f x%u, area %ux%u",
-                     (unsigned long long)g.frames, colourView ? colour.width : 0, colourView ? colour.height : 0,
-                     colour.scale, unsigned(colour.samples), depthView ? depth.width : 0, depthView ? depth.height : 0,
-                     depth.scale, unsigned(depth.samples), width, height);
-        }
         // Both attachments of a pass have to be drawn at one scale.
         const float scale = colourView ? colour.scale : depth.scale;
         if (colourView && depthView && colour.scale != depth.scale)
@@ -897,4 +888,4 @@ namespace vk::renderer::detail
     }
 }
 
-#endif  // MW2_HAVE_VULKAN
+#endif  // PES17_HAVE_VULKAN

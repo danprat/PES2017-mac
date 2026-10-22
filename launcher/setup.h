@@ -2,7 +2,7 @@
 // Installing the game: the files from the player's disc into the game folder,
 // and title update 6 applied to the two executables, which is the version
 // the game executables are built from. (A build of the disc version,
-// MW2_VERSION_TU0, installs the disc as it is.)
+// PES17_VERSION_TU0, installs the disc as it is.)
 //
 // The game folder is game/ beside the launcher, unless the player chose
 // another folder with INSTALL LOCATION: then it is game/ under that folder,

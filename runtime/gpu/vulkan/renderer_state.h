@@ -262,17 +262,17 @@ namespace vk::renderer::detail
         uint32_t uniformAlignment = 256;
         VkFormat depthFormat = VK_FORMAT_UNDEFINED;
         // Whether the console's multisampled surfaces are drawn multisampled
-        // (MW2_NO_MSAA=1 turns it off), and the counts the device offers for
+        // (PES17_NO_MSAA=1 turns it off), and the counts the device offers for
         // colour, depth and stencil alike.
         bool msaa = false;
         VkSampleCountFlags sampleCounts = VK_SAMPLE_COUNT_1_BIT;
-        // MW2_SCALE: how many times wider and taller than the title's every
+        // PES17_SCALE: how many times wider and taller than the title's every
         // EDRAM surface and resolve copy is. The title is not told: a Target's
         // and a Resolved's sizes, and every rectangle worked out from the
         // registers, stay the title's, and are multiplied where they are
         // handed to Vulkan (Scaled).
         uint32_t scale = 1;
-        // MW2_SCENE_SCALE (0.5-1): the full-frame surfaces are drawn this much
+        // PES17_SCENE_SCALE (0.5-1): the full-frame surfaces are drawn this much
         // smaller each way and everything that reads them follows; the present
         // stretches the frame back. Only with scale 1.
         float sceneScale = 1.0f;
@@ -480,7 +480,7 @@ namespace vk::renderer::detail
         uint64_t passFrames = 0;
         std::vector<std::string> targetSummary;   // the report outlives the images
         uint64_t depthResolves = 0, resolveImagesMade = 0;
-        // Where a frame's wall clock goes, in nanoseconds. MW2_TIME_RENDER=1.
+        // Where a frame's wall clock goes, in nanoseconds. PES17_TIME_RENDER=1.
         uint64_t drawNanoseconds = 0, submitNanoseconds = 0, fenceNanoseconds = 0,
                  resolveNanoseconds = 0, textureNanoseconds = 0;
         // Draw broken down, because "in Draw" does not say which part of it.
@@ -538,7 +538,6 @@ namespace vk::renderer::detail
     extern bool g_dumpHeaders;       // CAPTURE burst: one 'DUMP draw' line per draw, nothing else
     extern bool g_noWriteBackCap;    // files/no_writeback_cap: debug A/B for the blinking ball
     extern bool g_noVertexReuse;     // files/no_vertex_reuse: debug A/B for the flicker
-    extern bool g_tracePasses;       // files/trace_passes: one log line a render pass and a resolve
     // A signature of `bytes` of the guest memory at physical `address`, from 256 words spread
     // across it. 0 when the range is not mapped. See Resolved::memorySignature.
     uint64_t SampleGuestMemory(uint32_t address, uint32_t bytes);
@@ -646,7 +645,7 @@ namespace vk::renderer::detail
     inline bool Timing()
     {
         if constexpr (!diag::kOn) return false;
-        static const bool on = diag::Flag("MW2_TIME_RENDER");
+        static const bool on = diag::Flag("PES17_TIME_RENDER");
         return on;
     }
 
@@ -819,8 +818,8 @@ namespace vk::renderer::detail
     void ScissorOf(const gpu::RegisterFile& r, VkRect2D& scissor);
 
     // ---- renderer_diagnostics.cpp ----
-    // MW2_ONLY_SHADER=<hex>[,<hex>] keeps only draws whose vertex or pixel shader
-    // is named; MW2_SKIP_SHADER drops them. Naming the shader that paints a defect
+    // PES17_ONLY_SHADER=<hex>[,<hex>] keeps only draws whose vertex or pixel shader
+    // is named; PES17_SKIP_SHADER drops them. Naming the shader that paints a defect
     // is otherwise a bisection over four hundred of them.
     struct ShaderList
     {

@@ -26,7 +26,7 @@ can adopt the guest structs but cannot replace them.
 
 | Hook (`title.h`) | Campaign | MP | Purpose |
 |---|---|---|---|
-| `T_D3D_Present` | `820C3390` | `820DFD10` | notes the present for pacing and stutter tracking; under `MW2_FPS_LIMIT`, sets the present interval |
+| `T_D3D_Present` | `820C3390` | `820DFD10` | notes the present for pacing and stutter tracking; under `PES17_FPS_LIMIT`, sets the present interval |
 | `T_D3D_ArenaWait` | `820B9800` | `820E1E70` | learns the arena progress block from `[r3+10896]` |
 | `T_D3D_ReplayRecording` | `820C6130` | `820E4848` | diagnostics: warns of a recorded chunk list (`[object+116]`: next +0, count +4) with a zero count or a cycle, which the do-while replay loop would never leave |
 | `T_D3D_InitPixelShader`, `T_D3D_InitVertexShader` | `820B8B58`, `820B8E78` | `820D7268`, `820D7588` | hand shader microcode to the renderer at load (`shader_preload.cpp`, [rendering.md](rendering.md#pipelines)) |
@@ -185,7 +185,7 @@ Frames are retired by D3D9's own handshake in the command stream:
    frame or queues it for the vblank. Which of the two is in the request:
    bits 8-11 hold how many blanks apart frames are shown, from the device's
    `D3DRS_PRESENTINTERVAL` (`+13596`): 1 as the title leaves it, and 0, for
-   `D3DPRESENT_INTERVAL_IMMEDIATE`, retires at once. `MW2_FPS_LIMIT` sets that
+   `D3DPRESENT_INTERVAL_IMMEDIATE`, retires at once. `PES17_FPS_LIMIT` sets that
    state ([rendering.md](rendering.md#more-than-60-frames-a-second)).
 4. `WAIT_REG_MEM` waits for the request to clear.
 

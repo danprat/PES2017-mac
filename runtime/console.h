@@ -1,9 +1,9 @@
 #pragma once
 struct PPCContext;
 
-// Queues commands from MW2_CONSOLE into the title's command buffer. Call from
+// Queues commands from PES17_CONSOLE into the title's command buffer. Call from
 // a hook that runs on a guest thread every frame; it does nothing until one of
-// the scripted times has passed, and nothing at all without MW2_CONSOLE.
+// the scripted times has passed, and nothing at all without PES17_CONSOLE.
 namespace console
 {
     void Pump(PPCContext& ctx, unsigned char* base);

@@ -5,7 +5,7 @@
 // have to be handed to the platform's logger instead. The app shows the tail
 // of the same lines on its own screen, which is what a player attaches to a
 // bug report.
-#ifdef MW2_ANDROID
+#ifdef PES17_ANDROID
 
 #include "android.h"
 #include "../log.h"
@@ -24,7 +24,7 @@
 
 namespace
 {
-    constexpr const char* kTag = "mw2";
+    constexpr const char* kTag = "pes17";
     constexpr size_t kKeptLines = 400;     // what the app's log screen shows
 
     std::mutex g_lock;
@@ -182,7 +182,7 @@ namespace android::detail
 }
 
 // The printf side, called by the macros in log.h.
-namespace mw2log
+namespace pes17log
 {
     void AndroidWrite(char level, const char* format, ...)
     {
@@ -201,4 +201,4 @@ namespace mw2log
     }
 }
 
-#endif  // MW2_ANDROID
+#endif  // PES17_ANDROID

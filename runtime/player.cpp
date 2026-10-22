@@ -13,7 +13,7 @@
 #include "player.h"
 #include "console.h"
 
-#if MW2_DIAGNOSTICS
+#if PES17_DIAGNOSTICS
 
 #include <algorithm>
 #include <bit>
@@ -80,7 +80,7 @@ namespace
         return out;
     }
 
-    // MW2_WALK_PATH=<file>[,<file>...]: every route named, in order. More than
+    // PES17_WALK_PATH=<file>[,<file>...]: every route named, in order. More than
     // one because the map spawns each team at its own end, and a route recorded
     // from one spawn starts three thousand units from the other: give a route
     // per spawn, and the nearest is the one walked.
@@ -88,7 +88,7 @@ namespace
     {
         static const std::vector<Route> all = [] {
             std::vector<Route> out;
-            const char* text = env::Text("MW2_WALK_PATH");
+            const char* text = env::Text("PES17_WALK_PATH");
             if (!text) return out;
             const std::string list(text);
             for (size_t at = 0; at <= list.size(); )
@@ -114,12 +114,12 @@ namespace
         float x = 0, y = 0, radius = 96.0f, yaw = 0;
     };
 
-    // MW2_WALK_TO="x,y[,radius[,yaw]]".
+    // PES17_WALK_TO="x,y[,radius[,yaw]]".
     const Target& Requested()
     {
         static const Target target = [] {
             Target t;
-            const char* text = env::Text("MW2_WALK_TO");
+            const char* text = env::Text("PES17_WALK_TO");
             if (!text) return t;
             char* end = nullptr;
             t.x = float(std::strtod(text, &end));
@@ -145,7 +145,7 @@ namespace
 
     bool TracingViewpos()
     {
-        static const bool on = env::Flag("MW2_TRACE_VIEWPOS");
+        static const bool on = env::Flag("PES17_TRACE_VIEWPOS");
         return on;
     }
 
@@ -194,7 +194,7 @@ namespace
         // A player seen moving by a step: until then the sticks stay still,
         // because on a menu the left stick moves the selection.
         bool alive = false;
-        unsigned upsSent = 0, upWindow = ~0u;   // MW2_TEAM_UP's taps, and the last one's window
+        unsigned upsSent = 0, upWindow = ~0u;   // PES17_TEAM_UP's taps, and the last one's window
         Clock::time_point pressingSince;
         float travelled = 0.0f;
 
@@ -243,7 +243,7 @@ namespace
         const Route& route = Routes()[bestRoute];
         g.via.assign(route.begin() + long(bestPoint), route.end());
         // The route ends where the player stopped when it was recorded, unless
-        // MW2_WALK_TO names somewhere else to go afterwards.
+        // PES17_WALK_TO names somewhere else to go afterwards.
         // A route that ends on something done there keeps it as its last leg,
         // and stands there afterwards facing the way it was done.
         if (!Requested().set)
@@ -299,7 +299,7 @@ namespace
     // screen that is. A takes the team and class already selected, "Choose
     // Class" in the in-game menu, and "No" on the End Game dialog.
     //
-    // The one exception, asked for by name: MW2_TEAM_UP=<1 or 2> taps Up
+    // The one exception, asked for by name: PES17_TEAM_UP=<1 or 2> taps Up
     // that many times on the team selection -- the first menu met once the map's
     // camera is up -- before the A, so the run takes a team rather than Auto-assign, spawns on
     // the same side every time and walks the same route. Nowhere else: the
@@ -307,7 +307,7 @@ namespace
     unsigned TeamUps()
     {
         static const unsigned ups =
-            unsigned(std::min<uint64_t>(env::Number("MW2_TEAM_UP", 0), 2));
+            unsigned(std::min<uint64_t>(env::Number("PES17_TEAM_UP", 0), 2));
         return ups;
     }
 
@@ -414,10 +414,10 @@ namespace
         // A corner is there to get the route round a building, and leaving one
         // early because the target is nearer in a straight line walks into the
         // building the corner was named for.
-        // MW2_WALK_REACH=<units>: how near counts. A route recorded with points
+        // PES17_WALK_REACH=<units>: how near counts. A route recorded with points
         // closer together than this is cut short at every turn. A point with
         // its view is walked straight at, so it can be held to closely.
-        static const float given = float(env::Real("MW2_WALK_REACH"));
+        static const float given = float(env::Real("PES17_WALK_REACH"));
         const float near = given > 0.0f ? given : corner.view ? 24.0f : 140.0f;
         // Gone by counts as well: a point missed by more than that is behind,
         // and turning back for it circles it.
@@ -430,9 +430,9 @@ namespace
              here.y, reach);
         g.leg++;
         StartLeg(now);
-        // MW2_WALK_PAUSE=<seconds>: stand still at every corner. A still camera
+        // PES17_WALK_PAUSE=<seconds>: stand still at every corner. A still camera
         // is the only one a flash can be told apart from motion on.
-        static const double pause = env::Real("MW2_WALK_PAUSE");
+        static const double pause = env::Real("PES17_WALK_PAUSE");
         if (pause > 0.0)
             g.pauseUntil = now + std::chrono::duration_cast<Clock::duration>(
                                      std::chrono::duration<double>(pause));
@@ -596,7 +596,7 @@ namespace
     {
         std::FILE* f = std::fopen(path, "w");
         if (!f) { LOGE("player: cannot write the flight to %s", path); return; }
-        std::fprintf(f, "# seconds x y z yaw pitch -- recorded flight, replay with MW2_FLY_PATH\n");
+        std::fprintf(f, "# seconds x y z yaw pitch -- recorded flight, replay with PES17_FLY_PATH\n");
         LOGI("player: recording the flight to %s", path);
         std::thread([f] {
             Clock::time_point from{};
@@ -670,14 +670,14 @@ namespace
 
 void player::Record()
 {
-    if (const char* flight = env::Text("MW2_RECORD_FLIGHT")) RecordFlight(flight);
-    if (const char* flight = env::Text("MW2_FLY_PATH")) Fly(flight);
-    const char* path = env::Text("MW2_RECORD_PATH");
+    if (const char* flight = env::Text("PES17_RECORD_FLIGHT")) RecordFlight(flight);
+    if (const char* flight = env::Text("PES17_FLY_PATH")) Fly(flight);
+    const char* path = env::Text("PES17_RECORD_PATH");
     if (!path) return;
-    const float spacing = float(env::Real("MW2_RECORD_SPACING", 110.0));
+    const float spacing = float(env::Real("PES17_RECORD_SPACING", 110.0));
     std::FILE* f = std::fopen(path, "w");
     if (!f) { LOGE("player: cannot write the route to %s", path); return; }
-    std::fprintf(f, "# x y z yaw pitch -- recorded route, replay with MW2_WALK_PATH;"
+    std::fprintf(f, "# x y z yaw pitch -- recorded route, replay with PES17_WALK_PATH;"
                     " `left`/`fire` lines are presses\n");
     std::fflush(f);
     g_record = f;

@@ -1,5 +1,5 @@
 #pragma once
-// MW2_REPORT=1: what a bug report needs to say about a run, in every build.
+// PES17_REPORT=1: what a bug report needs to say about a run, in every build.
 //
 // The launcher's REPORT A BUG starts the game with it. The log then names the
 // graphics driver, and ends -- at exit or at a fault -- with how the run
@@ -14,7 +14,7 @@ namespace report
 {
     inline bool On()
     {
-        static const bool on = env::Flag("MW2_REPORT");
+        static const bool on = env::Flag("PES17_REPORT");
         return on;
     }
     // The renderer finished a frame; `world` when it drew the world and not
