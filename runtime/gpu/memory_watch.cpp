@@ -81,7 +81,13 @@ namespace
         for (;;)
         {
             uint8_t state = g_state[page].load(std::memory_order_acquire);
-            if (state == kNever || state == kLoose) return;
+            if (state == kNever) return;
+            // A fault on a page recorded as loose means it is read-only after all: Arm
+            // marks pages "arming" before it protects them, so a handler that loosens one
+            // in between records it loose and then Arm's protect lands on top. Returning
+            // here left the write to fault for ever (Master League's setup hung in a
+            // memset), so the page is made writable whatever the record says.
+            if (state == kLoose) { Protect(page, 1, true); return; }
             Protect(page, 1, true);
             if (g_state[page].compare_exchange_weak(state, kLoose, std::memory_order_acq_rel))
                 return;
@@ -139,6 +145,9 @@ namespace
             {
                 g_armedWrittenDuring++;
                 all = false;
+                // A writer's handler loosened this page while it was arming, and the
+                // protect above may have landed after that: loose means writable.
+                if (g_state[p].load(std::memory_order_acquire) == kLoose) Protect(p, 1, true);
             }
         }
         g_pagesArmed += count;
@@ -202,6 +211,23 @@ bool gpu::watch::HandleFault(const void* address)
                  uint32_t(uint64_t(at - base)));
         }
         return false;
+    }
+    // The same page faulting again and again on one thread is a write that cannot get
+    // through: the page's state and its protection disagree. Master League's setup
+    // hung in a memset this way (a thread zeroing a reused block sat in the handler
+    // at 100% of a core). The thousandth fault says so and makes the page writable.
+    static thread_local uint32_t lastPage = ~0u, repeats = 0;
+    if (page == lastPage) repeats++;
+    else { lastPage = page; repeats = 0; }
+    if (repeats == 1000)
+    {
+        LOGE("gpu: write watch: page %u (guest %08X) faulted %u times in a row on one thread, state %u"
+             " -- made writable by force", page, uint32_t(at - base), repeats,
+             unsigned(g_state[page].load(std::memory_order_relaxed)));
+        Protect(page, 1, true);
+        g_state[page].store(kLoose, std::memory_order_release);
+        repeats = 0;
+        return true;
     }
     // Loose already: another thread's handler got there first and the page is
     // writable, or is being armed again and the retry will fault properly.
@@ -301,6 +327,8 @@ uint64_t gpu::watch::Track(uint32_t physical, uint32_t bytes, uint64_t (*complet
     g_tracked++;
     return g_stamp;
 }
+
+uint64_t gpu::watch::FaultCount() { return g_faults.load(std::memory_order_relaxed); }
 
 bool gpu::watch::Unwritten(uint32_t physical, uint32_t bytes, uint64_t since)
 {

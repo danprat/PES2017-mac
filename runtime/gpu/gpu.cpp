@@ -207,6 +207,15 @@ namespace
             next = (now - next > blank * 4) ? now + blank : next + blank;
 
             g.vblanks++;
+            if (g.vblanks % 600 == 0)
+            {
+                // Frames the title swapped per 600 blanks: 600 is 60 fps, 300 a
+                // title pacing itself to every second blank (30 fps by design).
+                static uint64_t lastFrames = 0;
+                const uint64_t frames = g.frames.load();
+                LOGI("pacing: %llu swaps in the last 600 blanks", (unsigned long long)(frames - lastFrames));
+                lastFrames = frames;
+            }
             *GuestPtr<be32>(kDisplayStatus) = kDisplayStatusVBlank;
             std::lock_guard<std::mutex> turn(g.guestCall);
             RaiseInterrupt(kVBlankSource);

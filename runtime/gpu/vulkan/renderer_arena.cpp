@@ -296,7 +296,7 @@ namespace vk::renderer::detail
                     const uint64_t copyKey = (uint64_t(physical) << 32) | first;
                     uint32_t at = UINT32_MAX;
                     if (auto it = g.vertexCopies.find(copyKey);
-                        it != g.vertexCopies.end() && it->second.words >= words &&
+                        !g_noVertexReuse && it != g.vertexCopies.end() && it->second.words >= words &&
                         gpu::watch::Unwritten(physical + first * 4, words * 4, it->second.stamp))
                     {
                         at = it->second.at;

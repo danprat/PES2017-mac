@@ -1,5 +1,6 @@
 #include "debug_watch.h"
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstdio>
@@ -59,6 +60,22 @@ void debugwatch::ArmFromFile(const std::string& path)
                 if (FILE* t = std::fopen(trap.c_str(), "r")) { std::fclose(t); std::remove(trap.c_str()); pes_trap_inf_armed = 1; LOGW("trap: armed"); }
             }
             {
+                // `touch files/check_heap`: walk the process heap's free list once.
+                // `touch files/heap_watch` (kept): walk it on every poll and log the
+                // first break, so the moment of corruption lines up with the log.
+                const std::string dir = path.substr(0, path.rfind('/') + 1);
+                if (FILE* r = std::fopen((dir + "check_heap").c_str(), "r"))
+                { std::fclose(r); std::remove((dir + "check_heap").c_str()); kernel::CheckProcessHeap(false); }
+                if (FILE* r = std::fopen((dir + "alloc_watch").c_str(), "r")) { std::fclose(r); kernel::ReportAllocRate(); }
+                static bool brokenReported = false;
+                if (FILE* r = std::fopen((dir + "heap_watch").c_str(), "r"))
+                {
+                    std::fclose(r);
+                    if (!kernel::CheckProcessHeap(true)) { if (brokenReported) {} brokenReported = true; }
+                    else if (brokenReported) { brokenReported = false; LOGI("heapcheck: intact again"); }
+                }
+            }
+            {
                 // `touch files/report_memory`: the guest heaps' use, now.
                 const std::string req = path.substr(0, path.rfind('/') + 1) + "report_memory";
                 if (FILE* r = std::fopen(req.c_str(), "r")) { std::fclose(r); std::remove(req.c_str()); kernel::ReportMemory(); }
@@ -71,6 +88,8 @@ void debugwatch::ArmFromFile(const std::string& path)
                     unsigned long long a = 0, len = 0x1000;
                     std::fscanf(r, "%llx %llx", &a, &len);
                     std::fclose(r); std::remove(req.c_str());
+                    a &= 0xFFFFFFFFull;                       // past 4 GB is unmapped: a bad request killed the game
+                    len = std::min(len, 0x100000000ull - a);
                     if (FILE* o = std::fopen((dir + "guest_dump.bin").c_str(), "wb"))
                     {
                         std::fwrite(guest::Base() + (a & 0xFFFFFFFFull), 1, len, o);

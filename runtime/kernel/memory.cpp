@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include "../guest.h"
 #include "../log.h"
+#include "../crash.h"
 #include "trace.h"
 #include <map>
 #include <mutex>
@@ -43,6 +44,21 @@ namespace
         if (size) { live[at] = size; if (ctx) g_callers[at] = CallerOf(*ctx); }
         else { live.erase(at); g_callers.erase(at); }
     }
+    // Takes `at` out of `live` if this API handed it out. The bank serves both
+    // APIs and reuses a freed start first-fit, so a stale free names whatever
+    // took that start since -- a heap segment, once: PES freed a 3600 KB physical
+    // block (sub_8386CF60) after the bank had given its start to the process
+    // heap, the next physical block landed on the heap's free lists, and the
+    // first malloc to walk them looped forever on the Exhibition loading screen.
+    // The console's Mm frees only what its own allocator holds; so does this.
+    bool Release(std::map<uint32_t, uint32_t>& live, uint32_t at)
+    {
+        std::lock_guard held(g_accountLock);
+        if (!live.erase(at)) return false;
+        g_callers.erase(at);
+        return true;
+    }
+    std::atomic<int> g_traceCommits{ 0 };
     constexpr uint32_t X_MEM_COMMIT  = 0x00001000;
     constexpr uint32_t X_MEM_RESERVE = 0x00002000;
     constexpr uint32_t X_MEM_RELEASE = 0x00008000;
@@ -67,9 +83,33 @@ PPC_FUNC(__imp__NtAllocateVirtualMemory)
     // A commit onto an existing reservation just succeeds in place.
     if (wanted && (type & X_MEM_COMMIT) && !(type & X_MEM_RESERVE))
     {
+        // Does the range lie inside a block the bank handed out? A commit that
+        // does not "succeeds" on memory the bank still counts as free, and a
+        // later physical allocation lands on it (Master League setup).
+        uint32_t at = 0, extent = 0;
+        const bool inside = kernel::FindAllocation(wanted, at, extent) &&
+                            uint64_t(wanted) + size <= uint64_t(at) + extent;
+        if (!inside)
+        {
+            static std::atomic<int> told{ 0 };
+            if (told++ < 40)
+                LOGW("NtAllocateVirtualMemory: COMMIT of %08X +%X is outside any live block (nearest %08X +%X) (from %08X)",
+                     wanted, size, at, extent, uint32_t(ctx.lr));
+        }
+        else if (g_traceCommits.fetch_add(1) < 12)
+            LOGI("NtAllocateVirtualMemory: commit %08X +%X inside block %08X +%X (from %08X)",
+                 wanted, size, at, extent, uint32_t(ctx.lr));
         *sizePtr = size;
         ctx.r3.u64 = X_STATUS_SUCCESS;
         return;
+    }
+    if (wanted && (type & X_MEM_RESERVE))
+    {
+        // We hand out our own address and ignore the one asked for.
+        static std::atomic<int> told{ 0 };
+        if (told++ < 40)
+            LOGW("NtAllocateVirtualMemory: RESERVE asked for %08X +%X, type %08X -- address ignored (from %08X)",
+                 wanted, size, type, uint32_t(ctx.lr));
     }
 
     uint32_t addr = kernel::AllocateGuest(size, 0x1000);
@@ -92,7 +132,13 @@ PPC_FUNC(__imp__NtFreeVirtualMemory)
     const uint32_t at = *basePtr;
     uint32_t start = 0, size = 0;
     const bool known = kernel::FindAllocation(at, start, size) && start == at;
-    Account(g_virtualLive, at, 0);
+    if (known && !Release(g_virtualLive, at))
+    {
+        static std::atomic<int> told{ 0 };
+        if (told++ < 20) LOGW("NtFreeVirtualMemory: %08X was not allocated by it -- left alone (from %08X)", at, uint32_t(ctx.lr));
+        ctx.r3.u64 = X_STATUS_INVALID_PARAMETER;
+        return;
+    }
     if (known && kernel::FreeGuest(at))
     {
         if (sizePtr) *sizePtr = size;
@@ -167,9 +213,16 @@ PPC_FUNC(__imp__MmAllocatePhysicalMemoryEx)
 PPC_FUNC(__imp__MmFreePhysicalMemory)
 {
     // (Type, BaseAddress)
-    Account(g_physicalLive, ctx.r4.u32 & 0x1FFFFFFFu, 0);
-    kernel::FreePhysical(ctx.r4.u32);
     ctx.r3.u64 = 0;
+    if (!Release(g_physicalLive, ctx.r4.u32 & 0x1FFFFFFFu))
+    {
+        static std::atomic<int> told{ 0 };
+        if (told++ < 20)
+            LOGW("MmFreePhysicalMemory: %08X is not a live physical block -- left alone (from %08X on '%s')",
+                 ctx.r4.u32, uint32_t(ctx.lr), crash::CurrentThreadName());
+        return;
+    }
+    kernel::FreePhysical(ctx.r4.u32);
 }
 
 // MmGetPhysicalAddress is in video.cpp, next to the Vd* calls that consume it.
@@ -228,4 +281,67 @@ void kernel::ReportApiMemory()
         LOGI("memory:   %6.1f MB in %5u %s blocks from %08X <- %08X <- %08X", top[i].first / 1048576.0,
              by[top[i].second].second, phys ? "physical" : "virtual", a, b, c);
     }
+}
+
+std::string kernel::OwnersOf(uint32_t guestAddress)
+{
+    const uint32_t phys = guestAddress & 0x1FFFFFFFu;
+    std::string out;
+    char line[160];
+    std::lock_guard held(g_accountLock);
+    // Virtual blocks are keyed by their cached-window address, physical ones by offset.
+    for (const auto& [at, size] : g_virtualLive)
+    {
+        if (at < guest::kCachedBase || at >= guest::kPhysicalBase) continue;
+        const uint32_t start = at & 0x1FFFFFFFu;
+        if (phys < start || phys >= start + size) continue;
+        const Caller c = g_callers.count(at) ? g_callers[at] : Caller{};
+        std::snprintf(line, sizeof line, " [virtual %08X +%X from %08X<-%08X<-%08X]", at, size, c.a, c.b, c.c);
+        out += line;
+    }
+    for (const auto& [at, size] : g_physicalLive)
+    {
+        if (phys < at || phys >= at + size) continue;
+        const Caller c = g_callers.count(at) ? g_callers[at] : Caller{};
+        std::snprintf(line, sizeof line, " [physical %08X +%X from %08X<-%08X<-%08X]", at, size, c.a, c.b, c.c);
+        out += line;
+    }
+    return out.empty() ? " [no live block]" : out;
+}
+
+bool kernel::CheckProcessHeap(bool quiet)
+{
+    const auto word = [](uint32_t at) -> uint32_t { return uint32_t(*GuestPtr<be32>(at)); };
+    const auto inBank = [](uint32_t p) { return p >= 0x80000000u && p < 0xA0000000u && !(p & 3); };
+    const uint32_t heap = word(0x84065CE4);
+    if (!inBank(heap)) { LOGW("heapcheck: no process heap pointer yet (%08X)", heap); return true; }
+    const uint32_t head = heap + 384;
+    uint32_t previous = head, node = word(head), count = 0;
+    while (node != head)
+    {
+        const bool linked = inBank(node) && word(node + 4) == previous;
+        if (!linked || ++count > 200000)
+        {
+            // Each distinct break once.
+            static uint32_t lastNode = 0, lastPrevious = 0;
+            if (node == lastNode && previous == lastPrevious) return false;
+            lastNode = node; lastPrevious = previous;
+            LOGW("heapcheck: BROKEN after %u nodes: node %08X (previous %08X, its next %08X) -- %s", count, node, previous,
+                 word(previous), count > 200000 ? "loops" : inBank(node) ? "prev link wrong" : "pointer out of range");
+            if (inBank(node))
+            {
+                char dump[160]; int at = 0;
+                for (int i = -2; i < 6; i++)
+                    at += std::snprintf(dump + at, sizeof dump - at, " %08X", word(node + i * 4));
+                LOGW("heapcheck:   words at node-8..node+24:%s", dump);
+                LOGW("heapcheck:   owners of node:%s", OwnersOf(node).c_str());
+            }
+            LOGW("heapcheck:   owners of previous node %08X:%s", previous, OwnersOf(previous).c_str());
+            return false;
+        }
+        previous = node;
+        node = word(node);
+    }
+    if (!quiet) LOGI("heapcheck: process heap %08X free list intact, %u large nodes", heap, count);
+    return true;
 }

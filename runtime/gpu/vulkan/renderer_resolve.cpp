@@ -1,4 +1,5 @@
 #include <string>
+#include "../../crash.h"
 #include <map>
 #include <chrono>
 #include <unordered_map>
@@ -416,6 +417,33 @@ void vk::renderer::Resolve(const gpu::RegisterFile& r)
     into.from = sourceKey;
     into.guestFormat = destInfo.Format();
     into.writtenBack = false;
+    // What the destination's memory holds now, to tell later whether the title wrote there.
+    into.memoryBytes = std::min(surfaceWidth * surfaceHeight * 4u, 8u << 20);
+    into.memorySignature = SampleGuestMemory(destination, into.memoryBytes);
+    if (g_tracePasses)
+    {
+        static std::atomic<uint32_t> traced{ 0 };
+        if (traced++ < 6000)
+            LOGW("TRACE frame %llu resolve -> %08X %ux%u (surface %ux%u) from tile %u pitch %u fmt %u x%u scale %.2f",
+                 (unsigned long long)g.frames, destination, width, height, surfaceWidth, surfaceHeight, sourceKey.baseTile,
+                 sourceKey.pitch, uint32_t(colour.Format()), sourceKey.samples, source->scale);
+    }
+    if (width == 320 && height == 180)
+    {
+        // The Master League menus' tile pictures: which destination is resolved when, to see
+        // whether the title re-renders them after a screen that reuses their memory.
+        // Only the first of a run of frames: the stadium behind the menus is resolved
+        // three times a frame and would fill the log.
+        static std::unordered_map<uint32_t, uint64_t> lastFrame;
+        static uint32_t told = 0;
+        uint64_t& last = lastFrame[destination];
+        const bool run = last && last + 1 >= g.frames;
+        last = g.frames;
+        if (!run && told++ < 1500)
+            LOGI("resolve320: to %08X (%ux%u, surface %ux%u) from tile %u pitch %u, frame %llu",
+                 destination, width, height, surfaceWidth, surfaceHeight, sourceKey.baseTile,
+                 sourceKey.pitch, (unsigned long long)g.frames);
+    }
     {
         // Every destination's first resolve, for working out what the title
         // composes on the GPU and reads back as a texture (kits, previews).
@@ -535,7 +563,7 @@ void vk::renderer::Resolve(const gpu::RegisterFile& r)
         if (use.frame + 1 == g.frames) use.consecutive++;
         use.frame = g.frames;
         uint32_t& times = use.times;
-        const bool everyFrame = times >= 12 || use.consecutive >= 8;
+        const bool everyFrame = !g_noWriteBackCap && (times >= 12 || use.consecutive >= 8);
 
         times++;
         const uint32_t va = kernel::FromPhysical(destination);
@@ -594,11 +622,67 @@ void vk::renderer::Resolve(const gpu::RegisterFile& r)
 // names, which a resolve filled like any other destination. A resolve the size
 // of the display is not the frame for being that size -- the title keeps the
 // screen in one for the next frame's blur, before the interface is drawn.
+static int g_captureBurst = 0;   // consecutive frames still to dump after a CAPTURE
+
 void vk::renderer::Swap(uint32_t frontBuffer)
 {
     if (!g.device) return;
     {
         using namespace vk::renderer::detail;
+#ifdef MW2_ANDROID
+        // The capture button (GameActivity writes files/capture_request): keep the
+        // last frames' draw counts and times, and on a request print them with the
+        // frame number, then dump the next frame, so a flicker the user just saw can
+        // be matched to what the renderer did around it.
+        {
+            struct FrameNote { uint32_t swap, draws; uint32_t ms; };
+            static FrameNote ring[240];
+            static uint32_t count = 0;
+            static auto last = std::chrono::steady_clock::now();
+            const auto now = std::chrono::steady_clock::now();
+            ring[count % 240] = { count, g_frameDraw,
+                uint32_t(std::chrono::duration_cast<std::chrono::milliseconds>(now - last).count()) };
+            last = now; count++;
+            // Once a second: what tools/live.py watches (frame rate, worst frame, draw counts,
+            // and how many frames in a row had the same draw count -- a frozen scene).
+            {
+                static uint32_t swaps = 0, worst = 0, dMin = ~0u, dMax = 0, same = 0, lastDraws = ~0u;
+                static auto windowStart = now;
+                const uint32_t ms = ring[(count - 1) % 240].ms;
+                swaps++; worst = std::max(worst, ms);
+                dMin = std::min(dMin, g_frameDraw); dMax = std::max(dMax, g_frameDraw);
+                same = (g_frameDraw == lastDraws) ? same + 1 : 0; lastDraws = g_frameDraw;
+                if (now - windowStart >= std::chrono::seconds(1))
+                {
+                    LOGW("tele: fps %u worst %u draws %u-%u same %u swap %u", swaps, worst, dMin, dMax, same, count);
+                    swaps = 0; worst = 0; dMin = ~0u; dMax = 0; windowStart = now;
+                }
+            }
+            static uint32_t polled = 0;
+            if (++polled % 6 == 0)
+            {
+                const std::string request = android::GetPaths().external + "/capture_request";
+                if (access(request.c_str(), F_OK) == 0)
+                {
+                    unlink(request.c_str());
+                    LOGW("capture: requested at swap %u; the last %u frames (swap draws ms):", count, std::min(count, 240u));
+                    std::string line;
+                    for (uint32_t i = count > 240 ? count - 240 : 0; i < count; i++)
+                    {
+                        const FrameNote& n = ring[i % 240];
+                        char t[40]; std::snprintf(t, sizeof t, " %u:%u:%u", n.swap, n.draws, n.ms);
+                        line += t;
+                        if (line.size() > 700) { LOGW("capture:%s", line.c_str()); line.clear(); }
+                    }
+                    if (!line.empty()) LOGW("capture:%s", line.c_str());
+                    kernel::DumpYieldStacks(int(count % 1000) + 1);   // a fresh budget per capture
+                    crash::DumpAllThreads("CAPTURE button");   // where every guest thread is (for a hang)
+                    g_captureBurst = 8;
+                    if (FILE* f = std::fopen((android::GetPaths().external + "/dump_frame").c_str(), "w")) std::fclose(f);
+                }
+            }
+        }
+#endif
         g_frameDraw = 0;
         static uint32_t tick = 0;
         if (++tick % 20 == 0)
@@ -612,6 +696,9 @@ void vk::renderer::Swap(uint32_t frontBuffer)
             }
 #endif
             g_drawLo = lo; g_drawHi = hi;
+            g_noWriteBackCap = access((android::GetPaths().external + "/no_writeback_cap").c_str(), F_OK) == 0;
+            g_noVertexReuse = access((android::GetPaths().external + "/no_vertex_reuse").c_str(), F_OK) == 0;
+            g_tracePasses = access((android::GetPaths().external + "/trace_passes").c_str(), F_OK) == 0;
         }
     }
 #ifdef MW2_ANDROID
@@ -640,14 +727,25 @@ void vk::renderer::Swap(uint32_t frontBuffer)
         if (samplesDue) { samplesDue = false; vk::renderer::detail::LogTargetSamples(); LOGW("DUMP samples end"); }
         if (armed)
         {
-            vk::renderer::detail::g_dumpDraws = false; armed = false;
-            vk::renderer::detail::SnapshotForSamples();
-            samplesDue = true;
+            const bool lite = vk::renderer::detail::g_dumpHeaders;
+            vk::renderer::detail::g_dumpDraws = false; vk::renderer::detail::g_dumpHeaders = false; armed = false;
+            if (!lite)
+            {
+                vk::renderer::detail::SnapshotForSamples();
+                samplesDue = true;
+            }
             LOGW("DUMP frame ends");
+#ifdef MW2_ANDROID
+            if (g_captureBurst > 0 && --g_captureBurst > 0)
+                if (FILE* f = std::fopen((android::GetPaths().external + "/dump_frame").c_str(), "w")) std::fclose(f);
+#endif
         }
         else if (vk::renderer::detail::DumpRequested())
         {
-            vk::renderer::detail::g_dumpDraws = true; vk::renderer::detail::g_dumpIndex = 0; armed = true;
+            // A CAPTURE burst logs only the draws: the full dump costs about two seconds a frame.
+            if (g_captureBurst > 0) vk::renderer::detail::g_dumpHeaders = true;
+            else vk::renderer::detail::g_dumpDraws = true;
+            vk::renderer::detail::g_dumpIndex = 0; armed = true;
             LOGW("DUMP frame begins (swap to %08X)", frontBuffer);
         }
     }

@@ -29,9 +29,21 @@ namespace kernel
     void     ReportMemory();
     // The heap block holding `address` (as the window it was named through).
     bool     FindAllocation(uint32_t address, uint32_t& at, uint32_t& size);
+    // Which allocations (by either API) cover the bank bytes this guest address names
+    // through any window, with the guest call chain that made each. For hunting memory
+    // that two owners think is theirs.
+    std::string OwnersOf(uint32_t guestAddress);
+    // Walks the XAPI process heap's large-block free list (PES's malloc); true if it is
+    // intact. Logs the first broken node and its owners. `quiet` skips the OK line.
+    bool     CheckProcessHeap(bool quiet);
+    // One line: what the allocator did since the last call (allocations, free-list scan,
+    // zeroing, lock waits, free-list length, write faults). Called every ~2 s while
+    // files/alloc_watch exists.
+    void     ReportAllocRate();
     // What the bank (the console's 512 MB) has left for the title.
     uint64_t BankFreeBytes();
     void     ReportApiMemory();
+    void     DumpYieldStacks(int perThread);   // log where yield-spinning threads are
 
     // Returns the value r13 must hold. The recompiled code reads the thread id
     // straight out of these structures (KPCR.CurrentThread -> KTHREAD.ThreadId),

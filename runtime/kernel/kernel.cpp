@@ -3,6 +3,8 @@
 #include "../guest.h"
 #include "../diagnostics.h"
 #include "../log.h"
+#include "../crash.h"
+#include "../gpu/memory_watch.h"
 #include <map>
 #include <mutex>
 #include <vector>
@@ -31,20 +33,43 @@ namespace
         Heap(const char* heapName, uint32_t base, uint32_t limit)
             : name(heapName), base(base), end(limit), top(base) {}
 
+        // For the allocator's own profile line (see ReportAllocRate).
+        std::atomic<uint64_t> scanNs{ 0 }, zeroNs{ 0 }, zeroBytes{ 0 }, waitNs{ 0 }, scanned{ 0 };
+
         uint32_t Alloc(uint32_t size, uint32_t align)
         {
             if (!size) return 0;
+            const auto asked = std::chrono::steady_clock::now();
             std::lock_guard held(lock);
+            const auto got = std::chrono::steady_clock::now();
+            waitNs += uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(got - asked).count());
             allocations++;
+            struct ScanTimer { Heap& h; std::chrono::steady_clock::time_point from; uint64_t n = 0;
+                ~ScanTimer() { h.scanNs += uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(
+                    std::chrono::steady_clock::now() - from).count()); h.scanned += n; } } scan{ *this, got };
             for (auto it = free.begin(); it != free.end(); ++it)
             {
+                scan.n++;
                 const uint32_t start = it->first, length = it->second;
                 const uint32_t at = (start + align - 1) & ~(align - 1);
                 if (uint64_t(at) + size > uint64_t(start) + length) continue;
                 free.erase(it);
                 if (at > start) free[start] = at - start;
                 if (at + size < start + length) free[at + size] = start + length - (at + size);
+                // Zeroed as the console's pages come. Slow when the pages are write-watched (each
+                // faults), so an allocation that takes long says so: a freeze was thread 11 here.
+                if (size >= (8u << 20))
+                    LOGW("memory: zeroing %u KB of %s heap at %08X (on '%s') -- started", size >> 10, name, at,
+                         crash::CurrentThreadName());
+                const auto zeroFrom = std::chrono::steady_clock::now();
                 std::memset(guest::Base() + at, 0, size);
+                const auto zeroDone = std::chrono::steady_clock::now();
+                zeroNs += uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(zeroDone - zeroFrom).count());
+                zeroBytes += size;
+                const auto zeroMs = std::chrono::duration_cast<std::chrono::milliseconds>(zeroDone - zeroFrom).count();
+                if (zeroMs >= 100)
+                    LOGW("memory: zeroing %u KB of %s heap at %08X took %lld ms (on '%s')", size >> 10, name, at,
+                         (long long)zeroMs, crash::CurrentThreadName());
                 reused++;
                 return Took(at, size);
             }
@@ -227,6 +252,34 @@ void kernel::Initialise(const std::filesystem::path& gameRoot)
 }
 
 const std::filesystem::path& kernel::GameRoot() { return g_gameRoot; }
+
+void kernel::ReportAllocRate()
+{
+    static uint64_t lastAllocs = 0, lastScan = 0, lastZero = 0, lastBytes = 0, lastWait = 0, lastScanned = 0, lastFaults = 0;
+    static auto lastAt = std::chrono::steady_clock::now();
+    const auto now = std::chrono::steady_clock::now();
+    const double seconds = std::chrono::duration<double>(now - lastAt).count();
+    if (seconds < 2.0) return;
+    lastAt = now;
+    Heap* heaps[2] = { &g_bankLow, &g_bank };
+    uint64_t allocs = 0, scan = 0, zero = 0, bytes = 0, wait = 0, scanned = 0, freeCount = 0;
+    for (Heap* h : heaps)
+    {
+        allocs += h->allocations; scan += h->scanNs; zero += h->zeroNs; bytes += h->zeroBytes;
+        wait += h->waitNs; scanned += h->scanned;
+        std::lock_guard held(h->lock);
+        freeCount += h->free.size();
+    }
+    const uint64_t faults = gpu::watch::FaultCount();
+    LOGI("alloc: %.0f allocs/s, scan %.0f ms (%.0f entries each), zeroing %.0f ms for %.1f MB, lock waits %.0f ms, "
+         "%llu free blocks, %llu write faults/s",
+         (allocs - lastAllocs) / seconds, (scan - lastScan) / 1e6,
+         allocs > lastAllocs ? double(scanned - lastScanned) / double(allocs - lastAllocs) : 0.0,
+         (zero - lastZero) / 1e6, (bytes - lastBytes) / 1048576.0, (wait - lastWait) / 1e6,
+         (unsigned long long)freeCount, (unsigned long long)((faults - lastFaults) / seconds));
+    lastAllocs = allocs; lastScan = scan; lastZero = zero; lastBytes = bytes; lastWait = wait;
+    lastScanned = scanned; lastFaults = faults;
+}
 
 uint32_t kernel::AllocateGuest(uint32_t size, uint32_t alignment)
 {
@@ -497,6 +550,7 @@ bool kernel::DeliverUserApcs(const PPCContext& caller)
 }
 
 #include "../crash.h"
+#include "../gpu/memory_watch.h"
 #include "trace.h"
 void kernel::TraceImport(const char* name, uint32_t count, const PPCContext& ctx)
 {

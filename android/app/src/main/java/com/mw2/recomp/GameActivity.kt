@@ -72,6 +72,7 @@ class GameActivity : AppCompatActivity(), NativeListener {
     private lateinit var hudExpandedText: TextView
     private var hudIsExpanded = false
     private lateinit var menuButton: Button
+    private lateinit var captureButton: Button
     private var editPanel: EditPanel? = null
 
     private val pads = GamepadInput()
@@ -588,6 +589,21 @@ class GameActivity : AppCompatActivity(), NativeListener {
             ).apply { topMargin = pad(6); marginEnd = pad(6) }
         )
 
+        // Debug: asks the renderer to print what it did in the last few seconds and
+        // to dump the next frame, so a glitch just seen can be analysed from the log.
+        captureButton = smallButton("CAPTURE") {
+            val dir = getExternalFilesDir(null)
+            if (dir != null) java.io.File(dir, "capture_request").writeText("1")
+            android.widget.Toast.makeText(this, "Captured: tell Claude", android.widget.Toast.LENGTH_SHORT).show()
+        }
+        root.addView(
+            captureButton,
+            FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.TOP or Gravity.END,
+            ).apply { topMargin = pad(6); marginEnd = pad(76) }
+        )
+
         setContentView(root)
     }
 
@@ -713,7 +729,7 @@ class GameActivity : AppCompatActivity(), NativeListener {
             NativeBridge.nativeSetOption("MW2_NET_LINK", "1")
         }
         NativeBridge.nativeSetOption("MW2_NO_AUDIO", if (prefs.audioEnabled) "" else "1")
-        NativeBridge.nativeSetOption("MW2_NO_MSAA", if (prefs.multisampling) "" else "1")
+        NativeBridge.nativeSetOption("MW2_NO_MSAA", if (prefs.multisampling) "0" else "1")   // "0", not unset: perf.cpp defaults an unset one to 1
         if (prefs.renderScale in 1..3) {
             NativeBridge.nativeSetOption("MW2_SCALE", prefs.renderScale.toString())
         }
@@ -971,6 +987,7 @@ class GameActivity : AppCompatActivity(), NativeListener {
         overlay.editing = true
         overlay.select(null)
         menuButton.visibility = View.GONE
+        captureButton.visibility = View.GONE
         if (editPanel == null) editPanel = EditPanel()
         editPanel?.attach()
         NativeBridge.nativeSetPaused(true)
@@ -981,6 +998,7 @@ class GameActivity : AppCompatActivity(), NativeListener {
         overlay.select(null)
         editPanel?.detach()
         menuButton.visibility = View.VISIBLE
+        captureButton.visibility = View.VISIBLE
         if (save) overlay.layout.save(this)
         NativeBridge.nativeSetPaused(false)
         goFullscreen()
@@ -1131,6 +1149,7 @@ class GameActivity : AppCompatActivity(), NativeListener {
     override fun onResume() {
         super.onResume()
         goFullscreen()
+        warnIfPowerSaving()
         if (!started) return
         NativeBridge.nativeSetPaused(false)
         // A trim while the window was away may have cut the texture cache.
@@ -1194,6 +1213,45 @@ class GameActivity : AppCompatActivity(), NativeListener {
     }
 
     // ---- what the runtime tells the app ---------------------------------------------------
+
+    // Battery Saver halves the fast cores' clock (2.84 GHz to 1.5 GHz on an S20 FE): a match falls from
+    // about 58 fps to about 45, and the uneven frames show as a stuttering ball. Said once a resume.
+    private fun warnIfPowerSaving() {
+        val power = getSystemService(android.content.Context.POWER_SERVICE) as? android.os.PowerManager ?: return
+        if (power.isPowerSaveMode)
+            android.widget.Toast.makeText(this, "Battery Saver is on: the game runs slower and less smoothly. Turn it off for 60 fps.",
+                android.widget.Toast.LENGTH_LONG).show()
+    }
+
+    // XamShowKeyboardUI: a text dialog, so the phone's keyboard comes up for a name.
+    override fun onKeyboard(title: String, description: String, initial: String, maxLength: Int) {
+        runOnUiThread {
+            val input = android.widget.EditText(this).apply {
+                setText(initial)
+                setSelection(text.length)
+                filters = arrayOf(android.text.InputFilter.LengthFilter(if (maxLength > 0) maxLength else 256))
+                inputType = android.text.InputType.TYPE_CLASS_TEXT
+                imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_DONE
+                setSingleLine(true)
+            }
+            val dialog = androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle(if (title.isBlank()) "Enter text" else title)
+                .setMessage(description)
+                .setView(input)
+                .setCancelable(false)
+                .setPositiveButton(android.R.string.ok) { _, _ -> NativeBridge.nativeKeyboardResult(true, input.text.toString()) }
+                .setNegativeButton(android.R.string.cancel) { _, _ -> NativeBridge.nativeKeyboardResult(false, "") }
+                .create()
+            input.setOnEditorActionListener { _, action, _ ->
+                if (action == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
+                    dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE).performClick(); true
+                } else false
+            }
+            dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
+            dialog.show()
+            input.requestFocus()
+        }
+    }
 
     override fun onRumble(user: Int, lowFrequency: Int, highFrequency: Int) {
         if (!prefs.vibration || user != 0) return

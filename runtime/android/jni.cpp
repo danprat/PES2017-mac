@@ -39,6 +39,7 @@
 #include <cstdio>
 #include <cstring>
 #include <mutex>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -63,6 +64,9 @@ namespace
     jobject g_listener = nullptr;       // a global reference; the app's callbacks
     jmethodID g_onRumble = nullptr;
     jmethodID g_onStatus = nullptr;
+    jmethodID g_onKeyboard = nullptr;
+    std::mutex g_keyboardLock;
+    std::function<void(bool, const std::string&)> g_keyboardDone;
 
     android::Paths g_paths;
     std::atomic<bool> g_started{ false };
@@ -220,6 +224,22 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void*)
 #define MW2_NATIVE(returns, name) \
     extern "C" JNIEXPORT returns JNICALL Java_com_mw2_recomp_NativeBridge_##name
 
+void android::ui::ShowKeyboard(const std::string& title, const std::string& description, const std::string& initial,
+                               uint32_t maxChars, std::function<void(bool, const std::string&)> done)
+{
+    JNIEnv* env = Env();
+    if (!env || !g_listener || !g_onKeyboard) { done(false, {}); return; }
+    {
+        std::lock_guard lock(g_keyboardLock);
+        if (g_keyboardDone) { done(false, {}); return; }     // one dialog at a time
+        g_keyboardDone = std::move(done);
+    }
+    jstring t = FromString(env, title), d = FromString(env, description), i = FromString(env, initial);
+    env->CallVoidMethod(g_listener, g_onKeyboard, t, d, i, jint(maxChars));
+    if (env->ExceptionCheck()) env->ExceptionClear();
+    env->DeleteLocalRef(t); env->DeleteLocalRef(d); env->DeleteLocalRef(i);
+}
+
 // ---- start-up --------------------------------------------------------------
 
 MW2_NATIVE(jboolean, nativeInit)(JNIEnv* env, jobject, jstring filesDir, jstring externalDir,
@@ -238,6 +258,7 @@ MW2_NATIVE(jboolean, nativeInit)(JNIEnv* env, jobject, jstring filesDir, jstring
         jclass type = env->GetObjectClass(g_listener);
         g_onRumble = env->GetMethodID(type, "onRumble", "(III)V");
         g_onStatus = env->GetMethodID(type, "onStatus", "(Ljava/lang/String;)V");
+        g_onKeyboard = env->GetMethodID(type, "onKeyboard", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V");
         if (env->ExceptionCheck()) env->ExceptionClear();
         env->DeleteLocalRef(type);
     }
@@ -273,6 +294,17 @@ MW2_NATIVE(jboolean, nativeInit)(JNIEnv* env, jobject, jstring filesDir, jstring
 
 // A setting from the app, as one of the runtime's MW2_* switches. Set before
 // the run starts; nothing reads them again afterwards.
+MW2_NATIVE(void, nativeKeyboardResult)(JNIEnv* env, jobject, jboolean ok, jstring text)
+{
+    std::function<void(bool, const std::string&)> done;
+    {
+        std::lock_guard lock(g_keyboardLock);
+        done = std::move(g_keyboardDone);
+        g_keyboardDone = nullptr;
+    }
+    if (done) done(ok == JNI_TRUE, ToString(env, text));
+}
+
 MW2_NATIVE(void, nativeSetOption)(JNIEnv* env, jobject, jstring key, jstring value)
 {
     const std::string name = ToString(env, key);

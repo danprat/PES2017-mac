@@ -18,6 +18,7 @@
 //   log.cpp      the log, to logcat and to a file
 #include <cstdint>
 #include <string>
+#include <functional>
 
 #ifdef MW2_ANDROID
 
@@ -143,6 +144,15 @@ namespace android::input
     // XamInputSetState's motors, passed to the app (the phone's vibrator, or
     // a pad that has its own).
     void Rumble(uint32_t user, uint16_t low, uint16_t high);
+}
+
+// ---- text entry -------------------------------------------------------------
+// XamShowKeyboardUI: the app shows a text dialog with the phone's own keyboard and says what was
+// typed. `done(true, text)` runs later on an app thread; `done(false, "")` is a cancel.
+namespace android::ui
+{
+    void ShowKeyboard(const std::string& title, const std::string& description, const std::string& initial,
+                      uint32_t maxChars, std::function<void(bool, const std::string&)> done);
 }
 
 // ---- audio ---------------------------------------------------------------

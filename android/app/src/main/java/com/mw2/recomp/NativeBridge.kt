@@ -72,6 +72,9 @@ object NativeBridge {
     /** One of the runtime's MW2_* switches (docs/switches.md). */
     external fun nativeSetOption(key: String, value: String)
 
+    /** The answer to NativeListener.onKeyboard: what was typed, or a cancel. */
+    external fun nativeKeyboardResult(ok: Boolean, text: String)
+
     external fun nativeStart(gameDir: String): Boolean
     external fun nativeRequestStop()
     external fun nativeIsRunning(): Boolean
@@ -200,4 +203,7 @@ interface NativeListener {
 
     /** A sentence for the player: what the run is doing, or why it stopped. */
     fun onStatus(text: String)
+
+    /** The title wants text (a name): show a dialog with the keyboard, answer with nativeKeyboardResult. */
+    fun onKeyboard(title: String, description: String, initial: String, maxLength: Int)
 }

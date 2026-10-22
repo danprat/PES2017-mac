@@ -77,6 +77,8 @@ namespace gpu::watch
     // frame where it has to be looked at again, for eight pages written.
     uint64_t Track(uint32_t physical, uint32_t bytes, uint64_t (*completed)(), uint64_t frame);
     bool Unwritten(uint32_t physical, uint32_t bytes, uint64_t since);
+    // Write faults taken so far (each is a SIGSEGV through the signal chain).
+    uint64_t FaultCount();
 
     void Report();
 }

@@ -286,7 +286,10 @@ namespace
         // held once.
         std::unordered_map<std::array<uint32_t, 6>, uint64_t, WordsHash> byFetch;
         std::unordered_map<std::array<uint32_t, 6>, uint64_t, WordsHash> byContent;
-        std::vector<uint64_t> freeIds;                // slots of g.images to use again
+        // The frame a fetch that byFetch holds as kNone failed in.
+        std::unordered_map<std::array<uint32_t, 6>, uint64_t, WordsHash> failedAt;
+        static constexpr uint64_t kRetryFailedFrames = 30;
+        std::vector<uint64_t> freeIds;               // slots of g.images to use again
         std::vector<VkSampler> samplerList;           // an id's sampler, by its index less one
         std::map<uint64_t, uint32_t> samplerIndex;    // sampler key -> that index
         std::map<uint64_t, uint64_t> adopted;         // caller's key -> id
@@ -1096,6 +1099,7 @@ void vk::textures::Shutdown()
     g.images.clear();
     g.freeIds.clear();
     g.byFetch.clear();
+    g.failedAt.clear();
     g.byContent.clear();
     g.sets.clear();
     g.lastSet = nullptr;
@@ -1670,6 +1674,20 @@ uint64_t vk::textures::Upload(const gpu::TextureFetch& fetch, const char** error
     std::array<uint32_t, 6> key{};
     for (uint32_t i = 0; i < 6; i++) key[i] = fetch.d[i];
     auto found = g.byFetch.find(key);
+    // A texture that could not be read is not read again for a while, since one bound every
+    // frame would fail thousands of times -- but only a while: the title makes a texture's
+    // memory ready after the draw that names it more than once (Master League's menu tiles
+    // stayed blank after the player search until the screen was re-entered).
+    if (found != g.byFetch.end() && found->second == kNone)
+    {
+        const auto failedAt = g.failedAt.find(key);
+        if (failedAt != g.failedAt.end() && g.frame - failedAt->second >= g.kRetryFailedFrames)
+        {
+            g.failedAt.erase(failedAt);
+            g.byFetch.erase(found);
+            found = g.byFetch.end();
+        }
+    }
     if (found != g.byFetch.end())
     {
         if (Image* image = Find(found->second))
@@ -1709,6 +1727,13 @@ uint64_t vk::textures::Upload(const gpu::TextureFetch& fetch, const char** error
     {
         Fail(data.error ? data.error : "unreadable", error);
         g.byFetch[key] = kNone;
+        g.failedAt[key] = g.frame;
+        static uint32_t told = 0;
+        if (told++ < 60)
+            LOGW("textures: could not read %ux%u fmt %u at %08X (+%X), mips at %08X: %s, frame %llu",
+                 fetch.Width(), fetch.Height(), fetch.Format(), extents.baseAddress,
+                 uint32_t(extents.baseBytes), extents.mipAddress, g.lastError.c_str(),
+                 (unsigned long long)g.frame);
         return kNone;
     }
 
@@ -1789,7 +1814,7 @@ namespace
             // Reaches the screen with nothing in it. tools/flash_hunt.sh matches
             // these lines with the flashes somebody saw.
             g.stillEmptyAtSubmit++;
-            if (g.stillEmptyAtSubmit <= 24 || FlashHunt())
+            if (g.stillEmptyAtSubmit <= 200 || FlashHunt())
             {
                 char moves[1024];
                 imagepool::DescribeMovesAround(image->address, uint32_t(image->sourceBytes), 16,

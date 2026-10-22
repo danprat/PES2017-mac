@@ -22,9 +22,14 @@ class Prefs(context: Context) {
      * pipeline does that anyway. At 0.7 a 1080p phone renders 756p, close to
      * the console's own, and it is the single biggest thing a weak device can
      * be given.
+     *
+     * Not for this port: PES renders at a fixed 1280x720 whatever the surface is, so a smaller
+     * surface only shrank the finished frame (an HD+ phone showed 896x504, and thin pitch lines
+     * broke up) before the compositor stretched it back. Full size by default; the window's FSR
+     * upscaler (runtime/gpu/vulkan/upscaler.cpp) does the stretch instead.
      */
     var resolutionScale: Float
-        get() = store.getFloat(KEY_RESOLUTION, 0f).let { if (it <= 0f) 0.7f else it }
+        get() = store.getFloat(KEY_RESOLUTION, 0f).let { if (it <= 0f) 1.0f else it }
         set(value) = store.edit().putFloat(KEY_RESOLUTION, value.coerceIn(0.35f, 1.0f)).apply()
 
     /**
@@ -35,9 +40,13 @@ class Prefs(context: Context) {
         get() = store.getInt(KEY_RENDER_SCALE, 1).coerceIn(1, 3)
         set(value) = store.edit().putInt(KEY_RENDER_SCALE, value.coerceIn(1, 3)).apply()
 
-    /** Multisampling. Off by default: it is pure cost on a tiled GPU. */
+    /**
+     * Multisampling: the title's own 2x/4x world pass. On by default for PES: without it the thin pitch
+     * lines break into dashes at the 0.75 scene scale, and on the S20 FE's Adreno 650 it measured no cost
+     * (50 fps with it, about 44 without, Battery Saver on). (The MW2 port found it expensive.)
+     */
     var multisampling: Boolean
-        get() = store.getBoolean(KEY_MSAA, false)
+        get() = store.getBoolean(KEY_MSAA, true)
         set(value) = store.edit().putBoolean(KEY_MSAA, value).apply()
 
     /**

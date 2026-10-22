@@ -9,7 +9,12 @@
 #include "../log.h"
 #include "../crash.h"
 #include "../platform.h"
+#ifdef MW2_ANDROID
+#include "../android/android.h"
+#endif
 #include <chrono>
+#include <condition_variable>
+#include <memory>
 #include <thread>
 
 #include <atomic>
@@ -271,7 +276,38 @@ PPC_FUNC(__imp__NtSignalAndWaitForSingleObjectEx)
     ctx.r3.u64 = Wait(list, 1, false, timeout);
 }
 
-PPC_FUNC(__imp__NtYieldExecution) { sched_yield(); ctx.r3.u64 = X_STATUS_SUCCESS; }
+// CAPTURE during a hang: the threads that spin in a yield loop say, once each, where
+// in the guest they are (the caller chain from r1), so a busy-wait can be named.
+static std::atomic<int> g_yieldStacks{ 0 };
+void kernel::DumpYieldStacks(int perThread) { g_yieldStacks.store(perThread, std::memory_order_relaxed); }
+
+PPC_FUNC(__imp__NtYieldExecution)
+{
+    if (g_yieldStacks.load(std::memory_order_relaxed) > 0)
+    {
+        thread_local int shown = 0;
+        thread_local int generation = 0;
+        const int now = g_yieldStacks.load(std::memory_order_relaxed);
+        if (generation != now) { generation = now; shown = 0; }
+        if (shown++ < 3)
+        {
+            char line[300]; int at = std::snprintf(line, sizeof line, "%08X", uint32_t(ctx.lr));
+            uint32_t frame = ctx.r1.u32;
+            for (int i = 0; i < 10 && frame; i++)
+            {
+                auto* ptr = GuestPtr<be32>(frame);
+                if (!ptr) break;
+                const uint32_t next = uint32_t(*ptr);
+                if (!next) break;
+                at += std::snprintf(line + at, sizeof line - at, " <- %08X", uint32_t(*GuestPtr<be32>(next - 8)));
+                frame = next;
+            }
+            LOGW("spin: %s (r3 %08X r4 %08X r5 %08X) yields from %s", crash::CurrentThreadName(),
+                 ctx.r3.u32, ctx.r4.u32, ctx.r5.u32, line);
+        }
+    }
+    sched_yield(); ctx.r3.u64 = X_STATUS_SUCCESS;
+}
 
 // ---- DPCs: queued by interrupt handlers, run here straight away ----------------
 
@@ -527,11 +563,109 @@ PPC_FUNC(__imp__XamShowMessageBoxUI)
     else ctx.r3.u64 = X_ERROR_SUCCESS;
 }
 
+namespace
+{
+    // The one text dialog the phone shows, and the call it answers. The title may ask again while it is
+    // open; the newest call takes over the answer and the older one is cancelled, so the answer never
+    // goes to a request the title has already given up on.
+    constexpr uint32_t kXnSysUi = 0x00000009;      // XN_SYS_UI: a system dialog opened (1) or closed (0)
+    struct KeyboardRequest { uint32_t buffer = 0, length = 0, overlapped = 0; std::shared_ptr<void> waiter; };
+    std::mutex g_keyboardLock;
+    bool g_keyboardOpen = false;
+    KeyboardRequest g_keyboard;
+    struct KeyboardWait { std::mutex m; std::condition_variable cv; bool done = false, ok = false; };
+
+    void Utf8ToGuestUtf16(const std::string& utf8, uint32_t buffer, uint32_t length)
+    {
+        std::vector<uint16_t> out;
+        for (size_t i = 0; i < utf8.size();)
+        {
+            const uint8_t c = uint8_t(utf8[i]);
+            uint32_t cp = c; size_t n = 1;
+            if (c >= 0xF0 && i + 3 < utf8.size()) { cp = ((c & 7) << 18) | ((utf8[i+1] & 0x3F) << 12) | ((utf8[i+2] & 0x3F) << 6) | (utf8[i+3] & 0x3F); n = 4; }
+            else if (c >= 0xE0 && i + 2 < utf8.size()) { cp = ((c & 15) << 12) | ((utf8[i+1] & 0x3F) << 6) | (utf8[i+2] & 0x3F); n = 3; }
+            else if (c >= 0xC0 && i + 1 < utf8.size()) { cp = ((c & 31) << 6) | (utf8[i+1] & 0x3F); n = 2; }
+            i += n;
+            if (cp >= 0x10000) { cp -= 0x10000; out.push_back(uint16_t(0xD800 + (cp >> 10))); out.push_back(uint16_t(0xDC00 + (cp & 0x3FF))); }
+            else out.push_back(uint16_t(cp));
+        }
+        if (out.size() > length - 1) out.resize(length - 1);
+        for (size_t i = 0; i < out.size(); i++) Store16(buffer + uint32_t(i * 2), out[i]);
+        Store16(buffer + uint32_t(out.size() * 2), 0);
+    }
+
+    void Answer(const KeyboardRequest& request, bool ok, const std::string& utf8, bool dialogClosed = true)
+    {
+        if (ok && request.buffer && request.length) Utf8ToGuestUtf16(utf8, request.buffer, request.length);
+        LOGW("keyboard: %s \"%s\" -> buffer %08X, overlapped %08X", ok ? "answered" : "cancelled", utf8.c_str(),
+             request.buffer, request.overlapped);
+        if (request.overlapped)
+        {
+            if (ok) CompleteOverlapped(request.overlapped, X_ERROR_SUCCESS);
+            else CompleteOverlappedEx(request.overlapped, X_ERROR_SUCCESS, X_ERROR_CANCELLED, 0);   // as Xenia: the call succeeded, the user cancelled
+        }
+        if (auto wait = std::static_pointer_cast<KeyboardWait>(request.waiter))
+        {
+            std::lock_guard lock(wait->m);
+            wait->ok = ok; wait->done = true; wait->cv.notify_all();
+        }
+        // The title only takes the answer while it believes the system UI is still up (the handler of its
+        // completion checks the flags XN_SYS_UI sets), so "closed" follows the completion, a moment later.
+        if (dialogClosed)
+            std::thread([] { std::this_thread::sleep_for(std::chrono::milliseconds(500)); PostNotification(kXnSysUi, 0); }).detach();
+    }
+}
+
 PPC_FUNC(__imp__XamShowKeyboardUI)
 {
-    // (User, Flags, Default, Title, Description, Buffer, Length, Overlapped): cancelled.
-    if (ctx.r10.u32) { CompleteOverlappedEx(ctx.r10.u32, X_ERROR_CANCELLED, X_ERROR_CANCELLED, 0); ctx.r3.u64 = X_ERROR_IO_PENDING; }
+    // (User, Flags, Default, Title, Description, Buffer, Length, Overlapped). On the phone the app shows a
+    // text dialog; the answer is written into Buffer as big-endian UTF-16 and the overlapped completed.
+    const uint32_t defaultText = ctx.r5.u32, title = ctx.r6.u32, description = ctx.r7.u32;
+    const uint32_t buffer = ctx.r8.u32, length = ctx.r9.u32, overlapped = ctx.r10.u32;
+#ifdef MW2_ANDROID
+    KeyboardRequest request{ buffer, length, overlapped, nullptr };
+    std::shared_ptr<KeyboardWait> wait;
+    if (!overlapped) { wait = std::make_shared<KeyboardWait>(); request.waiter = wait; }
+    LOGW("keyboard: from %08X, user %u flags %08X title \"%s\" description \"%s\" default \"%s\" buffer %08X (%u characters) overlapped %08X",
+         uint32_t(ctx.lr), ctx.r3.u32, ctx.r4.u32, GuestWideString(title, 128).c_str(), GuestWideString(description, 256).c_str(),
+         GuestWideString(defaultText, 128).c_str(), buffer, length, overlapped);
+    // An asynchronous call marks its overlapped as running; the title polls it, and a result of zero reads
+    // as "finished with nothing" -- which is how the first answer was lost.
+    if (overlapped)
+    {
+        Store32(overlapped, X_ERROR_IO_PENDING);       // InternalLow
+        Store32(overlapped + 4, 0);                    // InternalHigh
+        Store32(overlapped + 24, 0);                   // dwExtendedError
+    }
+    bool open;
+    KeyboardRequest older;
+    {
+        std::lock_guard lock(g_keyboardLock);
+        open = g_keyboardOpen;
+        if (open) { older = g_keyboard; g_keyboard = request; }
+        else { g_keyboardOpen = true; g_keyboard = request; }
+    }
+    if (open) Answer(older, false, "", false);      // the title asked again: the old request is dropped
+    else
+    {
+        PostNotification(kXnSysUi, 1);
+        android::ui::ShowKeyboard(GuestWideString(title, 128), GuestWideString(description, 256),
+                                  GuestWideString(defaultText, 128), length ? length - 1 : 32,
+                                  [](bool ok, const std::string& text) {
+            KeyboardRequest current;
+            { std::lock_guard lock(g_keyboardLock); current = g_keyboard; g_keyboard = {}; g_keyboardOpen = false; }
+            Answer(current, ok, text);
+        });
+    }
+    if (overlapped) { ctx.r3.u64 = X_ERROR_IO_PENDING; return; }
+    std::unique_lock lock(wait->m);
+    wait->cv.wait(lock, [&] { return wait->done; });
+    ctx.r3.u64 = wait->ok ? X_ERROR_SUCCESS : X_ERROR_CANCELLED;
+#else
+    (void)defaultText; (void)title; (void)description; (void)buffer; (void)length;
+    if (overlapped) { CompleteOverlappedEx(overlapped, X_ERROR_CANCELLED, X_ERROR_CANCELLED, 0); ctx.r3.u64 = X_ERROR_IO_PENDING; }
     else ctx.r3.u64 = X_ERROR_CANCELLED;
+#endif
 }
 
 // XamInputGetKeystrokeEx is in keystroke.cpp.

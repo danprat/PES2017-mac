@@ -222,6 +222,7 @@ namespace
 
 void kernel::PostNotification(uint32_t id, uint32_t param)
 {
+    if (id == 0x9) LOGW("xam: XN_SYS_UI posted, param %u", param);
     std::lock_guard g(g_listenersLock);
     PostLocked(id, param);
 }
@@ -231,6 +232,7 @@ PPC_FUNC(__imp__XamNotifyCreateListener)
 {
     auto listener = std::make_shared<NotifyListener>();
     listener->areas = ctx.r3.u64;
+    LOGW("xam: notification listener for areas %llX", (unsigned long long)listener->areas);
     // Signed in to Live, the connection came up before the title was there to
     // hear it; the console tells a new listener so. The title asks for its NAT
     // type and measures its line when it hears it.
@@ -264,6 +266,7 @@ PPC_FUNC(__imp__XNotifyGetNext)
     for (auto it = listener->waiting.begin(); it != listener->waiting.end(); ++it)
     {
         if (only && it->first != only) continue;
+        if (it->first == 0x9) LOGW("xam: the title took XN_SYS_UI, param %u", it->second);
         if (it->first == XN_LIVE_INVITE_ACCEPTED) LOGI("xam: the title heard of the accepted invitation");
         if (id) *id = it->first;
         if (param) *param = it->second;

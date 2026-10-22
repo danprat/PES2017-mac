@@ -650,6 +650,15 @@ namespace vk::renderer::detail
         const VkImageView colourView = colour.view, depthView = depth.view;
         if (!colourView && !depthView) return;
 
+        if (g_tracePasses)
+        {
+            static std::atomic<uint32_t> traced{ 0 };
+            if (traced++ < 6000)
+                LOGW("TRACE frame %llu pass colour %ux%u scale %.2f x%u, depth %ux%u scale %.2f x%u, area %ux%u",
+                     (unsigned long long)g.frames, colourView ? colour.width : 0, colourView ? colour.height : 0,
+                     colour.scale, unsigned(colour.samples), depthView ? depth.width : 0, depthView ? depth.height : 0,
+                     depth.scale, unsigned(depth.samples), width, height);
+        }
         // Both attachments of a pass have to be drawn at one scale.
         const float scale = colourView ? colour.scale : depth.scale;
         if (colourView && depthView && colour.scale != depth.scale)

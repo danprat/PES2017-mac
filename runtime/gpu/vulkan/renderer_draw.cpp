@@ -34,6 +34,27 @@ namespace vk::renderer::detail
     bool g_dumpDraws = false;
     std::vector<uint64_t> g_skipPixelShaders;
     uint32_t g_drawLo = 0, g_drawHi = 0xFFFFFFFFu, g_frameDraw = 0;
+    bool g_noVertexReuse = false;
+    bool g_tracePasses = false;
+
+    uint64_t SampleGuestMemory(uint32_t address, uint32_t bytes)
+    {
+        const uint32_t va = kernel::FromPhysical(address);
+        if (!va || bytes < 1024) return 0;
+        const uint8_t* at = guest::Base() + va;
+        constexpr uint32_t kWords = 256;
+        const uint64_t step = std::max<uint64_t>(4, (uint64_t(bytes) / kWords) & ~3ull);
+        uint64_t sum = 0xCBF29CE484222325ull;
+        for (uint32_t i = 0; i < kWords && uint64_t(i) * step + 4 <= bytes; i++)
+        {
+            uint32_t word;
+            std::memcpy(&word, at + uint64_t(i) * step, 4);
+            sum = (sum ^ word) * 0x100000001B3ull;
+        }
+        return sum | 1;
+    }
+    bool g_noWriteBackCap = false;
+    bool g_dumpHeaders = false;
     uint32_t g_dumpIndex = 0;
 
     bool DumpRequested()
@@ -170,6 +191,19 @@ namespace vk::renderer::detail
             // a different player's kit -- defenders in the keeper's, opponents
             // in ours.
             if (newest && newest->writtenBack) newest = nullptr;
+            // And memory the title has written since the resolve is not the resolve either.
+            if (newest && newest->memorySignature &&
+                SampleGuestMemory(fetch.BaseAddress(), newest->memoryBytes) != newest->memorySignature)
+            {
+                if (g_dumpDraws)
+                    LOGW("DUMP   tex slot %u: not the resolve at %08X (the title wrote the memory since)",
+                         slot, fetch.BaseAddress());
+                static std::atomic<uint32_t> told{ 0 };
+                if (told++ < 40)
+                    LOGI("renderer: %08X was resolved to, then written by the title: read from memory (fetch %ux%u fmt %u)",
+                         fetch.BaseAddress(), fetch.Width(), fetch.Height(), fetch.Format());
+                newest = nullptr;
+            }
             if (newest && !newest->depth &&
                 ((newest->guestFormat && fetch.Format() != newest->guestFormat) ||
                  fetch.Width() > newest->width || fetch.Height() > newest->height))
@@ -387,6 +421,9 @@ void vk::renderer::Draw(const gpu::RegisterFile& r, const DrawCall& call)
     const auto setupFrom = Timing() ? std::chrono::steady_clock::now()
                                     : std::chrono::steady_clock::time_point{};
     g.draws++;
+    if (g_dumpHeaders)
+        LOGW("DUMP draw %u: prim %u idx %u%s vs %016llX ps %016llX", g_dumpIndex++, call.primitive, call.indexCount,
+             call.indexed ? "" : " (auto)", (unsigned long long)call.vertexHash, (unsigned long long)call.pixelHash);
     if (g_dumpDraws)
     {
         const gpu::ColorInfo c{ r[gpu::RB_COLOR_INFO] };

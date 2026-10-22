@@ -56,6 +56,7 @@ uint64_t vk::PresentedFrames() { return 0; }
 #include <vulkan/vulkan.h>
 #include "loader.h"
 #include "util.h"
+#include "upscaler.h"
 
 namespace
 {
@@ -900,8 +901,23 @@ namespace
                                   VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_WRITE_BIT,
                                   VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
             }
-            vkCmdBlitImage(frame.commands, shown.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                           image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR);
+            // FSR 1 to the picture's size, then a 1:1 copy into place; the bilinear blit when it
+            // is off or cannot run.
+            const uint32_t pictureWidth = uint32_t(blit.dstOffsets[1].x - blit.dstOffsets[0].x);
+            const uint32_t pictureHeight = uint32_t(blit.dstOffsets[1].y - blit.dstOffsets[0].y);
+            const VkImage upscaled = vk::upscale::Enabled()
+                ? vk::upscale::Record(g.device, g.physical, frame.commands, g.frameIndex, shown.image,
+                                      shown.width, shown.height, pictureWidth, pictureHeight)
+                : VK_NULL_HANDLE;
+            if (upscaled)
+            {
+                blit.srcOffsets[1] = { int32_t(pictureWidth), int32_t(pictureHeight), 1 };
+                vkCmdBlitImage(frame.commands, upscaled, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                               image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_NEAREST);
+            }
+            else
+                vkCmdBlitImage(frame.commands, shown.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                               image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR);
         }
         else
         {
@@ -997,6 +1013,7 @@ namespace
         {
             vkDeviceWaitIdle(g.device);
             DestroyOverlay();
+            vk::upscale::Destroy(g.device);
             for (auto& frame : g.frames)
             {
                 if (frame.acquired) vkDestroySemaphore(g.device, frame.acquired, nullptr);

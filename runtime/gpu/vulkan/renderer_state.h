@@ -212,6 +212,13 @@ namespace vk::renderer::detail
         // reads it rather than this copy (the title rebuilds kits from it, at
         // addresses later resolves reuse).
         bool writtenBack = false;
+        // A few hundred words of the destination's guest memory as the resolve found it
+        // (zero: not taken). A resolve does not write guest memory, so the sample changes
+        // only when the title writes there afterwards -- loads something into memory the
+        // resolve used (Master League's player-portrait target, 1024x1024, became the
+        // menu tiles' atlas and the fetch kept reading the portrait render).
+        uint64_t memorySignature = 0;
+        uint32_t memoryBytes = 0;
         // The frame the last resolve landed in this image. The first resolve
         // of a frame may discard what was there; a later one -- the second
         // shadow cascade -- must keep it.
@@ -528,6 +535,13 @@ namespace vk::renderer::detail
     extern std::vector<uint64_t> g_skipPixelShaders;
     // Debug: only draws numbered lo..hi of each frame are drawn (files/draw_range holds "lo hi").
     extern uint32_t g_drawLo, g_drawHi, g_frameDraw;
+    extern bool g_dumpHeaders;       // CAPTURE burst: one 'DUMP draw' line per draw, nothing else
+    extern bool g_noWriteBackCap;    // files/no_writeback_cap: debug A/B for the blinking ball
+    extern bool g_noVertexReuse;     // files/no_vertex_reuse: debug A/B for the flicker
+    extern bool g_tracePasses;       // files/trace_passes: one log line a render pass and a resolve
+    // A signature of `bytes` of the guest memory at physical `address`, from 256 words spread
+    // across it. 0 when the range is not mapped. See Resolved::memorySignature.
+    uint64_t SampleGuestMemory(uint32_t address, uint32_t bytes);
     extern uint32_t g_dumpIndex;
     bool DumpRequested();
 

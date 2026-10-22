@@ -19,14 +19,14 @@ HEADER = """#pragma once
 #endif
 
 #ifdef MW2_TRACE_INDIRECT
-extern "C" void MW2ReportBadIndirectCall(unsigned int guestAddress);
+extern "C" void MW2ReportBadIndirectCall(unsigned int guestAddress, const void* ctx, const uint8_t* base);
 #define PPC_CALL_INDIRECT_FUNC(x) \\
     do { \\
         const uint32_t mw2_addr = (uint32_t)(x); \\
         PPCFunc* mw2_target = (mw2_addr >= PPC_CODE_BASE && mw2_addr < (PPC_CODE_BASE + PPC_CODE_SIZE)) \\
             ? PPC_FUNC_SLOT(base, mw2_addr) : nullptr; \\
         if (!mw2_target) { \\
-            MW2ReportBadIndirectCall(mw2_addr); \\
+            MW2ReportBadIndirectCall(mw2_addr, &ctx, base); \\
         } else { \\
             mw2_target(ctx, base); \\
         } \\

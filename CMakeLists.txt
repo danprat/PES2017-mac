@@ -169,6 +169,8 @@ else()
         "${MW2_PPC_DIR}/stubs_generated.cpp")
 endif()
 target_link_libraries(mw2 PRIVATE ppc_recomp)
+# ppc_recomp_shared.h declares a function taking uint8_t before every includer has <cstdint>.
+target_compile_options(mw2 PRIVATE $<$<COMPILE_LANGUAGE:CXX>:SHELL:-include cstdint>)
 target_compile_definitions(mw2 PRIVATE ${MW2_ONLINE_DEFINITIONS})
 if(MW2_DIAGNOSTICS)
     target_compile_definitions(mw2 PRIVATE MW2_DIAGNOSTICS=1)

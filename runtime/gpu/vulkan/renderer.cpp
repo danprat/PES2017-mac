@@ -457,9 +457,10 @@ bool vk::renderer::Initialise()
         image.format = VK_FORMAT_R8G8B8A8_UNORM;
         image.width = g.presentWidth / g.scale;     // MakeImage scales
         image.height = g.presentHeight / g.scale;
-        // STORAGE so the display's colour table can be applied to it in place.
+        // STORAGE so the display's colour table can be applied to it in place; SAMPLED so the
+        // window's upscaler (upscaler.cpp) can read it.
         if (!MakeImage(image, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
-                              VK_IMAGE_USAGE_STORAGE_BIT, 0))
+                              VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, 0))
         {
             RollbackInitialise();
             return false;

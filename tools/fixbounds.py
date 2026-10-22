@@ -25,6 +25,27 @@ for a in range(TVA, TVA+TSZ, 4):
         if TVA<=t<TVA+TSZ: starts.add(t)
     if prev_pad and x!=0: starts.add(a)
     prev_pad = (x==0)
+# Functions reached only through a vtable or a function-pointer table are no bl target and have no
+# .pdata, so nothing above knows them (sub_82848EE8 sat inside sub_82848DE8, whose bound was stretched
+# over it and over ITS jump table -- the in-match freeze's second cause). A code pointer stored in the
+# data, right after a return or branch or padding, is a function start; the labels of the jump
+# tables are code pointers too and are not.
+_labels = set()
+for _blk in open(sys.argv[1]).read().split("[[switch]]")[1:]:
+    _labels.update(int(x, 16) for x in re.findall(r"0x([0-9A-F]+)", _blk))
+_found = 0
+for a in range(BASE, BASE + len(img) - 4, 4):
+    if TVA <= a < TVA + TSZ: continue                   # data only, not the code itself
+    v = w(a)
+    if not (TVA <= v < TVA + TSZ) or v & 3 or v in _labels or v in starts: continue
+    # Strict: right after a return, and one of a run of code pointers (a vtable), so a stray pointer to a
+    # label inside a function cannot split it (the first version of this rule left 38 jump-table errors).
+    p = w(v - 4)
+    if p != 0x4E800020: continue
+    neighbours = sum(1 for n in (w(a - 4), w(a + 4)) if TVA <= n < TVA + TSZ and not n & 3)
+    if neighbours >= 1:
+        starts.add(v); _found += 1
+print(f"  vtable-only function starts found: {_found}", file=sys.stderr)
 starts=sorted(starts)
 
 tables={}

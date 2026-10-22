@@ -190,6 +190,8 @@ PPC_FUNC(__imp__ExCreateThread)
     t->startAddress = startAddress;
     t->startContext = startContext;
     t->stackSize = (std::max(stackSize, kMinStackSize) + 0xFFFu) & ~0xFFFu;
+    if (t->stackSize >= (4u << 20))
+        LOGW("ExCreateThread: asked for a %u KB stack (from %08X) -- allocating", t->stackSize >> 10, uint32_t(ctx.lr));
     t->stackBase = kernel::AllocateGuest(t->stackSize, 0x1000);
 
     t->pcr = kernel::CreateThreadBlock(t->threadId);

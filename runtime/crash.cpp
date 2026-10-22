@@ -12,6 +12,7 @@
 #include "gpu/internal.h"
 #include "gpu/gpu.h"
 #include <ppc_config.h>
+#include <ppc_recomp_shared.h>
 #include <csignal>
 #include <cstdio>
 #include <cstdlib>
@@ -492,9 +493,43 @@ void crash::Install()
     StartHangMonitor();
 }
 
-extern "C" void MW2ReportBadIndirectCall(unsigned int guestAddress)
+// What the guest held at the bad call: its registers, the words behind every register that looks
+// like a pointer, and its call chain -- enough to find which object holds the bad function pointer.
+static void DescribeGuestContext(const PPCContext& ctx, const uint8_t* base)
+{
+    const auto word = [&](uint32_t a) { return uint32_t(*reinterpret_cast<const be32*>(base + a)); };
+    const auto pointer = [](uint32_t v) { return v >= 0x10000u && v < 0xC0000000u && !(v & 3); };
+    std::fprintf(stderr, "[W] guest lr %08llX r1 %08X (ctr is a local of the caller: the target above)\n",
+                 (unsigned long long)ctx.lr, ctx.r1.u32);
+    const PPCRegister* regs[] = { &ctx.r0, &ctx.r1, &ctx.r2, &ctx.r3, &ctx.r4, &ctx.r5, &ctx.r6, &ctx.r7, &ctx.r8,
+        &ctx.r9, &ctx.r10, &ctx.r11, &ctx.r12, &ctx.r13, &ctx.r14, &ctx.r15, &ctx.r16, &ctx.r17, &ctx.r18, &ctx.r19,
+        &ctx.r20, &ctx.r21, &ctx.r22, &ctx.r23, &ctx.r24, &ctx.r25, &ctx.r26, &ctx.r27, &ctx.r28, &ctx.r29, &ctx.r30, &ctx.r31 };
+    for (int i = 3; i < 32; i++)
+    {
+        if (i == 13) continue;
+        const uint32_t v = regs[i]->u32;
+        if (pointer(v) && v != ctx.r1.u32)
+            std::fprintf(stderr, "[W]   r%-2d %08X -> %08X %08X %08X %08X  (+16: %08X %08X)\n", i, v, word(v), word(v + 4),
+                         word(v + 8), word(v + 12), word(v + 16), word(v + 20));
+        else
+            std::fprintf(stderr, "[W]   r%-2d %08X\n", i, v);
+    }
+    std::fprintf(stderr, "[W] guest call chain:");
+    uint32_t frame = ctx.r1.u32;
+    for (int i = 0; i < 14 && frame >= 0x10000u; i++)
+    {
+        const uint32_t next = word(frame);
+        if (next < 0x10000u) break;
+        std::fprintf(stderr, " %08X", word(next - 8));
+        frame = next;
+    }
+    std::fprintf(stderr, "\n");
+}
+
+extern "C" void MW2ReportBadIndirectCall(unsigned int guestAddress, const void* guestContext, const uint8_t* base)
 {
     std::fprintf(stderr, "\n[W] ---- indirect call to %08X has no recompiled function ----\n", guestAddress);
+    if (guestContext && base) DescribeGuestContext(*static_cast<const PPCContext*>(guestContext), base);
     if (guestAddress == 0)
         std::fprintf(stderr, "[W] target is null: the guest read a function pointer that was never written\n");
     else if (guestAddress < PPC_CODE_BASE || guestAddress >= PPC_CODE_BASE + PPC_CODE_SIZE)
@@ -609,7 +644,7 @@ void crash::DumpAllThreads(const char* reason)
 void crash::StartHangMonitor() {}
 void crash::StopHangMonitor() {}
 
-extern "C" void MW2ReportBadIndirectCall(unsigned int guestAddress)
+extern "C" void MW2ReportBadIndirectCall(unsigned int guestAddress, const void*, const uint8_t*)
 {
     std::fprintf(stderr, "\n[E] ---- indirect call to %08X has no recompiled function ----\n", guestAddress);
     platform::PrintBacktrace("indirect call backtrace");

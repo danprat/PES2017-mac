@@ -19,6 +19,7 @@ namespace
     constexpr uint32_t kExecutionModelVertex = 0;
     constexpr uint32_t kExecutionModelFragment = 4;
     constexpr uint32_t kExecutionModeOriginUpperLeft = 7;
+    constexpr uint32_t kExecutionModeDepthReplacing = 12;
     constexpr uint32_t kFunctionControlNone = 0;
     constexpr uint32_t kLoopControlNone = 0;
     constexpr uint32_t kLoopControlDontUnroll = 0x2;
@@ -154,6 +155,8 @@ namespace
         Id m_a0 = 0;                  // a0, set by the maxa family
         Id m_lod = 0;                 // the level of detail setTexLOD wrote
         Id m_killed = 0;              // pointer to a Function bool
+        Id m_fragDepth = 0;           // pixel programs exporting depth (oDepth, 61)
+        Id m_depthTemp = 0;           // where the export lands; .x is the depth
         bool m_haveKill = false;
         Id m_loopDepth = 0, m_loopIterators = 0, m_loopIds = 0;
         Id m_callDepth = 0, m_callStack = 0;
@@ -603,6 +606,18 @@ namespace
                              { m_colours[i], uint32_t(Decoration::Location), i });
                 m_entryInterface.push_back(m_colours[i]);
             }
+            // oDepth: the cutscenes' close-up passes write it, and refusing the
+            // program dropped their draws -- 105 a scene.
+            if (m_result.writesDepth)
+            {
+                m_fragDepth = m_module.Allocate();
+                Module::Emit(m_module.Declarations(), Op::Variable,
+                             { m_module.Pointer(StorageClass::Output, m_float), m_fragDepth,
+                               uint32_t(StorageClass::Output) });
+                Module::Emit(m_module.Decorations(), Op::Decorate,
+                             { m_fragDepth, uint32_t(Decoration::BuiltIn), uint32_t(BuiltIn::FragDepth) });
+                m_entryInterface.push_back(m_fragDepth);
+            }
         }
     }
 
@@ -779,7 +794,7 @@ namespace
         else
         {
             if (dest < 4) target = m_colours[dest];
-            else if (dest == kExportDepth) { Fail("depth export", dest); return; }
+            else if (dest == kExportDepth) target = m_depthTemp;
             else
             {
                 // A pixel shader has four colour outputs and depth. An export to anything else
@@ -1807,6 +1822,15 @@ namespace
                        m_module.ConstantF(0.0f) });
         Module::EmitString(m_module.Debug(), Op::Name, { m_lod }, "lod");
 
+        if (m_fragDepth)
+        {
+            // Starts as the fragment's own depth, for paths that never write it.
+            m_depthTemp = m_module.Allocate();
+            Module::Emit(m_module.Code(), Op::Variable,
+                         { m_module.Pointer(StorageClass::Function, m_float4), m_depthTemp,
+                           uint32_t(StorageClass::Function) });
+        }
+
         Id boolPointer2 = m_module.Pointer(StorageClass::Function, m_bool);
         m_killed = m_module.Allocate();
         Module::Emit(m_module.Code(), Op::Variable,
@@ -2020,6 +2044,9 @@ namespace
         if (m_type == shader::Type::Pixel)
             Module::Emit(m_module.ExecutionModes(), Op::ExecutionMode,
                          { entry, kExecutionModeOriginUpperLeft });
+        if (m_fragDepth)
+            Module::Emit(m_module.ExecutionModes(), Op::ExecutionMode,
+                         { entry, kExecutionModeDepthReplacing });
 
         Module::Emit(m_module.Code(), Op::Function,
                      { m_void, entry, kFunctionControlNone, functionType });
@@ -2072,6 +2099,12 @@ namespace
                     Module::Emit(m_module.Code(), Op::Store,
                                  { TempPointer(m_module.ConstantS(int32_t(i))), value });
                 }
+        if (m_depthTemp && m_fragCoord)
+        {
+            Id z = Emit(Op::CompositeExtract, m_float, { Emit(Op::Load, m_float4, { m_fragCoord }), 2 });
+            Module::Emit(m_module.Code(), Op::Store,
+                         { m_depthTemp, Emit(Op::CompositeConstruct, m_float4, { z, z, z, z }) });
+        }
 
         // Param gen: with SQ_PROGRAM_CNTL.param_gen the hardware puts the pixel's
         // position in the register SQ_CONTEXT_MISC.param_gen_pos names -- x and y
@@ -2397,6 +2430,11 @@ namespace
                                 { term(0), term(1),
                                   Emit(Op::CompositeExtract, m_float, { value, 2 }), w }) });
         }
+
+        if (m_fragDepth && m_depthTemp)
+            Module::Emit(m_module.Code(), Op::Store,
+                         { m_fragDepth, Emit(Op::CompositeExtract, m_float,
+                                             { Emit(Op::Load, m_float4, { m_depthTemp }), 0 }) });
 
         // The discard any kill asked for, now that OpKill can terminate a block
         // without breaking the switch.

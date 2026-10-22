@@ -50,6 +50,10 @@ echo "==> 5. jump tables, save/restore helpers"
 ./XenonRecomp/build/XenonAnalyse/XenonAnalyse pes/default.xex config/pes_switch_tables.toml >logs-analyse.txt 2>&1
 python3 tools/trim_switch_tables.py config/pes_switch_tables.toml
 python3 tools/fix_switch_regs.py config/pes_switch_tables.toml --apply >/dev/null || true
+# Dispatches the analyser missed (stores between the guard and the bctr): without them the bctr is an
+# "indirect call" to a case label and the task that reaches it never finishes (the in-match freeze).
+python3 tools/find_missed_switches.py config/pes_switch_tables.toml config/pes_switch_extra.toml
+cat config/pes_switch_extra.toml >> config/pes_switch_tables.toml
 echo "    tables: $(grep -c '^\[\[switch\]\]' config/pes_switch_tables.toml)"
 python3 tools/find_helpers.py --write config/PES.toml >/dev/null
 
