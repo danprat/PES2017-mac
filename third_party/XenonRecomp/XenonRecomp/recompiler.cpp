@@ -1049,10 +1049,14 @@ bool Recompiler::Recompile(
         break;
 
     case PPC_INST_LDARX:
-        print("\t{}.u64 = *(uint64_t*)(base + ", reserved());
+        // The reservation is the address, kept per guest thread in ctx; the value read is
+        // what stdcx. compares against (reserved).
+        print("\t{} = ", ea());
         if (insn.operands[1] != 0)
             print("{}.u32 + ", r(insn.operands[1]));
-        println("{}.u32);", r(insn.operands[2]));
+        println("{}.u32;", r(insn.operands[2]));
+        println("\tctx.reservation = 0x100000000ull | {};", ea());
+        println("\t{}.u64 = *(volatile uint64_t*)(base + {});", reserved(), ea());
         println("\t{}.u64 = __builtin_bswap64({}.u64);", r(insn.operands[0]), reserved());
         break;
 
@@ -1194,10 +1198,12 @@ bool Recompiler::Recompile(
         break;
 
     case PPC_INST_LWARX:
-        print("\t{}.u32 = *(uint32_t*)(base + ", reserved());
+        print("\t{} = ", ea());
         if (insn.operands[1] != 0)
             print("{}.u32 + ", r(insn.operands[1]));
-        println("{}.u32);", r(insn.operands[2]));
+        println("{}.u32;", r(insn.operands[2]));
+        println("\tctx.reservation = 0x100000000ull | {};", ea());
+        println("\t{}.u32 = *(volatile uint32_t*)(base + {});", reserved(), ea());
         println("\t{}.u64 = __builtin_bswap32({}.u32);", r(insn.operands[0]), reserved());
         break;
 
@@ -1520,12 +1526,16 @@ bool Recompiler::Recompile(
         break;
 
     case PPC_INST_STDCX:
-        println("\t{}.lt = 0;", cr(0));
-        println("\t{}.gt = 0;", cr(0));
-        print("\t{}.eq = __sync_bool_compare_and_swap(reinterpret_cast<uint64_t*>(base + ", cr(0));
+        // Succeeds only for the address lwarx/ldarx reserved on this thread, and always
+        // gives the reservation up, as the hardware does.
+        print("\t{} = ", ea());
         if (insn.operands[1] != 0)
             print("{}.u32 + ", r(insn.operands[1]));
-        println("{}.u32), {}.s64, __builtin_bswap64({}.s64));", r(insn.operands[2]), reserved(), r(insn.operands[0]));
+        println("{}.u32;", r(insn.operands[2]));
+        println("\t{}.lt = 0;", cr(0));
+        println("\t{}.gt = 0;", cr(0));
+        println("\t{}.eq = ctx.reservation == (0x100000000ull | {}) && __sync_bool_compare_and_swap(reinterpret_cast<uint64_t*>(base + {}), {}.s64, __builtin_bswap64({}.s64));", cr(0), ea(), ea(), reserved(), r(insn.operands[0]));
+        println("\tctx.reservation = 0;");
         println("\t{}.so = {}.so;", cr(0), xer());
         break;
 
@@ -1675,12 +1685,14 @@ bool Recompiler::Recompile(
         break;
 
     case PPC_INST_STWCX:
-        println("\t{}.lt = 0;", cr(0));
-        println("\t{}.gt = 0;", cr(0));
-        print("\t{}.eq = __sync_bool_compare_and_swap(reinterpret_cast<uint32_t*>(base + ", cr(0));
+        print("\t{} = ", ea());
         if (insn.operands[1] != 0)
             print("{}.u32 + ", r(insn.operands[1]));
-        println("{}.u32), {}.s32, __builtin_bswap32({}.s32));", r(insn.operands[2]), reserved(), r(insn.operands[0]));
+        println("{}.u32;", r(insn.operands[2]));
+        println("\t{}.lt = 0;", cr(0));
+        println("\t{}.gt = 0;", cr(0));
+        println("\t{}.eq = ctx.reservation == (0x100000000ull | {}) && __sync_bool_compare_and_swap(reinterpret_cast<uint32_t*>(base + {}), {}.s32, __builtin_bswap32({}.s32));", cr(0), ea(), ea(), reserved(), r(insn.operands[0]));
+        println("\tctx.reservation = 0;");
         println("\t{}.so = {}.so;", cr(0), xer());
         break;
 

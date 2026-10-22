@@ -544,6 +544,10 @@ struct alignas(0x40) PPCContext
     PPCVRegister v126;
     PPCVRegister v127;
 #endif
+
+    // The address lwarx/ldarx reserved on this thread, with bit 32 set while it holds; 0
+    // when none. stwcx./stdcx. succeed only for that address and always clear it.
+    uint64_t reservation = 0;
 };
 
 inline uint8_t VectorMaskL[] =
