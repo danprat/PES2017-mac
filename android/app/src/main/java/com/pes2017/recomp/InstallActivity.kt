@@ -54,6 +54,7 @@ class InstallActivity : AppCompatActivity() {
 
     private val handler = Handler(Looper.getMainLooper())
     private var source: String = ""
+    private val required get() = intent.getBooleanExtra(EXTRA_REQUIRED, false)
 
     @Volatile
     private var running = false
@@ -106,6 +107,8 @@ class InstallActivity : AppCompatActivity() {
         // BACK on the strip along the top; through the dispatcher, so a screen's own back handling (the install's
         // "stop copying?") applies to it too.
         findViewById<android.view.View>(R.id.back_button).setOnClickListener { onBackPressedDispatcher.onBackPressed() }
+        // Opened because there is no game yet: no menu to go back to until it is installed.
+        if (required) (findViewById<View>(R.id.back_button).parent as View).visibility = View.GONE
         prefs = Prefs(this)
         title = getString(R.string.install_game)
 
@@ -141,7 +144,7 @@ class InstallActivity : AppCompatActivity() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 if (!running && !copying) {
-                    finish()
+                    if (required) finishAffinity() else finish()
                     return
                 }
                 AlertDialog.Builder(this@InstallActivity)
@@ -172,6 +175,7 @@ class InstallActivity : AppCompatActivity() {
     companion object {
         const val EXTRA_INITIAL_PATH = "initial_path"
         const val EXTRA_AUTO_START = "auto_start"
+        const val EXTRA_REQUIRED = "required"
     }
 
     private fun useSource(path: String) {
@@ -483,6 +487,9 @@ class InstallActivity : AppCompatActivity() {
         choose.isEnabled = !busy
         pick.isEnabled = !busy
         pickFolder.isEnabled = !busy
+        // Out of the way while it works, so the progress and cancel fit without scrolling.
+        val choosing = if (busy) View.GONE else View.VISIBLE
+        for (button in listOf(pick, pickFolder, choose, begin)) button.visibility = choosing
         progress.visibility = if (busy) View.VISIBLE else View.GONE
         cancel.visibility = if (busy) View.VISIBLE else View.GONE
         cancel.isEnabled = busy

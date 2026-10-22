@@ -48,10 +48,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var detailText: TextView
     private lateinit var versionTag: TextView
     private lateinit var directLaunchSwitch: androidx.appcompat.widget.SwitchCompat
-    private var detectedIsoFile: File? = null
+    private var detectedSource: GameSource? = null
     private var detectedSources: List<GameSource> = emptyList()
     private var nativeReady = false
     private var hasAutoLaunched = false
+    private var installRequired = false
     private var pendingInstallId: Long = -1
     private var pendingUpdateUrl: String? = null
 
@@ -116,9 +117,12 @@ class MainActivity : AppCompatActivity() {
             }
             if (installed) {
                 startGame()
-            } else if (detectedIsoFile != null) {
+            } else if (detectedSource?.isFolder == true) {
+                // Already extracted: played where it is, nothing copied.
+                useFolder(detectedSource!!.file, null)
+            } else if (detectedSource != null) {
                 val intent = Intent(this, InstallActivity::class.java).apply {
-                    putExtra(InstallActivity.EXTRA_INITIAL_PATH, detectedIsoFile!!.absolutePath)
+                    putExtra(InstallActivity.EXTRA_INITIAL_PATH, detectedSource!!.file.absolutePath)
                     putExtra(InstallActivity.EXTRA_AUTO_START, true)
                 }
                 startActivity(intent)
@@ -415,7 +419,7 @@ class MainActivity : AppCompatActivity() {
             detectedSources = GameSources.find(this, File(gameDirectory.ifEmpty { "/nonexistent" }))
             val chosen = detectedSources.firstOrNull { it.file.absolutePath == prefs.lastSource }
                 ?: detectedSources.firstOrNull()
-            detectedIsoFile = chosen?.file
+            detectedSource = chosen
             installButton.visibility = android.view.View.VISIBLE
             directLaunchSwitch.visibility = android.view.View.GONE
 
@@ -428,18 +432,23 @@ class MainActivity : AppCompatActivity() {
                         R.string.status_needs_access else R.string.status_folder_missing,
                     gameDirectory,
                 )
-            } else if (detectedIsoFile != null) {
+            } else if (chosen != null) {
                 play.isEnabled = true
-                play.text = getString(R.string.install_and_play)
-                val c = chosen!!
+                play.text = getString(if (chosen.isFolder) R.string.play else R.string.install_and_play)
                 val more = if (detectedSources.size > 1) "\n${detectedSources.size - 1} other source(s) found." else ""
-                status.text = "Game found (${c.kind}):\n${c.file.name}\nReady for one-click setup.$more"
+                val ready = if (chosen.isFolder) "Plays from this folder, nothing copied." else "Ready for one-click setup."
+                status.text = "Game found (${chosen.kind}):\n${chosen.file.name}\n$ready$more"
                 installButton.text = if (detectedSources.size > 1) "Choose Game Source (${detectedSources.size})" else "Choose Another Source"
             } else {
                 play.isEnabled = true
                 play.text = getString(R.string.play)
                 status.text = getString(R.string.status_not_installed)
                 installButton.text = getString(R.string.entry_install)
+                // Nothing installed and nothing to install from in sight: installing is the only way on.
+                if (!installRequired) {
+                    installRequired = true
+                    startActivity(Intent(this, InstallActivity::class.java).putExtra(InstallActivity.EXTRA_REQUIRED, true))
+                }
             }
         }
 
