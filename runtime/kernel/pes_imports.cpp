@@ -5,6 +5,7 @@
 #include <ppc_recomp_shared.h>
 #include "kernel.h"
 #include "objects.h"
+#include "yield_backoff.h"
 #include "../guest.h"
 #include "../log.h"
 #include "../crash.h"
@@ -306,7 +307,7 @@ PPC_FUNC(__imp__NtYieldExecution)
                  ctx.r3.u32, ctx.r4.u32, ctx.r5.u32, line);
         }
     }
-    sched_yield(); ctx.r3.u64 = X_STATUS_SUCCESS;
+    kernel::YieldBackoff(); ctx.r3.u64 = X_STATUS_SUCCESS;
 }
 
 // ---- DPCs: queued by interrupt handlers, run here straight away ----------------

@@ -1,0 +1,28 @@
+# In-match performance on the phone (Galaxy S20 FE, Adreno 650)
+
+Measured with the `play` controller macro (Settings: CAPTURE button / `MACRO` broadcast) so every run
+is the same input from game start to a match. Tools added for it:
+
+- `files/gpu_timing` (or `PES17_GPU_TIMING=1`): GPU timestamps around every render pass; a
+  `gpu:` line every 600 frames lists the costliest pass kinds (size, samples, depth) and ms a frame.
+- `files/yield_tuning` ("<sleep us> <free yields>") and `PES17_YIELD_SLEEP_US`: back-off for the
+  guest's `NtYieldExecution` spin loops (`runtime/kernel/yield_backoff.h`).
+- Render passes open over what their draws touch (a clearing rectangle is sized from its own corners, `ClearRectangleReach`); `files/full_passes` (or `PES17_FULL_PASSES=1`) restores whole-surface passes.
+- `files/scene_scale`, `files/no_msaa`: existing overrides.
+
+## What was found
+
+- The limit in a match is heat. At skin 47-48 C (thermal status CRITICAL) the GPU is held to 305-400 MHz and
+  the big CPU cores to about 1.5 GHz, and fps swings 42-60 between identical runs. A cool phone ran 57-60.
+- CPU: a quarter of all cycles are the guest's yield spin loops (kernel `sched_yield`) on the main thread and
+  three workers. Sleeping in them cut cycles by a fifth at 100 us but cost about 6 fps (the waits are latency
+  critical); a gentle variant (30 us after 20000 yields) changed nothing. Off by default.
+- GPU: about 8 ms a frame in 20-22 passes. Three `960x1536` passes cost about 1 ms each and the `960x624`
+  ones about 0.4 ms each. The `960x1536` surface is the scene's colour+depth at 0.75 scale, 2048 rows tall in
+  the title's pixels, while the picture is 540. They began with a clear rectangle whose scissor is the whole
+  surface, so passes now take their size from the rectangle's corners. The scene passes are 960x576 now
+  (about 1 ms each, so most of that cost is the shading, not the load/store), total pass time fell about 20%
+  (about 11-12 ms to 9-10 ms a frame), fps did not move beyond the run-to-run noise (47 vs 47, 40 vs 43),
+  and the match picture in a CAPTURE screenshot looks right.
+- Pipeline/shader cache writes were throttled to one in 30 s (they were every 5 pipelines, on the draw thread
+  and under the pipeline-build lock): the cutscene start froze for about 5 s while a warmup compiled.

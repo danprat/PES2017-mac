@@ -286,6 +286,28 @@ bool vk::renderer::Initialise()
     if (vkCreateQueryPool(g.device, &queries, nullptr, &g.guestQueries) != VK_SUCCESS)
         g.guestQueries = VK_NULL_HANDLE;
 
+    // GPU timing of the render passes (files/gpu_timing).
+    {
+        VkPhysicalDeviceProperties props{};
+        vkGetPhysicalDeviceProperties(g.physical, &props);
+        g.timestampPeriod = props.limits.timestampPeriod;
+        bool wanted = env::Flag("PES17_GPU_TIMING");
+#ifdef PES17_ANDROID
+        if (!wanted) wanted = access((android::GetPaths().external + "/gpu_timing").c_str(), F_OK) == 0;
+#endif
+        if (wanted && props.limits.timestampComputeAndGraphics)
+        {
+            VkQueryPoolCreateInfo timestamps{ VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO };
+            timestamps.queryType = VK_QUERY_TYPE_TIMESTAMP;
+            timestamps.queryCount = 2 * State::kTimedPasses;
+            g.timingOn = true;
+            for (auto& timing : g.passTiming)
+                if (vkCreateQueryPool(g.device, &timestamps, nullptr, &timing.pool) != VK_SUCCESS)
+                    { timing.pool = VK_NULL_HANDLE; g.timingOn = false; }
+            LOGW("renderer: GPU timing of the render passes is on (%.2f ns a tick)", g.timestampPeriod);
+        }
+    }
+
     VkFenceCreateInfo fence{ VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
     for (State::Slot& slot : g.slots)
         if (vkCreateFence(g.device, &fence, nullptr, &slot.fence) != VK_SUCCESS)
@@ -500,7 +522,7 @@ void vk::renderer::Shutdown()
     vkDeviceWaitIdle(g.device);
     StopPreparing();
     vk::display::Shutdown();
-    WriteShaderCache();
+    WriteShaderCache(true);
     vk::pipeline::SaveCache();
     SummariseTargets();
     ClearRenderPassCache();
@@ -553,6 +575,9 @@ void vk::renderer::Shutdown()
     if (g.arena) vkDestroyBuffer(g.device, g.arena, nullptr);
     if (g.arenaMemory) vkFreeMemory(g.device, g.arenaMemory, nullptr);
     if (g.guestQueries) vkDestroyQueryPool(g.device, g.guestQueries, nullptr);
+    for (auto& timing : g.passTiming)
+        if (timing.pool) { vkDestroyQueryPool(g.device, timing.pool, nullptr); timing.pool = VK_NULL_HANDLE; }
+    g.timingOn = false;
     for (State::Slot& slot : g.slots)
     {
         if (slot.fence) vkDestroyFence(g.device, slot.fence, nullptr);

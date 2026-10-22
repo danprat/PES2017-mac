@@ -1,6 +1,9 @@
 // Command buffers and their submission: the frame slots, the end of a frame,
 // and the title's occlusion queries, which live and die with the render passes.
 #include "renderer_state.h"
+#include <algorithm>
+#include <map>
+#include <vector>
 #include "capture.h"
 #include "presenter.h"
 #include "texture_cache.h"
@@ -44,6 +47,7 @@ namespace vk::renderer::detail
         State::Slot& slot = g.slots[g.slot];
         if (!WaitForSlot(slot, "a frame slot's fence")) return false;
         NoteCompleted();
+        if (g.timingOn) CollectPassTimings(g.slot);
         g.arenaBase = slot.arenaBase;
         vk::textures::BeginUploads(g.slot);
         g.ended.clear();
@@ -54,6 +58,14 @@ namespace vk::renderer::detail
         const VkCommandPool pool = slot.commands;
         Record([=](VkCommandBuffer) { vkResetCommandPool(device, pool, 0); });
         BeginSegmentBuffer();
+        if (g.timingOn)
+        {
+            const VkQueryPool timestamps = g.passTiming[g.slot].pool;
+            g.passTiming[g.slot].count = 0;
+            Record([=](VkCommandBuffer command) {
+                vkCmdResetQueryPool(command, timestamps, 0, 2 * State::kTimedPasses);
+            });
+        }
         g.arenaUsed = 0;
         g.vertexCopies.clear();
         g.constantWindows[0].valid = g.constantWindows[1].valid = false;
@@ -148,12 +160,17 @@ namespace vk::renderer::detail
     void EndPass()
     {
         CloseGuestQuery();
+        const uint32_t timed = g.timedPass;
+        const VkQueryPool timestamps = g.timingOn ? g.passTiming[g.slot].pool : VK_NULL_HANDLE;
+        g.timedPass = ~0u;
         if (g.currentColour || g.currentDepth)
-            Record([](VkCommandBuffer command) {
+            Record([=](VkCommandBuffer command) {
                 if (vk::pipeline::LegacyMode())
                     vkCmdEndRenderPass(command);
                 else
                     dispatch.endRendering(command);
+                if (timestamps && timed != ~0u)
+                    vkCmdWriteTimestamp(command, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, timestamps, 2 * timed + 1);
                 // What a render pass's dependency out to the outside was: the
                 // copies, clears, passes and sampling after it see its writes.
                 VkMemoryBarrier after{ VK_STRUCTURE_TYPE_MEMORY_BARRIER };
@@ -167,6 +184,56 @@ namespace vk::renderer::detail
                                      0, 1, &after, 0, nullptr, 0, nullptr);
             });
         g.currentColour = g.currentDepth = VK_NULL_HANDLE;
+    }
+
+    // What a pass was, as one number: width, height, samples and whether it had depth.
+    uint32_t PassTimingKey(uint32_t width, uint32_t height, uint32_t samples, bool depth)
+    {
+        return (std::min(width, 4095u) << 20) | (std::min(height, 2047u) << 9) | ((samples & 7u) << 1) | (depth ? 1u : 0u);
+    }
+
+    // The slot's passes of the frame it last held, now finished: their GPU times are
+    // added up by kind, and every 600 frames the costliest kinds are logged.
+    void CollectPassTimings(uint32_t slotIndex)
+    {
+        State::PassTiming& timing = g.passTiming[slotIndex];
+        static std::map<uint32_t, std::pair<double, uint32_t>> totals;   // key -> ns, passes
+        static double frameNs = 0; static uint32_t frames = 0, passes = 0;
+        if (timing.count && timing.pool)
+        {
+            uint64_t ticks[2 * State::kTimedPasses];
+            const uint32_t n = std::min(timing.count, State::kTimedPasses);
+            if (vkGetQueryPoolResults(g.device, timing.pool, 0, 2 * n, sizeof(uint64_t) * 2 * n, ticks,
+                                      sizeof(uint64_t), VK_QUERY_RESULT_64_BIT) == VK_SUCCESS)
+            {
+                double sum = 0;
+                for (uint32_t i = 0; i < n; i++)
+                {
+                    if (ticks[2 * i + 1] < ticks[2 * i]) continue;
+                    const double ns = double(ticks[2 * i + 1] - ticks[2 * i]) * g.timestampPeriod;
+                    auto& entry = totals[timing.key[i]];
+                    entry.first += ns; entry.second++;
+                    sum += ns;
+                }
+                frameNs += sum; passes += n; frames++;
+            }
+        }
+        if (frames >= 600)
+        {
+            std::vector<std::pair<uint32_t, std::pair<double, uint32_t>>> rows(totals.begin(), totals.end());
+            std::sort(rows.begin(), rows.end(), [](const auto& a, const auto& b) { return a.second.first > b.second.first; });
+            LOGW("gpu: %u frames, %.1f passes and %.2f ms of pass time a frame (the passes' own clock, not the frame's)",
+                 frames, double(passes) / frames, frameNs / frames / 1e6);
+            for (size_t i = 0; i < rows.size() && i < 8; i++)
+            {
+                const uint32_t key = rows[i].first;
+                LOGW("gpu:   %4ux%-4u %ux %s  %.2f ms a frame in %.1f passes (%.3f ms each)",
+                     key >> 20, (key >> 9) & 0x7FF, (key >> 1) & 7u, (key & 1) ? "colour+depth" : "colour only",
+                     rows[i].second.first / frames / 1e6, double(rows[i].second.second) / frames,
+                     rows[i].second.first / rows[i].second.second / 1e6);
+            }
+            totals.clear(); frameNs = 0; frames = 0; passes = 0;
+        }
     }
 
     // `wait` when the CPU is about to read what the submission produced -- a

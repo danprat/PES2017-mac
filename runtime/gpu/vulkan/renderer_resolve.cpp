@@ -607,9 +607,13 @@ void vk::renderer::Resolve(const gpu::RegisterFile& r)
 // screen in one for the next frame's blur, before the interface is drawn.
 static int g_captureBurst = 0;   // consecutive frames still to dump after a CAPTURE
 
+static std::atomic<bool> g_cacheFlushRequested{ false };
+void vk::renderer::RequestCacheFlush() { g_cacheFlushRequested.store(true, std::memory_order_release); }
+
 void vk::renderer::Swap(uint32_t frontBuffer)
 {
     if (!g.device) return;
+    if (g_cacheFlushRequested.exchange(false, std::memory_order_acq_rel)) vk::renderer::detail::FlushShaderCache();
     {
         using namespace vk::renderer::detail;
 #ifdef PES17_ANDROID

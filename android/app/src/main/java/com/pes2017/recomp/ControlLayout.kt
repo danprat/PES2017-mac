@@ -185,8 +185,8 @@ class ControlLayout private constructor(val elements: MutableList<ControlElement
                 ControlElement("r3", ControlKind.BUTTON, NativeBridge.R3, "R3", 0.76f, 0.92f, 56f, visible = false),
 
                 // Menus have to be found at a glance in a football game.
-                ControlElement("start", ControlKind.BUTTON, NativeBridge.START, "START", 0.56f, 0.08f, 58f, 0.75f, sub = "PAUSE"),
-                ControlElement("back", ControlKind.BUTTON, NativeBridge.BACK, "BACK", 0.44f, 0.08f, 58f, 0.75f),
+                ControlElement("start", ControlKind.BUTTON, NativeBridge.START, "START", 0.60f, 0.08f, 58f, 0.75f, sub = "PAUSE"),
+                ControlElement("back", ControlKind.BUTTON, NativeBridge.BACK, "BACK", 0.40f, 0.08f, 58f, 0.75f),
             )
         )
     }

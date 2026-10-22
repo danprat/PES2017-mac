@@ -60,6 +60,10 @@ namespace vk::renderer
 
     // The swap packet: the frame is what was resolved to this front buffer.
     void Swap(uint32_t frontBuffer);
+    // Asks the render thread to write the shader and pipeline caches at its next frame
+    // (the app was paused or is leaving: the periodic writes are throttled to 30 s).
+    // Safe to call from any thread.
+    void RequestCacheFlush();
 
     // The title's own occlusion query, bracketed by two EVENT_WRITE_ZPD events.
     // Everything drawn between the two is counted. The count is ready when the

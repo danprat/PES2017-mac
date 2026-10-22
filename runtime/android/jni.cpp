@@ -12,6 +12,7 @@
 // and Android's default thread stack of one megabyte is not enough for it.
 #ifdef PES17_ANDROID
 
+#include "../gpu/vulkan/renderer.h"
 #include "../gpu/debug_watch.h"
 #include "android.h"
 #include "../run.h"
@@ -435,6 +436,9 @@ PES17_NATIVE(void, nativeSetPaused)(JNIEnv*, jobject, jboolean paused)
 {
     android::detail::SetPaused(paused == JNI_TRUE);
     android::audio::SetMuted(paused == JNI_TRUE);
+    // Leaving the game may mean it is killed (it often is): the caches' writes are
+    // throttled while it runs, so what is pending is written now.
+    if (paused == JNI_TRUE) vk::renderer::RequestCacheFlush();
 }
 
 PES17_NATIVE(void, nativeTrimMemory)(JNIEnv*, jobject, jint level)

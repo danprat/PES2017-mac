@@ -5,6 +5,7 @@
 #include <atomic>
 #include "../guest.h"
 #include "../log.h"
+#include "yield_backoff.h"
 #include "../crash.h"
 #include "../install/install.h"
 
@@ -100,7 +101,7 @@ PPC_FUNC(__imp__KeDelayExecutionThread)
         }
         else
         {
-            std::this_thread::yield();
+            kernel::YieldBackoff();
         }
     }
     ctx.r3.u64 = X_STATUS_SUCCESS;

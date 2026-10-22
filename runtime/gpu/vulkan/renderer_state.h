@@ -364,6 +364,20 @@ namespace vk::renderer::detail
 
         // The title's own occlusion queries. A bracket can outlive a command
         // buffer, so its queries are reset when the title opens it.
+        // GPU time of each render pass, for finding what a frame spends it on:
+        // two timestamps a pass, per frame slot, read back when the slot is
+        // reused. On when files/gpu_timing exists; off, none of it is recorded.
+        static constexpr uint32_t kTimedPasses = 128;
+        struct PassTiming
+        {
+            VkQueryPool pool = VK_NULL_HANDLE;
+            uint32_t count = 0;               // passes stamped this frame
+            uint32_t key[kTimedPasses]{};     // what each was: size, samples, depth
+        };
+        PassTiming passTiming[kFrameSlots];
+        bool timingOn = false;
+        float timestampPeriod = 1.0f;         // ns a tick
+        uint32_t timedPass = ~0u;             // the open pass's index, ~0 when not stamped
         VkQueryPool guestQueries = VK_NULL_HANDLE;
         uint32_t guestQueryFirst = 0;   // the bracket in progress's first query
         uint32_t guestQueryCount = 0;   // and how many of them it has used
@@ -795,7 +809,10 @@ namespace vk::renderer::detail
     void EnqueuePipelineWarmup(const Recorded& rec, bool highPriority = false);
     std::vector<Recorded> TakeBuiltForDraws();
     const char* ShaderCachePath();
-    void WriteShaderCache();
+    void WriteShaderCache(bool force = false);
+    void CollectPassTimings(uint32_t slot);
+    uint32_t PassTimingKey(uint32_t width, uint32_t height, uint32_t samples, bool depth);
+    void FlushShaderCache();
     void PrewarmFromCache();
 
     struct WarmupStats

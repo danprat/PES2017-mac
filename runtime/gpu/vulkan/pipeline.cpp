@@ -11,6 +11,8 @@
 bool vk::pipeline::Initialise(void*, void*, void*, uint32_t, void*) { return false; }
 void vk::pipeline::Shutdown() {}
 void vk::pipeline::SaveCache() {}
+void vk::pipeline::SaveCacheThrottled() {}
+void vk::pipeline::FlushCache() {}
 bool vk::pipeline::Ready() { return false; }
 const char* vk::pipeline::DeviceName() { return "none"; }
 void*    vk::pipeline::Instance() { return nullptr; }
@@ -719,16 +721,24 @@ namespace
 
     void SaveCache()
     {
-        std::lock_guard lock(vk::pipeline::CacheMutex());
         // Do not persist cache blobs to disk on Mali by default --
         // in-session use only. PES17_PERSIST_PIPELINE_CACHE=1 keeps saving.
         if (!PersistCache()) return;
         const char* path = CachePath();
         if (!path || !g.cache) return;
-        size_t size = 0;
-        if (vkGetPipelineCacheData(g.device, g.cache, &size, nullptr) != VK_SUCCESS || !size) return;
-        std::vector<uint8_t> data(size);
-        if (vkGetPipelineCacheData(g.device, g.cache, &size, data.data()) != VK_SUCCESS) return;
+        // The driver's blob is copied under the lock the compiles also take, and
+        // the file is written after it is let go: a 2 MB write to flash held a
+        // lock every pipeline build waits on, and a draw waits on those.
+        std::vector<uint8_t> data;
+        {
+            std::lock_guard lock(vk::pipeline::CacheMutex());
+            size_t size = 0;
+            if (vkGetPipelineCacheData(g.device, g.cache, &size, nullptr) != VK_SUCCESS || !size) return;
+            data.resize(size);
+            if (vkGetPipelineCacheData(g.device, g.cache, &size, data.data()) != VK_SUCCESS) return;
+            data.resize(size);
+        }
+        const size_t size = data.size();
 
         PipelineCacheHeader header{};
         header.vendorID = g.deviceProperties.vendorID;
@@ -869,6 +879,37 @@ void*    vk::pipeline::Cache()
     return g.cache;
 }
 void     vk::pipeline::SaveCache() { ::SaveCache(); }
+
+// What the warmup worker calls after a compile: at most one write in 30 s. The
+// blob only grows, so skipping one loses nothing but the last few pipelines, and
+// Shutdown (and the pause flush, FlushCache) save the rest.
+namespace
+{
+    std::atomic<bool> g_cacheDirty{ false };
+    std::atomic<int64_t> g_lastCacheSaveMs{ 0 };
+    int64_t NowMs()
+    {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count();
+    }
+}
+
+void vk::pipeline::SaveCacheThrottled()
+{
+    g_cacheDirty.store(true, std::memory_order_relaxed);
+    const int64_t now = NowMs();
+    if (now - g_lastCacheSaveMs.load(std::memory_order_relaxed) < 30000) return;
+    g_lastCacheSaveMs.store(now, std::memory_order_relaxed);
+    g_cacheDirty.store(false, std::memory_order_relaxed);
+    ::SaveCache();
+}
+
+void vk::pipeline::FlushCache()
+{
+    if (!g_cacheDirty.exchange(false, std::memory_order_relaxed)) return;
+    g_lastCacheSaveMs.store(NowMs(), std::memory_order_relaxed);
+    ::SaveCache();
+}
 
 bool vk::pipeline::CreateModule(const uint32_t* spirv, size_t words, const char** error)
 {

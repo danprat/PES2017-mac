@@ -576,12 +576,7 @@ namespace vk::renderer::detail
                          (unsigned long long)key.vertexShader, (unsigned long long)key.pixelShader,
                          tookMs, c, g_statQueued.load(std::memory_order_relaxed));
 
-                    static uint32_t s_lastSave = 0;
-                    if (c - s_lastSave >= 5)
-                    {
-                        s_lastSave = c;
-                        vk::pipeline::SaveCache();
-                    }
+                    vk::pipeline::SaveCacheThrottled();
                 }
 
                 // Backpressure: when the render thread is actively submitting
@@ -748,10 +743,21 @@ namespace vk::renderer::detail
                                             // 5: pixel programs load the param gen register
                                             // 7: (6 reverted)
 
-    void WriteShaderCache()
+    // The render thread asks for this after every few new pipelines, and each
+    // write is the whole file: with a warmup running that was a dozen writes in
+    // a few seconds on the thread that draws. At most one in 30 s now; the rest
+    // wait (g_shaderCacheDirty) for the pause flush or the shutdown's.
+    namespace { bool g_shaderCacheDirty = false; }
+
+    void WriteShaderCache(bool force)
     {
         const char* path = ShaderCachePath();
         if (!path || g.recorded.empty()) return;
+        static auto lastWrite = std::chrono::steady_clock::now() - std::chrono::seconds(60);
+        const auto now = std::chrono::steady_clock::now();
+        if (!force && now - lastWrite < std::chrono::seconds(30)) { g_shaderCacheDirty = true; return; }
+        lastWrite = now;
+        g_shaderCacheDirty = false;
         const std::string tmpPath = std::string(path) + ".tmp";
         std::FILE* file = std::fopen(tmpPath.c_str(), "wb");
         if (!file) return;
@@ -802,6 +808,12 @@ namespace vk::renderer::detail
 
         // Commit driver's persistent pipeline cache alongside recipes
         vk::pipeline::SaveCache();
+    }
+
+    void FlushShaderCache()
+    {
+        if (g_shaderCacheDirty) WriteShaderCache(true);
+        vk::pipeline::FlushCache();
     }
 
     // Work the draw path would otherwise do mid-frame, which is where a hitch

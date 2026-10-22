@@ -691,7 +691,18 @@ namespace vk::renderer::detail
                 return;
             }
         }
+        const VkQueryPool timestamps = g.timingOn ? g.passTiming[g.slot].pool : VK_NULL_HANDLE;
+        uint32_t timed = ~0u;
+        if (timestamps && g.passTiming[g.slot].count < State::kTimedPasses)
+        {
+            timed = g.passTiming[g.slot].count++;
+            g.passTiming[g.slot].key[timed] = PassTimingKey(area.width, area.height,
+                colourView ? uint32_t(colour.samples) : uint32_t(depth.samples), depthView != VK_NULL_HANDLE);
+        }
+        g.timedPass = timed;
         Record([=](VkCommandBuffer command) {
+            if (timed != ~0u)
+                vkCmdWriteTimestamp(command, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, timestamps, 2 * timed);
             // What a render pass's dependency in from the outside was: a frame
             // is many passes over the same attachments, with copies and clears
             // between them, and this one waits for their writes.

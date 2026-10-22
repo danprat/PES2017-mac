@@ -80,6 +80,9 @@ namespace vk::pipeline
     void* Layout();
     void* Cache();
     void  SaveCache();
+    // At most one write in 30 s, for the warmup worker; FlushCache writes what is pending.
+    void  SaveCacheThrottled();
+    void  FlushCache();
 
     // Creates and destroys a shader module: a stronger check than spirv-val,
     // because it is the compiler that will actually run the shader.
