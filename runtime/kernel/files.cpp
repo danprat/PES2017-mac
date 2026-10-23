@@ -16,6 +16,7 @@
 #include "../env.h"
 #include "../log.h"
 #include "../crash.h"
+#include "../stream_trace.h"
 
 #include <algorithm>
 #include <cctype>
@@ -434,6 +435,9 @@ PPC_FUNC(__imp__NtReadFile)
                      waitUs.exchange(0) / 1000.0, (nowMs - start) / 1000.0);
         }
         std::memcpy(guest::Base() + buffer, bounce.data(), got);
+        stream_trace::Read(file->path.filename().string().c_str(), length, uint32_t(got),
+                           std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - readFrom).count(),
+                           buffer);
         uint32_t status = (got == 0 && length != 0) ? X_STATUS_END_OF_FILE : X_STATUS_SUCCESS;
         if (iosb) { iosb->status = status; iosb->information = uint32_t(got); }
         if (event) event->Set();

@@ -324,3 +324,19 @@ For fallback compatibility where loops may occur, `OpLoopMerge` specifies loop c
 ### Non-Blocking Runtime Draw Path
 In-game draw calls encountering a pipeline miss must never block the presentation thread (`tid 25150`). On Android, uncompiled pipelines are queued to the background warmup scheduler (`warmup::g_warmupQueue`), and the current draw is skipped (`Skip("async pipeline compile")`) so frames continue presenting at locked 60 FPS while the background thread compiles.
 
+
+## The bundled shader seed
+
+`android/app/src/main/assets/shader_cache.bin` is the recorded set a first launch warms up from
+(`GameActivity.adoptRicherSeed`, then `PrewarmFromCache`). A cache whose version differs from
+`kCacheVersion` is ignored, and the seed had been left at version 3 while the runtime read 11:
+every fresh install started with nothing and built about 155 pipelines inside its first match,
+skipping each draw that waited for one (344-1934 draws per 600 swaps; models and effects missing
+for frames). With a version 11 seed of 214 pipelines the same cold start (shader cache wiped, play
+macro) had 1 miss after the match began, and the prewarm took 200 ms.
+
+- `tools/check_shader_seed.py` fails `tools/deploy.sh` when the seed's version is not the runtime's.
+  Bump `kCacheVersion` and the seed has to be re-recorded.
+- `tools/update_shader_seed.sh` pulls a phone's cache into the seed. The cache is the union of
+  every session that started from it, so play several matches (and replays, cutscenes) first.
+  The shader code in it is the translator's SPIR-V, which does not depend on the GPU vendor.

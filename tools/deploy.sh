@@ -12,6 +12,7 @@ NDK=${ANDROID_NDK_ROOT:-$(ls -d "$ANDROID_HOME"/ndk/28.* | tail -1)}
 BIN=$NDK/toolchains/llvm/prebuilt/darwin-x86_64/bin
 PKG=com.pes2017.recomp
 
+python3 tools/check_shader_seed.py || exit 1
 echo "==> native (every core)"
 if ! PYENV_VERSION=${PYENV_VERSION:-3.10.14} ninja -C build-android -j"$(getconf _NPROCESSORS_ONLN)" pes17 > build-android/last-build.txt 2>&1; then
     grep -E "error:|FAILED" build-android/last-build.txt | grep -v "^/.*clang++" | head -15

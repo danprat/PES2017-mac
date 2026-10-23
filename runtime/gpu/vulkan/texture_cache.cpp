@@ -17,6 +17,7 @@
 #include "../../image_move.h"
 #include "../../kernel/physical.h"
 #include "../../log.h"
+#include "../../stream_trace.h"
 #include "../../stutters.h"
 #include "../../words_hash.h"
 
@@ -1380,6 +1381,7 @@ namespace
 
         Timed staging(g.timing, Timing::kStage);
         g.timing.restages++;
+        stream_trace::Texture("restage", image.address, image.width, image.height, image.xenosFormat);
         return StageInto(image, pData->bytes.data(), pData->bytes.size(), nullptr);
     }
 
@@ -1893,6 +1895,7 @@ uint64_t vk::textures::Upload(const gpu::TextureFetch& fetch, const char** error
         return kNone;
     }
 
+    stream_trace::Texture("new", extents.baseAddress, data.width, data.height, fetch.Format());
     // Only the ranges actually read are watched.
     const size_t baseBytes = base ? extents.baseBytes : 0;
     const size_t mipBytes = mips && data.levels.size() > 1 ? extents.mipBytes : 0;

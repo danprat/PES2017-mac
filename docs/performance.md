@@ -26,3 +26,15 @@ is the same input from game start to a match. Tools added for it:
   and the match picture in a CAPTURE screenshot looks right.
 - Pipeline/shader cache writes were throttled to one in 30 s (they were every 5 pipelines, on the draw thread
   and under the pipeline-build lock): the cutscene start froze for about 5 s while a warmup compiled.
+
+- `PES17_STREAM_TRACE=1` (or `files/stream_trace`): `stream:` lines for the title's own asset
+  streaming (`runtime/stream_trace.h`): each guest file read (thread, core, file, fread ms), each
+  texture first uploaded or restaged, and every 500 ms each thread's ms running and ms runnable
+  (sampled from `/proc/self/task/*/stat`; this kernel has no schedstat, and a thread name is cut
+  to 15 characters, so two guest threads can share one). Measured on the S20 FE, cold start: the
+  loader thread (`dt*_x36.cpk` reads, 78 MB in 30 s after MatchSetup) spends 0.3 s in `fread` and
+  sleeps on a futex for about 25 s of that, so streaming is paced by the game, not by the disk or
+  by core starvation; `PES17_PINNING=off` changed nothing for it. Texture work on the command
+  thread is small (decode+read+stage about 1.2 s for the whole session). What a player sees as
+  popping is the game's own sequence of loads; the visible hitching and missing draws of a cold
+  start came from pipeline builds (see the bundled shader seed in shaders.md).
