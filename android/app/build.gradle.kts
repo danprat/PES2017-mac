@@ -13,7 +13,7 @@ val repositoryRoot = file("../..")
 //
 //   PES17_NDK_VERSION        which NDK to use, when the runner has another one
 //   PES17_VERSION_NAME       the release this apk is, without the leading "v"
-//                          ("0.0.2-alpha"); the workflow takes it from the tag
+//                          ("0.0.1"); the workflow takes it from the tag
 //   PES17_VERSION_CODE       the number Android compares to decide whether an apk
 //                          is an update; the workflow sets it when it must
 //   PES17_NATIVE_OPTIMISATION  -O2 compiles the recompiled tree a good deal
@@ -58,7 +58,8 @@ android {
         // Bump EVERY published release: Android refuses to install an update
         // whose versionCode is at or below the installed one. CI may set
         // PES17_VERSION_CODE instead of editing this file.
-        // 16: v0.0.2-alpha, over 15 (v0.0.2).
+        // 16: v0.0.2-alpha, over 15 (v0.0.2), and v0.0.1, where the names started
+        // again: the code never goes back, or an installed copy would refuse it.
         versionCode = setting("PES17_VERSION_CODE")?.toIntOrNull() ?: 16
         // Which build this is, carried inside the apk. "The wrong apk" has
         // cost more than one evening, and every time the only way to settle
@@ -67,7 +68,7 @@ android {
         // that made it without downloading anything twice.
         // The release the build is from, which is what a report has to say to
         // be acted on. It was "1.0" -- a number no release ever had.
-        versionName = "${setting("PES17_VERSION_NAME") ?: "0.0.2-alpha"} " +
+        versionName = "${setting("PES17_VERSION_NAME") ?: "0.0.1"} " +
             "(${setting("PES17_BUILD_SHA") ?: "local"})"
         buildConfigField("String", "PES_XEX_SHA256", "\"$pesXexSha256\"")
         buildConfigField("String", "BUILD_SHA", "\"${setting("PES17_BUILD_SHA") ?: "local"}\"")

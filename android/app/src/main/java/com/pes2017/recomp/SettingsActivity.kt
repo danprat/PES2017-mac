@@ -78,8 +78,11 @@ class SettingsActivity : AppCompatActivity() {
             prefs.fpsLimit = 30 + it * 5; presetTouched()
         }
         switch(R.id.prefer60, prefs.prefer60Hz) { prefs.prefer60Hz = it }
-        bar(R.id.hud_level, R.id.hud_level_label, Prefs.HUD_DETAILED, prefs.hudLevel,
-            { getString(hudLevelNames[it]) }) { prefs.hudLevel = it }
+        // Off / Minimal / Normal / Complete, in Prefs.HUD_* order.
+        val hudChoices = intArrayOf(R.id.hud_off, R.id.hud_minimal, R.id.hud_normal, R.id.hud_complete)
+        val hudLevel: android.widget.RadioGroup = findViewById(R.id.hud_level)
+        hudLevel.check(hudChoices[prefs.hudLevel])
+        hudLevel.setOnCheckedChangeListener { _, id -> prefs.hudLevel = hudChoices.indexOf(id).coerceAtLeast(0) }
         switch(R.id.heat_scale, prefs.heatScale) { prefs.heatScale = it; presetTouched() }
         switch(R.id.perf_hint, prefs.perfHint) { prefs.perfHint = it }
 
@@ -216,9 +219,6 @@ class SettingsActivity : AppCompatActivity() {
 
     private lateinit var presetLabel: TextView
 
-    private val hudLevelNames = intArrayOf(
-        R.string.hud_level_off, R.string.hud_level_minimal, R.string.hud_level_standard, R.string.hud_level_detailed,
-    )
 
     /** One of a preset's settings moved by hand: it is the player's own now. */
     private fun presetTouched() {

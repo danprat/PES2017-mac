@@ -274,6 +274,63 @@
                     style="@style/SectionHeading"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:text="@string/section_hud" />
+
+                <LinearLayout style="@style/SettingGroup">
+
+                    <RadioGroup
+                        android:id="@+id/hud_level"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:paddingStart="6dp">
+
+                        <RadioButton
+                            android:id="@+id/hud_off"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/hud_off"
+                            android:textColor="@color/pes_text" />
+
+                        <RadioButton
+                            android:id="@+id/hud_minimal"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/hud_minimal"
+                            android:textColor="@color/pes_text" />
+
+                        <RadioButton
+                            android:id="@+id/hud_normal"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/hud_normal"
+                            android:textColor="@color/pes_text" />
+
+                        <RadioButton
+                            android:id="@+id/hud_complete"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/hud_complete"
+                            android:textColor="@color/pes_text" />
+
+                    </RadioGroup>
+
+                    <TextView
+                        style="@style/SettingHint"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/hud_level_hint" />
+
+                </LinearLayout>
+
+                <TextView
+                    style="@style/SectionHeading"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
                     android:text="@string/section_frame_rate" />
 
                 <LinearLayout style="@style/SettingGroup">
@@ -308,22 +365,6 @@
                         android:layout_height="wrap_content"
                         android:text="@string/prefer_60_hint" />
 
-                    <TextView
-                        android:id="@+id/hud_level_label"
-                        style="@style/SettingLabel"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content" />
-
-                    <SeekBar
-                        android:id="@+id/hud_level"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content" />
-
-                    <TextView
-                        style="@style/SettingHint"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="@string/hud_level_hint" />
 
                 </LinearLayout>
 

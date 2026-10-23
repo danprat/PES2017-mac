@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <vector>
 
@@ -266,6 +267,17 @@ void platform::SetThreadAffinity(ThreadAffinityRole role)
     static CpuTopology s_topo = DiscoverCpuTopology();
     if (!s_topo.discovered) return;
 
+    // PES17_PINNING: "off" pins nothing; "wide" gives the guest's threads every core but
+    // the prime one. By default they share the performance cluster, which on a 1+3+4 part
+    // is three cores for some sixty threads: on the POCO X7 Pro (Dimensity 8400, whose
+    // "little" cores are 2.1 GHz A725s) the busy ones waited about as long as they ran.
+    static const char* const s_pinning = [] {
+        const char* value = std::getenv("PES17_PINNING");
+        return value ? value : "";
+    }();
+    if (std::strcmp(s_pinning, "off") == 0 || std::strcmp(s_pinning, "0") == 0) return;
+    const bool wide = std::strcmp(s_pinning, "wide") == 0;
+
     uint32_t targetMask = 0;
     switch (role)
     {
@@ -274,6 +286,7 @@ void platform::SetThreadAffinity(ThreadAffinityRole role)
         break;
     case ThreadAffinityRole::PerformanceCore:
         targetMask = s_topo.perfMask ? s_topo.perfMask : s_topo.primeMask;
+        if (wide && s_topo.workerMask != s_topo.perfMask) targetMask |= s_topo.workerMask;
         break;
     case ThreadAffinityRole::WorkerCore:
         targetMask = s_topo.workerMask ? s_topo.workerMask : s_topo.perfMask;

@@ -168,21 +168,21 @@ class Prefs(context: Context) {
 
     /**
      * How much the performance HUD shows: HUD_OFF, HUD_MINIMAL (frame rate),
-     * HUD_STANDARD (adds frame time and temperature) or HUD_DETAILED (adds CPU,
+     * HUD_NORMAL (adds frame time and temperature) or HUD_COMPLETE (adds CPU,
      * memory and textures on a second line). Before there were levels it was
-     * on or off, so an old "on" reads as Standard.
+     * on or off, so an old "on" reads as Normal.
      */
     var hudLevel: Int
-        get() = store.getInt(KEY_HUD_LEVEL, if (store.getBoolean(KEY_SHOW_STATS, true)) HUD_STANDARD else HUD_OFF)
-            .coerceIn(HUD_OFF, HUD_DETAILED)
-        set(value) = store.edit().putInt(KEY_HUD_LEVEL, value.coerceIn(HUD_OFF, HUD_DETAILED)).apply()
+        get() = store.getInt(KEY_HUD_LEVEL, if (store.getBoolean(KEY_SHOW_STATS, true)) HUD_NORMAL else HUD_OFF)
+            .coerceIn(HUD_OFF, HUD_COMPLETE)
+        set(value) = store.edit().putInt(KEY_HUD_LEVEL, value.coerceIn(HUD_OFF, HUD_COMPLETE)).apply()
 
-    /** The HUD on or off; turning it on from off brings back Standard. */
+    /** The HUD on or off; turning it on from off brings back Normal. */
     var showStats: Boolean
         get() = hudLevel != HUD_OFF
         set(value) {
             if (value == showStats) return
-            hudLevel = if (value) HUD_STANDARD else HUD_OFF
+            hudLevel = if (value) HUD_NORMAL else HUD_OFF
         }
 
     /**
@@ -333,8 +333,8 @@ class Prefs(context: Context) {
         private const val KEY_PENDING_FOLDER = "pendingFolder"
         const val HUD_OFF = 0
         const val HUD_MINIMAL = 1
-        const val HUD_STANDARD = 2
-        const val HUD_DETAILED = 3
+        const val HUD_NORMAL = 2
+        const val HUD_COMPLETE = 3
 
         private const val KEY_RENDER_SCALE = "renderScale"
         private const val KEY_MSAA = "multisampling"

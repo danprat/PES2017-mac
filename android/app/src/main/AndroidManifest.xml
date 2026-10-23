@@ -49,6 +49,11 @@
         android:largeHeap="true"
         android:theme="@style/Theme.PES17">
 
+        <!-- The game modes the system may offer for this game (res/xml/game_mode_config.xml). -->
+        <meta-data
+            android:name="android.game_mode_config"
+            android:resource="@xml/game_mode_config" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

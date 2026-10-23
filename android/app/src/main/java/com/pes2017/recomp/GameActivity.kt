@@ -272,7 +272,7 @@ class GameActivity : AppCompatActivity(), NativeListener {
                 val expand = if (prefs.developerTools) "  [▼]" else ""
                 statsText.text = when (level) {
                     Prefs.HUD_MINIMAL -> String.format(Locale.US, "%d FPS%s", fps, expand)
-                    Prefs.HUD_STANDARD -> String.format(Locale.US, "%d FPS%s%s%s", fps, ftPart, tempPart, expand)
+                    Prefs.HUD_NORMAL -> String.format(Locale.US, "%d FPS%s%s%s", fps, ftPart, tempPart, expand)
                     else -> String.format(
                         Locale.US, "%d FPS%s%s%s\nCPU %s%s · Tex %dMB%s",
                         fps, ftPart, tempPart, expand, cpuStr, ramPart, texMb, warmupPart,
@@ -339,8 +339,11 @@ class GameActivity : AppCompatActivity(), NativeListener {
         goFullscreen()
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         // Sustained performance mode locks CPU/GPU governors to steady frequencies
-        // to prevent erratic thermal throttling mid-gameplay.
-        window.setSustainedPerformanceMode(true)
+        // to prevent erratic thermal throttling mid-gameplay. On some phones that
+        // steady level is a low ceiling, so files/no_sustained turns it off for A/B runs.
+        val noSustained = getExternalFilesDir(null)?.let { File(it, "no_sustained") }?.isFile == true
+        window.setSustainedPerformanceMode(!noSustained)
+        Trail.note(this, "game: sustained performance mode ${if (noSustained) "off" else "on"}")
         watchThermalStatus()
         if (prefs.prefer60Hz) {
             val attributes = window.attributes
@@ -864,7 +867,7 @@ class GameActivity : AppCompatActivity(), NativeListener {
         }
         labels.add(getString(if (prefs.touchControls) R.string.hide_touch_controls else R.string.show_touch_controls) to { _: android.content.DialogInterface -> setTouchControls(!prefs.touchControls) })
         labels.add(getString(if (prefs.gamepadEnabled) R.string.disable_gamepad else R.string.enable_gamepad) to { _: android.content.DialogInterface -> setGamepad(!prefs.gamepadEnabled) })
-        labels.add(getString(if (prefs.showStats) R.string.hide_stats else R.string.show_stats) to { _: android.content.DialogInterface -> setStats(!prefs.showStats) })
+        labels.add(getString(R.string.hud_menu) to { _: android.content.DialogInterface -> pickHudLevel() })
         labels.add(getString(R.string.quit) to { _: android.content.DialogInterface -> confirmQuit() })
         AlertDialog.Builder(this)
             .setTitle(R.string.paused)
@@ -887,9 +890,21 @@ class GameActivity : AppCompatActivity(), NativeListener {
         pads.setEnabled(on)
     }
 
-    private fun setStats(on: Boolean) {
-        prefs.showStats = on
-        hudContainer.visibility = if (on) View.VISIBLE else View.GONE
+    /** Off / Minimal / Normal / Complete, as in Settings > Performance. */
+    private fun pickHudLevel() {
+        val names = arrayOf(
+            getString(R.string.hud_off), getString(R.string.hud_minimal),
+            getString(R.string.hud_normal), getString(R.string.hud_complete),
+        )
+        AlertDialog.Builder(this)
+            .setTitle(R.string.hud_menu)
+            .setSingleChoiceItems(names, prefs.hudLevel) { dialog, which ->
+                prefs.hudLevel = which
+                hudContainer.visibility = if (prefs.showStats) View.VISIBLE else View.GONE
+                dialog.dismiss()
+            }
+            .setOnDismissListener { goFullscreen() }
+            .show()
     }
 
     private fun confirmQuit() {
@@ -971,6 +986,7 @@ class GameActivity : AppCompatActivity(), NativeListener {
         warnIfPowerSaving()
         if (!started) return
         NativeBridge.nativeSetPaused(false)
+        setGameState(playing = true)
         // A trim while the window was away may have cut the texture cache.
         // Without this it stays cut, and every texture is uploaded again on
         // every draw for the rest of the run.
@@ -994,6 +1010,7 @@ class GameActivity : AppCompatActivity(), NativeListener {
         // muted, and the touch pad lets go of whatever was held -- a trigger
         // stuck down through a phone call would empty a magazine into a wall.
         NativeBridge.nativeSetPaused(true)
+        setGameState(playing = false)
         overlay.releaseEverything()
         handler.removeCallbacks(statsTick)
         overlay.layout.save(this)
@@ -1210,6 +1227,15 @@ class GameActivity : AppCompatActivity(), NativeListener {
         } catch (_: Throwable) {
             thermalListener = null
         }
+    }
+
+    // Android 13+: tells the system (and a vendor game booster listening to GameManager)
+    // that gameplay that must not be interrupted is running, or that it stopped.
+    private fun setGameState(playing: Boolean) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        val games = getSystemService(Context.GAME_SERVICE) as? android.app.GameManager ?: return
+        val mode = if (playing) android.app.GameState.MODE_GAMEPLAY_UNINTERRUPTIBLE else android.app.GameState.MODE_NONE
+        try { games.setGameState(android.app.GameState(false, mode)) } catch (_: Throwable) {}
     }
 
     private fun stopWatchingThermalStatus() {
