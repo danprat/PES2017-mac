@@ -28,7 +28,10 @@ namespace gpu::detail
     uint32_t RegisterOrAperture(uint32_t index);
     // False under PES17_RENDER=0: the stream is executed and counted, nothing drawn.
     bool Rendering();
-    void WritePhysical(uint32_t physicalAddress, uint32_t value);
+    // A write the title can see. `publish` first lands the resolves written back so far in
+    // its memory (vk::renderer::PublishWriteBacks); the arena's own progress reports do not,
+    // as on them the title only reuses its command memory.
+    void WritePhysical(uint32_t physicalAddress, uint32_t value, bool publish = true);
     void ReportCommandProcessor();
     // Writes the records of the occlusion queries the GPU has finished counting.
     void DeliverOcclusionQueries();

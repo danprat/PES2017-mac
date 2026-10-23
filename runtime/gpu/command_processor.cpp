@@ -829,6 +829,8 @@ namespace
             // { cpu mask }: a command-processor interrupt, once per processor named.
             if (count < 1) break;
             if (g.idleSinceDraw) vk::renderer::BeforeCompletion();
+            // The handler is the title's code, and may read what the GPU wrote.
+            vk::renderer::PublishWriteBacks();
             RaiseCommandProcessorInterrupt(s.Next());
             break;
 
@@ -1193,11 +1195,12 @@ bool gpu::detail::Rendering()
     return on;
 }
 
-void gpu::detail::WritePhysical(uint32_t physicalAddress, uint32_t value)
+void gpu::detail::WritePhysical(uint32_t physicalAddress, uint32_t value, bool publish)
 {
     const uint32_t phys = physicalAddress & ~3u;
     const uint32_t va = kernel::FromPhysical(phys);
     if (!va) return;
+    if (publish) vk::renderer::PublishWriteBacks();
     // The title reads this as soon as it lands. Without a wait for idle, the
     // command processor writes as it meets the packet, ahead of the draws
     // before it, and the title can conclude nothing about them from it.

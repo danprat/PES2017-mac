@@ -25,6 +25,14 @@ namespace vk::dynscale
         static constexpr int kWindow = 90;           // world frames a decision is made from
         static constexpr int kCooldownWindows = 2;   // ignored after a change: the images are new
         static constexpr int kUpWindows = 3;         // calm windows before a step up
+        // A scene that suddenly costs far more than the budget -- the match intro and the
+        // cutscenes run at twice a match's pass time and last a hundred frames -- is not
+        // waited for through a 90-frame window and two of pause: a few frames over by half
+        // as much again move the scale at once, straight to the step that fits, and the
+        // way back is as quick (one calm window, to the highest step that fits).
+        static constexpr int kFastFrames = 8;        // frames the sudden rule averages
+        static constexpr double kFastOver = 1.5;     // of the budget, to count as sudden
+        static constexpr int kFastHold = 24;         // frames before it may act again
 
         // `ceiling` is the scale the player chose, `floor` the least it may fall to,
         // `budgetMs` the passes' share of a frame (a frame period, less what is not
@@ -39,6 +47,7 @@ namespace vk::dynscale
             calm_ = 0;
             cooldown_ = 0;
             recover_ = 0;
+            fastSum_ = 0; fastFrames_ = 0; fastHold_ = 0; urgent_ = false;
         }
 
         // The two rules are separate choices: `heat` takes the picture down as the phone's thermal
@@ -103,6 +112,23 @@ namespace vk::dynscale
                 Move(hot);
                 changed = true;
             }
+            if (fastHold_ > 0) fastHold_--;
+            fastSum_ += ms;
+            if (++fastFrames_ >= kFastFrames)
+            {
+                const double fast = fastSum_ / fastFrames_;
+                fastSum_ = 0; fastFrames_ = 0;
+                if (fastHold_ == 0 && fast > budget_ * kFastOver && current_ > floor_)
+                {
+                    int target = current_ - 1;
+                    while (target > floor_ && Cost(fast, target, current_) > budget_ * 0.92) target--;
+                    Move(target);
+                    cooldown_ = 0;
+                    urgent_ = true;
+                    fastHold_ = kFastHold;
+                    return true;
+                }
+            }
             sum_ += ms;
             if (++frames_ < kWindow) return changed;
             const double average = sum_ / frames_;
@@ -123,8 +149,24 @@ namespace vk::dynscale
                 return true;
             }
 
+            const int cap = std::min(ceiling_, ThermalCeiling());
+            if (urgent_)
+            {
+                // After a sudden drop: back up in one go, to the highest step that still fits.
+                if (current_ >= cap) { urgent_ = false; return changed; }
+                int target = current_;
+                while (target < cap && Cost(average, target + 1, current_) < budget_ * 0.85) target++;
+                if (target > current_ && average < budget_ * 0.65)
+                {
+                    Move(target);
+                    cooldown_ = 0;
+                    if (current_ >= cap) urgent_ = false;
+                    return true;
+                }
+                return changed;
+            }
             // Room to spare, and room enough for the next step up to still fit.
-            const int up = std::min(current_ + 1, std::min(ceiling_, ThermalCeiling()));
+            const int up = std::min(current_ + 1, cap);
             if (up > current_ && average < budget_ * 0.65 && Cost(average, up, current_) < budget_ * 0.85)
             {
                 if (++calm_ >= kUpWindows) { Move(up); changed = true; }
@@ -158,5 +200,8 @@ namespace vk::dynscale
         int thermal_ = 0;
         double sum_ = 0;
         int frames_ = 0, calm_ = 0, cooldown_ = 0;
+        double fastSum_ = 0;
+        int fastFrames_ = 0, fastHold_ = 0;
+        bool urgent_ = false;
     };
 }

@@ -21,6 +21,7 @@ void vk::renderer::FlashSeen(const char*) {}
 uint64_t vk::renderer::CompletedSubmission() { return 0; }
 void vk::renderer::BeforeStreamWrite(uint32_t, uint32_t) {}
 void vk::renderer::BeforeCompletion() {}
+void vk::renderer::PublishWriteBacks() {}
 bool vk::renderer::DumpingDraws() { return false; }
 #else
 

@@ -59,41 +59,22 @@ Fixed on the way, each found from the device log:
 | garbage image; 3 shaders "control flow does not terminate" (their microcode read as zeros) | heap and physical arena were separate memory, and the GPU's physical addresses were guessed back to the wrong one once both held data at the same offset | one 512 MB bank mapped at 0x80000000, 0xA0000000 and 0xC0000000 with a single allocator over physical offsets, as on the console |
 | loading stops after ~26 MB, black screen | the XAudio render callback was passed its argument, not a pointer to it; it read the engine object's vtable as the object and waited on garbage | the argument is wrapped in a guest word, as the kernel (and Xenia) do |
 
-## Not done — in the order they will block you
+## Not done (audited 2026-10-23)
 
-1. **Audio handshake.** The render callback now reaches XAudio2's engine object
-   but waits on the engine's "done" events, which nothing signals (the engine
-   thread waits on another event). Loading proceeds regardless; sound is likely
-   silent. Loading is also slow (about 1.3 MB/s), worth profiling once past it.
-   D3D's flip handshake (`WAIT_REG_MEM`) still times out at 50 ms now and then.
-   The renderer's write-watch only protects the physical-window mapping, so CPU
-   writes through the cached window do not invalidate cached textures.
-2. **D3D9 / Present hook.** `title.h` has no `T_D3D_Present`/`T_D3D_ArenaWait`,
-   so frame pacing and the GPU arena's progress tracking (`runtime/gpu/arena.cpp`)
-   are not wired. Candidates found by walking up from the `VdSwap` call:
-   `sub_823F98E0` (calls `VdSwap`) ← `sub_82409870` (likely D3D's swap/present)
-   ← `sub_83861FA0`/`sub_83863380` (engine side). The device-structure offsets
-   a D3D9 hook would use (`13596`, `10896`) are XDK-build specific and must be
-   re-derived for PES's before enabling the hooks.
-3. **Xenos GPU coverage.** `runtime/gpu/` translates the PM4 stream and Xenos
-   shaders to Vulkan/SPIR-V. It was exercised by one engine; PES (Fox Engine)
-   will hit formats, resolves and shader opcodes the runtime has not yet seen. Budget the
-   most time here.
-4. **Game I/O.** PES reads `dtNN_*.cpk` archives through the kernel file API.
-   `runtime/kernel/files.cpp` maps `game:\` onto the installed folder; verify
-   the asynchronous/overlapped reads and large (1.5 GB) files on Android
-   storage. The ISO is 8.7 GB: plan on ≥ 9 GB free on the phone.
-5. **Threading and memory.** Fox Engine is heavily multithreaded and uses
-   physical memory/large pages; check `MmAllocatePhysicalMemoryEx`, TLS and
-   the 4 GiB guest reservation on 16 KB-page devices.
-6. **Audio.** XMA decode is in `runtime/apu` (FFmpeg-derived); PES's `.cpk`
-   audio and its use of XAudio2 are untested.
-7. **Input, saves, UI.** The touch pad and launcher use a football layout
-   (pass/shoot/through/sprint); PES still needs its own save/profile
-   handling (`kernel/content.cpp`, `T_Memcard_*` hook is compiled out).
-8. **Apk.** `./gradlew :app:assembleRelease` from `android/` once `libpes17.so`
-   builds. Needs a Gradle install/wrapper jar, `ANDROID_HOME`, and
-   `android/fetch_deps.sh` if you want the custom-driver loader.
+The original list below this heading predated the match work. Status now, checked
+against the code and the other docs; "unverified" means no device run was made for
+this audit.
+
+| # | Item | Status |
+|---|---|---|
+| 1 | Audio handshake | **Unverified.** The XAudio render driver and XMA decoder are in `runtime/apu` ([audio.md](audio.md)); the old "engine done events never signalled" note has no later mention. Check sound on a device. The `WAIT_REG_MEM` timeouts and write-watch coverage of the cached window are covered by the flip handshake in [d3d9-seam.md](d3d9-seam.md). |
+| 2 | D3D9 `Present` / `ArenaWait` hooks | **Present located and hooked** (`T_D3D_Present` = `sub_823F98E0`, D3D's swap). **ArenaWait still open** (not needed so far). The 30 fps of cutscenes is the title's own request: the flip request D3D writes to scratch register 5 carries the present interval in bits 8-11, `0x100` in play and `0x200` in cutscenes and loading. Forcing it to 1 was tried and made the match intro slower (5-13 fps against 5-28), so there is no 60 fps cutscene option; see "The match intro" below. |
+| 3 | Xenos GPU coverage | **Mostly done.** Matches render correctly (pitch, kits, shadows, oDepth, kill ops, resolve write-back). Open: crowd atlas sampling, the half-time board stencil bug, cutscene flicker. See `.claude/docs/HANDOFF.md`. |
+| 4 | Game I/O | **Works** (the game boots from the installed folder). Large-file overlapped reads are not separately verified. |
+| 5 | Threading and memory | **Fixed for the match load** (see "Memory for the match load"). 16 KB-page devices untested. |
+| 6 | XMA audio | **Implemented**, listening check outstanding (see 1). |
+| 7 | Input, saves, UI | **Done** for touch, gamepad and system-data saves. **Open:** the language screens repeat every launch, and the streaming install to `cache:` is not implemented. |
+| 8 | APK | **Done**: `android/app/build/outputs/apk/release` exists. |
 
 ## Findings: the front-end text (October 2026)
 
@@ -351,3 +332,38 @@ Also found, and why small render passes are off by default: with `small_passes` 
 Tools added while hunting this: `files/crowd_hunt` (finds the black DXT1 pattern in physical memory as soon as it appears and watches it for writers),
 `DUMP   stencil before draw`, `frame_images/at_<addr>_<draw>.pnm` (a resolve as it was when made), `frame_images/tex_*.pnm` (the crowd composite's textures
 as the GPU has them), and a `shader:` log line for any program whose memory exports are dropped.
+
+## The match intro (October 2026)
+
+The intro after kick-off loading (players walking out, about 1000-1200 draws a frame) dropped to 7-20 fps for its
+first five seconds, then held 25-30. Found with `introonly`/`intro` macros (the `play` macro cut before it skips),
+per-pass GPU timing (`files/gpu_timing`, 10-frame windows), `simpleperf` and a tally of the consumer's fence waits:
+
+1. **It is not the 30 fps cap.** That is the title's interval 2 (above), and the steady part reaches it.
+2. **GPU time.** About 23-28 ms of pass time a frame at 0.75 scale: eight scene passes at ~2 ms and the
+   `x1536`/`x1024` passes. Halving the scale only took the scene passes from 2.0 to 1.5 ms each, so it is not
+   pixel-bound. The load rule of the dynamic scale decided over 90-frame windows with two of pause, i.e. after the
+   intro: `dynamic_scale.h` now has a sudden rule (8 frames over 1.5x the budget move the scale straight to the
+   step that fits; after one, a single calm window puts it back). Tested in `tests/dynamic_scale_test.cpp`.
+3. **Resolve write-backs.** Each is a submit, a wait for the GPU and a read. The intro starts a dozen per-frame
+   destinations at once (`640x360`, `320x180`, the crowd's `64x1664`/`32x832`/`16x416`), each written back for
+   eight frames before it counted as per-frame: about 100 stalls, 740 ms in the first eight frames (7 fps).
+   Three frames now (`kPerFrameAfter`); kits (`tools/kits.sh`: 10 red, 10 yellow, 3 teal, 2 official) and the
+   crowd are unchanged.
+4. **Write-backs no longer wait one by one.** Each used to submit, wait for the GPU to go idle and read the
+   image back on the spot. Now the copy-out is queued in the frame into a host-visible buffer and the frame is
+   submitted at once, so the GPU works on it while the consumer records on; the pixels are stored into guest memory
+   when the title could next look (an end-of-pipe write or interrupt, `vk::renderer::PublishWriteBacks`, called from
+   `WritePhysical` except for the arena's own progress reports; and the swap), waiting only for that submission.
+   `files/sync_writeback` brings back the old wait for comparison. Measured on the S20 FE, alternating runs with
+   the cooler: the GPU wait inside the write-backs fell from 1670-1790 ms to 710-830 ms over the intro, and its
+   middle seconds from 12-17 to 15-22 fps; the first second (5-12 fps) and the last (30) did not move. Kits and
+   crowd are unchanged (`tools/kits.sh`: 10 red, 10 yellow, 3 teal, 2 official).
+5. **What is left is the title's own serialisation.** The guest main thread spins in `sub_8386CA10` (a yield loop,
+   77 % of its cycles in `sched_yield`) waiting on the render thread, which waits on D3D fences that follow each
+   player-texture composition (`512x512`, `128x128` resolves read back on the CPU); the GPU sits at 820 MHz and
+   51-74 % busy. Holding the title's end-of-pipe writes until the copies land (without the early submit) gave no
+   gain. Next: the GPU cost of the intro's scene passes, and the first second (new textures and pipelines).
+
+Measure on a cool phone: after a few back-to-back runs the S20 FE reaches heat status 3-4 and the GPU is capped,
+which by itself costs the intro a third of its frame rate.

@@ -162,6 +162,232 @@ namespace vk::renderer::detail
 
 using namespace vk::renderer::detail;
 
+namespace vk::renderer::detail
+{
+    // Resolves written back to guest memory (the kits, the crowd's colour atlas, the players'
+    // name and number textures), without a wait each. Every one used to submit the frame, wait
+    // for the GPU to finish it and read the image back on the spot, so the GPU stood idle while
+    // the consumer recorded and the consumer while the GPU drew. Now the copy out is queued in
+    // the frame, into a buffer the CPU can read, and the frame so far is submitted at once, so
+    // the GPU is at work on it while the consumer carries on. It lands in guest memory when the
+    // title could next look -- an end-of-pipe write, an interrupt, the swap
+    // (vk::renderer::PublishWriteBacks) -- and only that submission is waited for.
+    struct Staging
+    {
+        VkBuffer buffer = VK_NULL_HANDLE;
+        VkDeviceMemory memory = VK_NULL_HANDLE;
+        const uint8_t* mapped = nullptr;
+        VkDeviceSize bytes = 0;
+    };
+
+    struct PendingWriteBack
+    {
+        Staging staging;
+        Resolved* copy = nullptr;      // marked written back if it is still this resolve
+        VkImage image = VK_NULL_HANDLE;
+        uint64_t writtenFrame = 0, frame = 0;
+        uint64_t serial = 0;           // the submission its copy is in
+        uint32_t destination = 0, va = 0, destX = 0, destY = 0, width = 0, height = 0;
+        uint32_t imageWidth = 0, imageHeight = 0, pitchBlocks = 0, pitch = 0, endian = 0;
+        bool swap = false;
+        std::chrono::steady_clock::time_point queued;
+    };
+
+    std::vector<PendingWriteBack> g_pendingWriteBacks;
+    std::vector<Staging> g_spareStaging;
+    constexpr size_t kMostPendingWriteBacks = 48;   // each holds a buffer
+    constexpr size_t kMostSpareStaging = 32;
+
+    bool TakeStaging(VkDeviceSize bytes, Staging& out)
+    {
+        // The smallest spare one that fits.
+        size_t best = g_spareStaging.size();
+        for (size_t i = 0; i < g_spareStaging.size(); i++)
+            if (g_spareStaging[i].bytes >= bytes &&
+                (best == g_spareStaging.size() || g_spareStaging[i].bytes < g_spareStaging[best].bytes))
+                best = i;
+        if (best != g_spareStaging.size())
+        {
+            out = g_spareStaging[best];
+            g_spareStaging.erase(g_spareStaging.begin() + std::ptrdiff_t(best));
+            return true;
+        }
+        VkBufferCreateInfo info{ VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+        info.size = bytes;
+        info.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+        if (vkCreateBuffer(g.device, &info, nullptr, &out.buffer) != VK_SUCCESS) return false;
+        VkMemoryRequirements needs{};
+        vkGetBufferMemoryRequirements(g.device, out.buffer, &needs);
+        const uint32_t type = FindMemory(needs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                                               VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        VkMemoryAllocateInfo allocate{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
+        allocate.allocationSize = needs.size;
+        allocate.memoryTypeIndex = type;
+        void* mapped = nullptr;
+        if (type == UINT32_MAX || vkAllocateMemory(g.device, &allocate, nullptr, &out.memory) != VK_SUCCESS ||
+            vkBindBufferMemory(g.device, out.buffer, out.memory, 0) != VK_SUCCESS ||
+            vkMapMemory(g.device, out.memory, 0, bytes, 0, &mapped) != VK_SUCCESS)
+        {
+            if (out.memory) vkFreeMemory(g.device, out.memory, nullptr);
+            vkDestroyBuffer(g.device, out.buffer, nullptr);
+            out = {};
+            return false;
+        }
+        out.mapped = static_cast<const uint8_t*>(mapped);
+        out.bytes = bytes;
+        return true;
+    }
+
+    void GiveBackStaging(const Staging& staging)
+    {
+        if (g_spareStaging.size() < kMostSpareStaging) { g_spareStaging.push_back(staging); return; }
+        vkUnmapMemory(g.device, staging.memory);
+        vkDestroyBuffer(g.device, staging.buffer, nullptr);
+        vkFreeMemory(g.device, staging.memory, nullptr);
+    }
+
+    // The copy's pixels into guest memory as the Xenos stores them: 2D tiled, with the R/B
+    // swap the destination asks for and 8-in-32 endian.
+    void ApplyWriteBack(const PendingWriteBack& p, double waitedMs)
+    {
+        const uint8_t* const pixels = p.staging.mapped;
+        uint8_t* const base = guest::Base() + p.va;
+        for (uint32_t y = p.destY; y < p.destY + p.height && y < p.imageHeight; y++)
+            for (uint32_t x = p.destX; x < p.destX + p.width && x < p.imageWidth; x++)
+            {
+                const uint8_t* px = &pixels[(size_t(y) * p.imageWidth + x) * 4];
+                uint8_t c[4] = { px[0], px[1], px[2], px[3] };
+                if (p.swap) std::swap(c[0], c[2]);
+                const uint32_t word = uint32_t(c[0]) | uint32_t(c[1]) << 8 |
+                                      uint32_t(c[2]) << 16 | uint32_t(c[3]) << 24;
+                const uint32_t stored = p.endian == 2 ? __builtin_bswap32(word) : word;
+                const int32_t at = gpu::TiledOffset2D(int32_t(x), int32_t(y), p.pitchBlocks, 2);
+                std::memcpy(base + at, &stored, 4);
+            }
+        gpu::NoteWriteBack();
+        // Fetches read guest memory from now on -- unless the copy has been resolved to again
+        // since, when it belongs to that later resolve.
+        if (p.copy && p.copy->image == p.image && p.copy->writtenFrame == p.writtenFrame)
+            p.copy->writtenBack = true;
+        g.windowWriteBacks++;
+        if (p.width == 256 && p.height == 256)
+        {
+            // A kit composition: its average colour (R G B), for tools/kits.sh.
+            uint64_t sum[3] = {};
+            uint32_t n = 0;
+            for (uint32_t y = 0; y < 256 && y < p.imageHeight; y += 4)
+                for (uint32_t x = 0; x < 256 && x < p.imageWidth; x += 4)
+                {
+                    const uint8_t* px = &pixels[(size_t(y) * p.imageWidth + x) * 4];
+                    for (int c = 0; c < 3; c++) sum[c] += px[c];
+                    n++;
+                }
+            if (n)
+                LOGI("kitcompose %08X avg %02X %02X %02X frame %llu", p.destination, uint32_t(sum[0] / n),
+                     uint32_t(sum[1] / n), uint32_t(sum[2] / n), (unsigned long long)p.frame);
+        }
+        LOGI("resolve: wrote %ux%u back to %08X..%08X (pitch %u, endian %u, swap %d), frame %llu, %lld ms after it was queued (%.0f ms waiting for the GPU)",
+             p.width, p.height, p.destination, p.destination + p.pitchBlocks * ((p.height + 31u) & ~31u) * 4u,
+             p.pitch, p.endian, p.swap ? 1 : 0, (unsigned long long)p.frame,
+             (long long)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - p.queued).count(),
+             waitedMs);
+    }
+
+    // Submission `serial` finished on the GPU, waiting for it if it has not.
+    void WaitForSubmission(uint64_t serial)
+    {
+        if (serial > g.submissionSerial)
+        {
+            // Still in the frame being recorded.
+            const bool recording = g.recording;
+            Submit(true);
+            if (recording && !g.recording) BeginFrame();
+            return;
+        }
+        for (State::Slot& slot : g.slots)
+            if (slot.serial == serial && slot.inFlight) { WaitForSlot(slot, "a write-back's copy"); return; }
+        // Its slot has been used again since, so it finished.
+    }
+
+    void PublishWriteBacksNow()
+    {
+        if (g_pendingWriteBacks.empty()) return;
+        const auto from = std::chrono::steady_clock::now();
+        // In order, so the newest is the last to finish.
+        WaitForSubmission(g_pendingWriteBacks.back().serial);
+        const double waited = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - from).count();
+        for (const PendingWriteBack& p : g_pendingWriteBacks)
+        {
+            ApplyWriteBack(p, waited);
+            GiveBackStaging(p.staging);
+        }
+        g_pendingWriteBacks.clear();
+    }
+
+    void QueueWriteBack(Resolved& into, uint32_t destination, uint32_t va, uint32_t destX, uint32_t destY,
+                        uint32_t width, uint32_t height, uint32_t pitchBlocks, uint32_t pitch, bool swap,
+                        uint32_t endian)
+    {
+        if (g_pendingWriteBacks.size() >= kMostPendingWriteBacks) PublishWriteBacksNow();
+        PendingWriteBack p;
+        if (!TakeStaging(VkDeviceSize(into.width) * into.height * 4, p.staging)) return;
+        p.copy = &into;
+        p.image = into.image;
+        p.writtenFrame = into.writtenFrame;
+        p.frame = g.frames;
+        p.destination = destination;
+        p.va = va;
+        p.destX = destX; p.destY = destY; p.width = width; p.height = height;
+        p.imageWidth = into.width; p.imageHeight = into.height;
+        p.pitchBlocks = pitchBlocks; p.pitch = pitch; p.swap = swap; p.endian = endian;
+        p.queued = std::chrono::steady_clock::now();
+
+        RecordBarrier(into.image, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                      VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 0, VK_ACCESS_TRANSFER_READ_BIT, kShaderStages,
+                      VK_PIPELINE_STAGE_TRANSFER_BIT);
+        const VkImage image = into.image;
+        const VkBuffer buffer = p.staging.buffer;
+        const uint32_t w = into.width, h = into.height;
+        Record([=](VkCommandBuffer command) {
+            VkBufferImageCopy region{};
+            region.imageSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+            region.imageExtent = { w, h, 1 };
+            vkCmdCopyImageToBuffer(command, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, buffer, 1, &region);
+            VkBufferMemoryBarrier toHost{ VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
+            toHost.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            toHost.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
+            toHost.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            toHost.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            toHost.buffer = buffer;
+            toHost.size = VK_WHOLE_SIZE;
+            vkCmdPipelineBarrier(command, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT, 0,
+                                 0, nullptr, 1, &toHost, 0, nullptr);
+        });
+        RecordBarrier(into.image, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 0, VK_ACCESS_SHADER_READ_BIT,
+                      VK_PIPELINE_STAGE_TRANSFER_BIT, kShaderStages);
+        // The submission it goes out in: this one, sent now so the GPU starts on it.
+        p.serial = g.submissionSerial + 1;
+        g_pendingWriteBacks.push_back(p);
+        // files/sync_writeback: each one waited for at once, as before, to compare.
+        static const bool sync =
+#ifdef PES17_ANDROID
+            access((android::GetPaths().external + "/sync_writeback").c_str(), F_OK) == 0;
+#else
+            false;
+#endif
+        if (sync) { PublishWriteBacksNow(); return; }
+        Submit(false);
+        BeginFrame();
+    }
+}
+
+void vk::renderer::PublishWriteBacks()
+{
+    if (!g.device) return;
+    detail::PublishWriteBacksNow();
+}
+
 void vk::renderer::Resolve(const gpu::RegisterFile& r)
 {
     Stopwatch watch(g.resolveNanoseconds);
@@ -572,64 +798,26 @@ void vk::renderer::Resolve(const gpu::RegisterFile& r)
         // write-back stalls the CPU until the GPU is idle, and 697 of them at the
         // start of a match took the frame rate with them.
         struct Use { uint32_t times = 0, consecutive = 0; uint64_t frame = UINT64_MAX; };
+        // Back-to-back frames before a destination counts as a per-frame effect. The match
+        // intro opens with a dozen new ones at once (a 640x360 and 320x180 chain, the crowd's
+        // 64x1664 to 16x416 atlases); at eight frames each that was 100-odd stalls, 740 ms of
+        // them in its first eight frames, and the intro fell to 7 fps.
+        constexpr uint32_t kPerFrameAfter = 3;
         static std::unordered_map<uint32_t, Use> uses;
         Use& use = uses[destination];
         if (use.frame + 1 == g.frames) use.consecutive++;
         use.frame = g.frames;
         uint32_t& times = use.times;
-        const bool everyFrame = !g_noWriteBackCap && (times >= 12 || use.consecutive >= 8);
+        const bool everyFrame = !g_noWriteBackCap && (times >= 12 || use.consecutive >= kPerFrameAfter);
 
         times++;
-        const auto writeBackStart = std::chrono::steady_clock::now();
         const uint32_t va = kernel::FromPhysical(destination);
         if (!everyFrame && va)
         {
-            Submit(true);
-            const std::vector<uint8_t> pixels = ReadColourImage(
-                into.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, into.width, into.height, 4);
-            const auto readMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - writeBackStart).count();
-            if (!pixels.empty())
-            {
-                const gpu::CopyDestPitch pitchInfo{ r[gpu::RB_COPY_DEST_PITCH] };
-                const uint32_t pitchBlocks = (std::max(pitchInfo.Pitch(), 1u) + 31u) & ~31u;
-                uint8_t* const base = guest::Base() + va;
-                for (uint32_t y = destY; y < destY + height && y < into.height; y++)
-                    for (uint32_t x = destX; x < destX + width && x < into.width; x++)
-                    {
-                        const uint8_t* p = &pixels[(size_t(y) * into.width + x) * 4];
-                        uint8_t c[4] = { p[0], p[1], p[2], p[3] };
-                        if (destInfo.Swap()) std::swap(c[0], c[2]);
-                        const uint32_t word = uint32_t(c[0]) | uint32_t(c[1]) << 8 |
-                                              uint32_t(c[2]) << 16 | uint32_t(c[3]) << 24;
-                        const uint32_t stored = destInfo.Endian() == 2 ? __builtin_bswap32(word) : word;
-                        const int32_t at = gpu::TiledOffset2D(int32_t(x), int32_t(y), pitchBlocks, 2);
-                        std::memcpy(base + at, &stored, 4);
-                    }
-                gpu::NoteWriteBack();
-                into.writtenBack = true;
-                g.windowWriteBacks++;
-                if (width == 256 && height == 256)
-                {
-                    // A kit composition: its average colour (R G B), for tools/kits.sh.
-                    uint64_t sum[3] = {};
-                    uint32_t n = 0;
-                    for (uint32_t y = 0; y < 256; y += 4)
-                        for (uint32_t x = 0; x < 256; x += 4)
-                        {
-                            const uint8_t* p = &pixels[(size_t(y) * into.width + x) * 4];
-                            for (int c = 0; c < 3; c++) sum[c] += p[c];
-                            n++;
-                        }
-                    LOGI("kitcompose %08X avg %02X %02X %02X frame %llu", destination, uint32_t(sum[0] / n),
-                         uint32_t(sum[1] / n), uint32_t(sum[2] / n), (unsigned long long)g.frames);
-                }
-                LOGI("resolve: wrote %ux%u back to %08X..%08X (pitch %u, endian %u, swap %d), frame %llu, %lld ms (%lld to read the image)", width, height,
-                     destination, destination + pitchBlocks * ((height + 31u) & ~31u) * 4u, pitchInfo.Pitch(),
-                     destInfo.Endian(), destInfo.Swap() ? 1 : 0, (unsigned long long)g.frames,
-                     (long long)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - writeBackStart).count(),
-                     (long long)readMs);
-            }
-            if (!g.recording) BeginFrame();
+            const gpu::CopyDestPitch pitchInfo{ r[gpu::RB_COPY_DEST_PITCH] };
+            QueueWriteBack(into, destination, va, destX, destY, width, height,
+                           (std::max(pitchInfo.Pitch(), 1u) + 31u) & ~31u, pitchInfo.Pitch(),
+                           destInfo.Swap(), destInfo.Endian());
         }
     }
     ClearAfterResolve(r, control);
@@ -648,6 +836,8 @@ void vk::renderer::RequestCacheFlush() { g_cacheFlushRequested.store(true, std::
 void vk::renderer::Swap(uint32_t frontBuffer)
 {
     if (!g.device) return;
+    // A frame's write-backs are in guest memory before the next frame starts.
+    detail::PublishWriteBacksNow();
     if (g_cacheFlushRequested.exchange(false, std::memory_order_acq_rel)) vk::renderer::detail::FlushShaderCache();
     {
         using namespace vk::renderer::detail;

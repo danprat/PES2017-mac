@@ -47,7 +47,7 @@ namespace
         Check(c.Current() >= 9, "one decision is at most three sixteenths");
         const int after = c.Current();
         // The next window is ignored (the images are new), the one after is read.
-        Run(c, 30.0, Controller::kCooldownWindows);
+        Run(c, 18.0, Controller::kCooldownWindows);
         Check(c.Current() == after, "a change is followed by a pause");
         Run(c, 30.0, 4);
         Check(c.Current() == 8, "a frame far over the budget walks down to the floor");
@@ -59,7 +59,7 @@ namespace
     {
         Controller c;
         c.Configure(12, 8, 13.0);
-        Run(c, 30.0, 8);
+        Run(c, 17.0, 20);   // over the budget, but not a sudden jump: a step at a time
         Check(c.Current() == 8, "setup: at the floor");
         // 4 ms is far under budget even three steps up (4 * (9/8)^2 = 5).
         Run(c, 4.0, Controller::kUpWindows - 1);
@@ -68,6 +68,41 @@ namespace
         Check(c.Current() == 9, "then goes up one");
         Run(c, 4.0, 60);
         Check(c.Current() == 12, "and no higher than the player's scale");
+    }
+
+    // A scene that costs twice a match (the intro, a cutscene) moves the scale within a few
+    // frames and, once it is over, moves it back in one decision.
+    void Sudden()
+    {
+        Controller c;
+        c.Configure(12, 8, 13.0);
+        for (int i = 0; i < Controller::kFastFrames - 1; i++) Check(!c.Note(28.0), "the sudden rule waits for its frames");
+        Check(c.Note(28.0), "and moves the scale at the end of them");
+        Check(c.Current() == 8, "to the floor when nothing less fits");
+        // Back: one calm window, straight to the ceiling.
+        Run(c, 4.0, 1);
+        Check(c.Current() == 12, "a calm window after a sudden drop returns to the ceiling in one step");
+
+        Controller w;
+        w.Configure(16, 8, 13.0);
+        for (int i = 0; i < Controller::kFastFrames; i++) w.Note(30.0);
+        Check(w.Current() == 10, "the step that fits, not always the floor");
+        // Held for a moment so the first frames of the new images are not read as a verdict.
+        for (int i = 0; i < Controller::kFastHold - Controller::kFastFrames; i++) w.Note(30.0);
+        Check(w.Current() == 10, "the sudden rule does not act again at once");
+
+        // Not sudden: 1.4 times the budget is the ordinary rule's to handle, over a window.
+        Controller n;
+        n.Configure(12, 8, 13.0);
+        for (int i = 0; i < Controller::kWindow - 1; i++) n.Note(18.0);
+        Check(n.Current() == 12, "an overrun short of half again waits for its window");
+
+        // Without the load rule nothing here applies.
+        Controller h;
+        h.Configure(12, 8, 13.0);
+        h.SetRules(true, false);
+        for (int i = 0; i < 40; i++) h.Note(40.0);
+        Check(h.Current() == 12, "the heat rule alone ignores frame times");
     }
 
     void NoFlapping()
@@ -171,6 +206,7 @@ int main()
 {
     Overrun();
     Recovery();
+    Sudden();
     NoFlapping();
     Heat();
     Rules();

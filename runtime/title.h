@@ -12,10 +12,12 @@
 #define T_ENTRY_POINT   0x82416708u          // the XEX header's ENTRY_POINT
 
 // ---- still to be located (see docs/PORTING.md) -----------------------------
-// D3D9 (statically linked): Present, the arena wait and the shader-object
-// initialisers. Until the first is found the frame is retired from the
-// kernel's VdSwap path instead.
-// #define T_D3D_Present          ........
+// D3D9 (statically linked): the arena wait and the shader-object initialisers.
+// Present is sub_823F98E0 = D3D's swap (device, front buffer texture, params);
+// the render thread's swap command (sub_83861FA0) calls it, and it ends in the
+// VdSwap path. Its device offsets (present interval 13596 etc.) are MW2's and
+// are NOT valid for PES: with a 60 -> 30 pacing change no device field differs.
+#define T_D3D_Present          823F98E0
 // #define T_D3D_ArenaWait        ........
 
 // Data the diagnostics read; zero means "not derived for this title".

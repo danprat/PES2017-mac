@@ -63,10 +63,10 @@ bool gpu::detail::ArenaProgress(uint32_t address, uint32_t value)
     g_sequence = value;
     if (g_havePosition)
     {
-        WritePhysical(block + 4, g_pendingPosition);
+        WritePhysical(block + 4, g_pendingPosition, false);
         g_havePosition = false;
     }
-    WritePhysical(block, value);
+    WritePhysical(block, value, false);
     return true;
 }
 
@@ -100,8 +100,8 @@ void gpu::ForceArenaProgress(uint32_t sequence, uint32_t position)
     g_sequence = sequence;
     g_havePosition = false;
     g_pendingPosition = position;
-    WritePhysical(block + 4, position);
-    WritePhysical(block, sequence);
+    WritePhysical(block + 4, position, false);
+    WritePhysical(block, sequence, false);
     LOGW("gpu: forced arena progress block %08X to seq=%u, pos=%08X",
          block, sequence, position);
 }

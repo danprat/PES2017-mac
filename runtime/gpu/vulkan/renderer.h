@@ -105,6 +105,12 @@ namespace vk::renderer
     // (vk::textures::EndSegment), and nothing read later reaches them.
     void BeforeCompletion();
 
+    // The resolves written back so far land in guest memory, once the submission their copies
+    // went out in has finished. A write-back is a copy queued in the frame, not a wait of its
+    // own: the title can only read what the GPU wrote after the GPU says so -- an end-of-pipe
+    // write, an interrupt -- and the command processor calls this before each.
+    void PublishWriteBacks();
+
     // True while files/dump_frame is writing a frame's draws to the log.
     bool DumpingDraws();
 
