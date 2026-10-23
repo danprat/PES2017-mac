@@ -381,3 +381,22 @@ depth-only mode (`RB_MODECONTROL` 5, depth control `0x8701`: ALWAYS, REPLACE, wr
 it fell through as an ordinary draw. `renderer_draw.cpp` now also treats a rect list with no viewport transform and
 that stencil state as a clear (`stencilClearRectangle`), whatever the EDRAM mode. Verified: the board is an opaque
 teal panel, the match crowd and kits are unchanged.
+
+## The black bars in the stands (October 2026)
+
+Thin black vertical lines flickered in the crowd, from a few pixels to a person's height. Found from screenshots every
+half second, then a dump of a kickoff frame: the crowd's G-buffer (`resolve_07EB0000`) had 1-pixel columns of
+alpha 0 where no sprite had written, 14-25 pixels tall, and each such column was covered by 12-19 overlapping
+billboards (18x37 px, dumped from the vertex shader on the CPU), so it was not a missing sprite. The atlas the
+billboards sample (`resolve_06C50000`, 128x3328) had its last column and its last row at (0,0,0,0) instead of the
+background (0,0,1,1): the kill that drops the background (`z*w > 0.998`) does not catch transparent black, so a
+billboard sampling the atlas edge drew black, marked the stencil and wrote depth, hiding what was behind it.
+
+The atlas is cleared by a pair of rectangles (4x half from -0.5 to 39.5, 1x half from 79.5 to 127.5, rows -0.5 to
+3327.5). With the viewport transform off the window coordinates become NDC in `renderer_draw.cpp` with no
+half-pixel shift, and D3D9's pixel centres are on integers (`ViewportOf` shifts for that): the rectangle ended exactly
+on column 127's centre as Vulkan has it, an edge a pixel is not covered past, so column 127 and row 3327 were never
+cleared. The NDC offset now has the same half pixel (`PA_SU_VTX_CNTL` pix_center 0). Verified: the atlas's edges
+are background, isolated 1-pixel gap lines in the G-buffer fall from 22 to 1 in a stand block, the stands show no
+bars, and the title, team board, kits (10/10/3/2) and the match are unchanged. Every viewport-off draw (clears and
+pre-transformed quads) lost its last column and row before this; none of the others was visible.

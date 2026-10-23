@@ -1233,6 +1233,17 @@ void vk::renderer::Draw(const gpu::RegisterFile& r, const DrawCall& call)
             ndc[1] = 2.0f * rows / float(g.currentHeight);
             ndc[2] = -1.0f;
             ndc[3] = -1.0f;
+            // D3D9 puts a pixel's centre on the integer coordinate (see ViewportOf), and a window
+            // coordinate here is a pixel's own: the crowd atlas is cleared with a rectangle from
+            // 79.5 to 127.5, which should include the pixel centred on 127 but ended exactly on
+            // the centre of column 127 as Vulkan has it (127.5, an edge a pixel is not covered
+            // past), so the atlas's last column and row stayed transparent black. The billboards
+            // sampled it at their quads' edges and drew a black line there: the bars in the stands.
+            if (!(r[gpu::PA_SU_VTX_CNTL] & 1))
+            {
+                ndc[2] += 0.5f * ndc[0];
+                ndc[3] += 0.5f * ndc[1];
+            }
             viewport.x = 0.0f;
             viewport.y = 0.0f;
             viewport.width = float(g.currentWidth);
