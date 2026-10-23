@@ -69,7 +69,7 @@ this audit.
 |---|---|---|
 | 1 | Audio handshake | **Unverified.** The XAudio render driver and XMA decoder are in `runtime/apu` ([audio.md](audio.md)); the old "engine done events never signalled" note has no later mention. Check sound on a device. The `WAIT_REG_MEM` timeouts and write-watch coverage of the cached window are covered by the flip handshake in [d3d9-seam.md](d3d9-seam.md). |
 | 2 | D3D9 `Present` / `ArenaWait` hooks | **Present located and hooked** (`T_D3D_Present` = `sub_823F98E0`, D3D's swap). **ArenaWait still open** (not needed so far). The 30 fps of cutscenes is the title's own request: the flip request D3D writes to scratch register 5 carries the present interval in bits 8-11, `0x100` in play and `0x200` in cutscenes and loading. Forcing it to 1 was tried and made the match intro slower (5-13 fps against 5-28), so there is no 60 fps cutscene option; see "The match intro" below. |
-| 3 | Xenos GPU coverage | **Mostly done.** Matches render correctly (pitch, kits, shadows, oDepth, kill ops, resolve write-back). Open: crowd atlas sampling, the half-time board stencil bug, cutscene flicker. See `.claude/docs/HANDOFF.md`. |
+| 3 | Xenos GPU coverage | **Mostly done.** Matches render correctly (pitch, kits, shadows, oDepth, kill ops, resolve write-back). Open: cutscene flicker. (The board stencil bug is fixed, see "The team board" below.) See `.claude/docs/HANDOFF.md`. |
 | 4 | Game I/O | **Works** (the game boots from the installed folder). Large-file overlapped reads are not separately verified. |
 | 5 | Threading and memory | **Fixed for the match load** (see "Memory for the match load"). 16 KB-page devices untested. |
 | 6 | XMA audio | **Implemented**, listening check outstanding (see 1). |
@@ -367,3 +367,17 @@ per-pass GPU timing (`files/gpu_timing`, 10-frame windows), `simpleperf` and a t
 
 Measure on a cool phone: after a few back-to-back runs the S20 FE reaches heat status 3-4 and the GPU is capped,
 which by itself costs the intro a third of its frame rate.
+
+## The team board over the crowd (October 2026)
+
+The match intro's "Exhibition / KONAMI Stadium" board (and the half-time stats) drew with the stands showing through
+it. Found by dumping the board's frame (`touch files/dump_frame` the moment a screenshot matched the banner) and
+reading `DUMP   stencil before draw`: the interface's sprites test stencil `EQUAL 1`, and just before them the 1x
+depth image still held the crowd's marks (`10:86400`, then `10:46237 11:40163` after the panel wrote bit 0), so about
+100,000 pixels failed the test wherever crowd lay behind. The interface clears the stencil with a rectangle through the
+4x depth image at the same tile (one EDRAM buffer on the console); `ClearAliasedStencil` clears the other images of
+that tile, but only for `clearRectangles`, which needs the depth write on. This rectangle is stencil-only and in
+depth-only mode (`RB_MODECONTROL` 5, depth control `0x8701`: ALWAYS, REPLACE, write mask FF, no depth test or write), so
+it fell through as an ordinary draw. `renderer_draw.cpp` now also treats a rect list with no viewport transform and
+that stencil state as a clear (`stencilClearRectangle`), whatever the EDRAM mode. Verified: the board is an opaque
+teal panel, the match crowd and kits are unchanged.

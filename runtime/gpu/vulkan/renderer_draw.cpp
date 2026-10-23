@@ -848,8 +848,16 @@ void vk::renderer::Draw(const gpu::RegisterFile& r, const DrawCall& call)
 
     // A colour-and-depth clearing rectangle clears the stencil of the depth image it is drawn into, and
     // -- as the console's one EDRAM buffer would -- of the same tile's images at other sample counts.
-    if (clearRectangles && edramMode != gpu::EdramMode::DepthOnly && depthState.StencilEnable() &&
-        depthState.StencilZPass() == 2)
+    // The interface's own clear (the match intro's team board, the half-time stats) is a stencil-only
+    // rectangle, in depth-only mode: depth test and depth write off, stencil ALWAYS with REPLACE -- not a
+    // clearRectangles draw, which needs the depth write -- so the crowd's marks in the 1x image outlived
+    // it, and the board's sprites, which test the stencil for EQUAL 1, failed over every crowd pixel
+    // behind them.
+    const bool stencilClearRectangle = call.primitive == 8 && !depthState.ZWrite() &&
+                                       depthState.StencilEnable() && depthState.StencilFunc() == 7 &&
+                                       !viewportControl.XScale() && !viewportControl.YScale();
+    if (((clearRectangles && edramMode != gpu::EdramMode::DepthOnly) || stencilClearRectangle) &&
+        depthState.StencilEnable() && depthState.StencilZPass() == 2)
     {
         const gpu::StencilRefMask clearRef{ r[gpu::RB_STENCILREFMASK] };
         if (g_dumpDraws)
