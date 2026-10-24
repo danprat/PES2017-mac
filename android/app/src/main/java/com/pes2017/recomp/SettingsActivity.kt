@@ -85,6 +85,7 @@ class SettingsActivity : AppCompatActivity() {
         hudLevel.setOnCheckedChangeListener { _, id -> prefs.hudLevel = hudChoices.indexOf(id).coerceAtLeast(0) }
         switch(R.id.heat_scale, prefs.heatScale) { prefs.heatScale = it; presetTouched() }
         switch(R.id.perf_hint, prefs.perfHint) { prefs.perfHint = it }
+        switch(R.id.crowd, prefs.crowd) { prefs.crowd = it }
 
         // ---- controls and sound ----
         switch(R.id.touch, prefs.touchControls) { prefs.touchControls = it }

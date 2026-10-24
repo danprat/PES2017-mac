@@ -402,6 +402,19 @@
                         android:layout_height="wrap_content"
                         android:text="@string/perf_hint_hint" />
 
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/crowd"
+                        style="@style/SettingSwitch"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/crowd" />
+
+                    <TextView
+                        style="@style/SettingHint"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/crowd_hint" />
+
                 </LinearLayout>
 
             </LinearLayout>

@@ -27,6 +27,7 @@ logs-*.txt
 # ---- build artifacts ----
 /build/
 /build-android/
+/build-android-opt/
 /build-release/
 /build-win*/
 # The checks' own build (tests/CMakeLists.txt), which needs none of the game:

@@ -363,6 +363,7 @@ namespace vk::renderer::detail
         if (plan.Any()) RecordReadBack(present);
         if (!Submit(plan.Any())) { Skip("frame submission failed"); return; }
         g.frames++;
+        FlipCrowdEvery();
         vk::textures::NewFrame();
 #ifdef PES17_ANDROID
         {

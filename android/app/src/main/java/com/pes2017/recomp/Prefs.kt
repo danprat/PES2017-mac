@@ -86,6 +86,14 @@ class Prefs(context: Context) {
         get() = store.getBoolean(KEY_PERF_HINT, true)
         set(value) = store.edit().putBoolean(KEY_PERF_HINT, value).apply()
 
+    /**
+     * The stadium crowd (off: PES17_NO_CROWD=1). Off drops its draws, which saves the
+     * renderer and the GPU their work and leaves the stands empty. On by default.
+     */
+    var crowd: Boolean
+        get() = store.getBoolean(KEY_CROWD, true)
+        set(value) = store.edit().putBoolean(KEY_CROWD, value).apply()
+
     /** FSR upscale and sharpen instead of a plain stretch (PES17_UPSCALER=fsr). */
     var fsr: Boolean
         get() = store.getBoolean(KEY_FSR, false)
@@ -325,6 +333,7 @@ class Prefs(context: Context) {
         private const val KEY_HEAT_SCALE = "heatScale"
         private const val KEY_LOAD_SCALE = "loadScale"
         private const val KEY_PERF_HINT = "perfHint"
+        private const val KEY_CROWD = "crowd"
         private const val KEY_FSR_SHARP = "fsrSharpness"
         private const val KEY_CAP30 = "cap30"
         private const val KEY_FPS_LIMIT = "fpsLimit"

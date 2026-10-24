@@ -204,7 +204,7 @@
     <string name="section_testing">Testing</string>
     <string name="section_developer">Developer</string>
     <string name="developer_tools">Developer tools</string>
-    <string name="developer_tools_hint">Shows the debug-only tools in a match: the CAPTURE button, macro record and play in the pause menu, the HUD\u2019s detail card and console, and the test options below. Leave off to play.</string>
+    <string name="developer_tools_hint">Shows the debug-only tools in a match: the CAPTURE button, the REC MACRO button beside Menu, macro play in the pause menu, the HUD\u2019s detail card and console, and the test options below. Leave off to play.</string>
     <string name="section_hud">Performance HUD</string>
     <string name="hud_off">Off</string>
     <string name="hud_minimal">Minimal</string>
@@ -248,6 +248,8 @@
     <string name="load_scale_hint">Steps the picture down when the render passes take too long for the frame and back up when there is room (PES17_LOAD_SCALE). It only sees GPU pass time, which on the Snapdragon 865 was not what made a slow match slow, so it rarely acts there. Experimental.</string>
     <string name="perf_hint">System performance hint</string>
     <string name="perf_hint_hint">Tells Android how long each frame took so it can raise or lower the CPU and GPU clock (PES17_HINT). Does nothing on a phone that refuses it, such as the Snapdragon 865 on Android 13; turn it off if a phone runs hotter with it.</string>
+    <string name="crowd">Stadium crowd</string>
+    <string name="crowd_hint">Off leaves the stands empty and spares the renderer and the GPU the crowd\u2019s drawing, which keeps the phone a little cooler in a match. The game still animates it. Takes effect the next time the game starts.</string>
     <string name="fsr">Sharper upscaling (FSR)</string>
     <string name="fsr_hint">Uses an AMD FSR upscale and sharpen pass instead of a plain stretch. Costs a few frames on a hot phone.</string>
     <string name="fsr_sharp">Sharpness: %1$.1f</string>
@@ -283,7 +285,7 @@
     <string name="macro_stop_record">Stop recording</string>
     <string name="macro_play">Play macro</string>
     <string name="macro_stop_play">Stop macro</string>
-    <string name="macro_recording">Recording the controller\u2026 open the menu to stop.</string>
+    <string name="macro_recording">Recording the controller\u2026 press STOP REC to finish.</string>
     <string name="macro_saved">Saved %1$d events as \u201c%2$s\u201d.</string>
     <string name="macro_nothing">Nothing was recorded: press something on the controller first.</string>
     <string name="macro_none">No macros recorded yet.</string>

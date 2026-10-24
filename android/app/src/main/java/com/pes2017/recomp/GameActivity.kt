@@ -73,6 +73,7 @@ class GameActivity : AppCompatActivity(), NativeListener {
     private var hudIsExpanded = false
     private lateinit var menuButton: Button
     private lateinit var captureButton: Button
+    private lateinit var macroButton: Button
     private var editPanel: ControlEditPanel? = null
 
     private val pads = GamepadInput()
@@ -587,6 +588,15 @@ class GameActivity : AppCompatActivity(), NativeListener {
                 Gravity.TOP or Gravity.END,
             ).apply { topMargin = pad(6); marginEnd = pad(76) }
         )
+        // Debug: record a controller macro without opening the menu; the next press stops it.
+        macroButton = smallButton("REC MACRO") { toggleRecording() }
+        root.addView(
+            macroButton,
+            FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.TOP or Gravity.END,
+            ).apply { topMargin = pad(6); marginEnd = pad(176) }
+        )
         applyDeveloperTools()
 
         setContentView(root)
@@ -736,6 +746,7 @@ class GameActivity : AppCompatActivity(), NativeListener {
         NativeBridge.nativeSetOption("PES17_HEAT_SCALE", if (prefs.heatScale) "1" else "")
         NativeBridge.nativeSetOption("PES17_LOAD_SCALE", if (prefs.loadScale) "1" else "")
         NativeBridge.nativeSetOption("PES17_HINT", if (prefs.perfHint) "" else "0")
+        NativeBridge.nativeSetOption("PES17_NO_CROWD", if (prefs.crowd) "" else "1")
         NativeBridge.nativeSetOption("PES17_UPSCALER", if (prefs.fsr) "fsr" else "")
         NativeBridge.nativeSetOption("PES17_FSR_SHARPNESS", String.format(Locale.US, "%.1f", prefs.fsrSharpness))
         // For trying other caps without a rebuild: a number in files/fps_limit
@@ -859,8 +870,8 @@ class GameActivity : AppCompatActivity(), NativeListener {
             getString(R.string.edit_controls) to { _: android.content.DialogInterface -> beginEditing() },
         )
         // Macros are a test tool: only with developer tools on (Settings > Advanced).
+        // Recording has its own button beside Menu; playing is picked here.
         if (prefs.developerTools || Macro.recording || Macro.playing) {
-            labels.add(getString(if (Macro.recording) R.string.macro_stop_record else R.string.macro_record) to { _: android.content.DialogInterface -> toggleRecording() })
             labels.add(getString(if (Macro.playing) R.string.macro_stop_play else R.string.macro_play) to { _: android.content.DialogInterface ->
                 if (Macro.playing) Macro.stopPlayback() else pickMacro()
             })
@@ -946,6 +957,7 @@ class GameActivity : AppCompatActivity(), NativeListener {
         overlay.select(null)
         menuButton.visibility = View.GONE
         captureButton.visibility = View.GONE
+        macroButton.visibility = View.GONE
         if (editPanel == null) {
             editPanel = ControlEditPanel(this, root, overlay) { endEditing(save = true) }
         }
@@ -1139,6 +1151,9 @@ class GameActivity : AppCompatActivity(), NativeListener {
     private fun applyDeveloperTools() {
         val show = prefs.developerTools || capture.active
         captureButton.visibility = if (show && !overlay.editing) View.VISIBLE else View.GONE
+        macroButton.visibility =
+            if ((prefs.developerTools || Macro.recording) && !overlay.editing) View.VISIBLE else View.GONE
+        refreshMacroButton()
         if (!prefs.developerTools && hudIsExpanded) {
             hudIsExpanded = false
             hudExpandedCard.visibility = View.GONE
@@ -1152,9 +1167,22 @@ class GameActivity : AppCompatActivity(), NativeListener {
         captureButton.setTextColor(Color.WHITE)
     }
 
+    private fun refreshMacroButton() {
+        if (Macro.recording) {
+            macroButton.text = "\u25A0 STOP REC"
+            macroButton.alpha = 1f
+            macroButton.setTextColor(Color.rgb(255, 90, 90))
+        } else {
+            macroButton.text = "REC MACRO"
+            macroButton.alpha = 0.55f
+            macroButton.setTextColor(Color.WHITE)
+        }
+    }
+
     private fun toggleRecording() {
         if (!Macro.recording) {
             Macro.startRecording()
+            refreshMacroButton()
             toast(getString(R.string.macro_recording))
             return
         }
@@ -1183,7 +1211,7 @@ class GameActivity : AppCompatActivity(), NativeListener {
                 Macro.stopRecording(this, "discarded")
                 java.io.File(Macro.directory(this), "discarded.macro").delete()
             }
-            .setOnDismissListener { goFullscreen() }
+            .setOnDismissListener { applyDeveloperTools(); goFullscreen() }
             .show()
     }
 

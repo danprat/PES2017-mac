@@ -568,6 +568,11 @@ namespace vk::renderer::detail
 
     extern bool g_dumpDraws;
     extern std::vector<uint64_t> g_skipPixelShaders;
+    // The crowd (renderer_draw.cpp): whether its draws are dropped now. PES17_NO_CROWD sets it
+    // for the run; PES17_CROWD_ALTERNATE=<frames> flips it every that many frames, to measure
+    // the crowd's cost on one match (the flip is made where the frame is counted).
+    bool CrowdOff();
+    void FlipCrowdEvery();
     // Debug: only draws numbered lo..hi of each frame are drawn (files/draw_range holds "lo hi").
     extern uint32_t g_drawLo, g_drawHi, g_frameDraw;
     extern bool g_dumpHeaders;       // CAPTURE burst: one 'DUMP draw' line per draw, nothing else

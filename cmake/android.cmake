@@ -75,9 +75,11 @@ endif()
 # ---- code generation ------------------------------------------------------
 # The recompiled translation units are enormous -- tens of thousands of
 # functions -- and the phone's copy has to be small as well as quick.
-if(CMAKE_BUILD_TYPE STREQUAL "Release" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+option(PES_FRAME_POINTER "Keep the frame pointer in Release builds (backtraces walk it)" ON)
+if(PES_FRAME_POINTER AND (CMAKE_BUILD_TYPE STREQUAL "Release" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo"))
     # No frame pointer on the guest's own functions would make a crash report
     # useless, and the unwinder is what every backtrace here goes through.
+    # Off, for a speed measurement: the crash and wait-stack backtraces go.
     target_compile_options(ppc_recomp PRIVATE -fno-omit-frame-pointer)
     target_compile_options(pes17 PRIVATE -fno-omit-frame-pointer)
 endif()

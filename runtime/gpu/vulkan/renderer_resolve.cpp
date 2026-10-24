@@ -1,3 +1,4 @@
+#include <sys/resource.h>
 #include <string>
 #include "../../crash.h"
 #include <map>
@@ -989,6 +990,18 @@ void vk::renderer::Swap(uint32_t frontBuffer)
                  600.0 / took, took * 1000.0 / 600.0, g.vertexBytesCopied / 600.0 / 1048576.0,
                  g.vertexBytesReused / 600.0 / 1048576.0, (fence - lastFence) / 600.0 / 1e6,
                  (unsigned long long)g.windowWriteBacks);
+            {
+                // The process's CPU time (user + system, every thread) over the window, a frame, and
+                // whether the crowd was drawn in it (the flip is made after this report's frame).
+                static double lastCpu = 0.0;
+                rusage usage{};
+                getrusage(RUSAGE_SELF, &usage);
+                const double cpu = double(usage.ru_utime.tv_sec + usage.ru_stime.tv_sec) +
+                                   double(usage.ru_utime.tv_usec + usage.ru_stime.tv_usec) / 1e6;
+                LOGI("perf: cpu %.2f ms a frame (%.0f%% of a core), crowd %s", (cpu - lastCpu) * 1000.0 / 600.0,
+                     (cpu - lastCpu) / took * 100.0, CrowdOff() ? "off" : "on");
+                lastCpu = cpu;
+            }
             lastFence = fence;
             g.vertexBytesCopied = g.vertexBytesReused = 0;
             g.windowWriteBacks = 0;

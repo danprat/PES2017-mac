@@ -7,6 +7,7 @@
 #include "../../guest.h"
 #include "../../kernel/physical.h"
 #include "../../log.h"
+#include "../../env.h"
 #include "../internal.h"
 #include "../xe/memexport.h"
 #include <atomic>
@@ -34,6 +35,28 @@ namespace vk::renderer::detail
     // screenshot cannot say about a screen that looks wrong.
     bool g_dumpDraws = false;
     std::vector<uint64_t> g_skipPixelShaders;
+
+    // The seated crowd (docs/PORTING.md "Crowd, second pass"): the person shader that draws its
+    // sprite atlas, the two billboard passes into the G-buffers, and the full-screen composite
+    // that lights them. Only the composite's prefix was ever written down, so all four are
+    // matched on their high bits.
+    static bool g_crowdFlipped = false;
+    bool CrowdOff()
+    {
+        static const bool base = env::Flag("PES17_NO_CROWD");
+        return base != g_crowdFlipped;
+    }
+    void FlipCrowdEvery()
+    {
+        static const uint64_t every = env::Number("PES17_CROWD_ALTERNATE", 0);
+        if (every && g.frames && g.frames % every == 0) g_crowdFlipped = !g_crowdFlipped;
+    }
+
+    bool IsCrowdShader(uint64_t hash)
+    {
+        return (hash >> 40) == 0xB4BBEAull || (hash >> 40) == 0x70F64Aull ||
+               (hash >> 40) == 0x4934ECull || (hash >> 32) == 0xAB28D67Aull;
+    }
     uint32_t g_drawLo = 0, g_drawHi = 0xFFFFFFFFu, g_frameDraw = 0;
     bool g_noVertexReuse = false;
 
@@ -623,6 +646,9 @@ void vk::renderer::Draw(const gpu::RegisterFile& r, const DrawCall& call)
         job.physicalBase = GuestPtr<uint8_t>(kernel::FromPhysical(0)); job.physicalSize = 0x20000000;
         xe_memexport::TraceVertices(job, [](const char* text) { LOGW("DUMP   cpu-vs %s", text); });
     }
+    // No crowd (PES17_NO_CROWD, Settings > Performance): its draws are dropped before they cost
+    // the recorder or the GPU anything. The title still animates it.
+    if (CrowdOff() && IsCrowdShader(call.pixelHash)) { Skip("crowd off"); return; }
     // Bisecting a frame (files/skip_ps: pixel shader hashes, one a line).
     for (uint64_t hash : g_skipPixelShaders)
         if (hash == call.pixelHash) { Skip("skip_ps"); return; }
