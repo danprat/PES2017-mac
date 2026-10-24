@@ -4,6 +4,7 @@
 #include "../../frame_rate.h"
 #include "../../log.h"
 #include "../../crash.h"
+#include "../../platform.h"
 #include "../../console.h"
 #include "../../stutters.h"
 #include "../../signin.h"
@@ -1209,6 +1210,7 @@ namespace
     void Worker()
     {
         crash::RegisterThread("vulkan presenter");
+        platform::SetThreadAffinity(platform::ThreadAffinityRole::RenderCore);
         if (!Bring())
         {
             LOGW("vulkan: presenting disabled, continuing headless");

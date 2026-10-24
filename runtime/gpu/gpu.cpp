@@ -9,6 +9,7 @@
 #include "internal.h"
 #include "gpu.h"
 #include "../crash.h"
+#include "../platform.h"
 #include "../diagnostics.h"
 #include "../guest.h"
 #include "../image_move.h"
@@ -108,6 +109,7 @@ namespace
     void Worker()
     {
         crash::RegisterThread("gpu ring consumer");
+        platform::SetThreadAffinity(platform::ThreadAffinityRole::RenderCore);
         t_guestPcr = g.gpuPcr;
         LOGI("gpu: ring consumer started");
         g.consumerStarted = std::chrono::steady_clock::now();

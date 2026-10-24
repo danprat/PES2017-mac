@@ -662,27 +662,20 @@ namespace
     };
 
     // Whether this GPU's VkPipelineCache is persisted to disk across sessions.
-    // Mali has historically had driver bugs with cross-session cache blobs, so we
-    // create and use the cache within a session (which allows ISA reuse between
-    // pipelines that share shaders) but do not save it to disk for Mali.
+    // Mali has historically had driver bugs with cross-session cache blobs, which is why
+    // it was off for it; but without it every launch rebuilds every pipeline the match
+    // load meets -- hundreds at 300-464 ms on a Poco X6 Pro (Mali-G615), and on a POCO X7
+    // Pro (Mali-G720, driver 1.3.278) a slow stretch of twenty seconds after kick-off that
+    // a filled cache cut to a few. On that driver the blob loads and verifies run after run
+    // (248 KB, then 1991 KB as more pipelines are met). If a driver rejects a blob,
+    // CreateCache logs it and falls back to an empty cache, so a failure is soft.
+    // PES17_PERSIST_PIPELINE_CACHE=0 turns it off for a GPU that misbehaves.
     bool IsMali() { return g.deviceProperties.vendorID == 0x13B5; }
 
-    // Whether this GPU's VkPipelineCache is persisted to disk across sessions.
-    // Mali has historically had driver bugs with cross-session cache blobs, so
-    // we create and use the cache within a session (which allows ISA reuse
-    // between pipelines that share shaders) but do not save it to disk by
-    // default. PES17_PERSIST_PIPELINE_CACHE=1 overrides: the test reports of
-    // Poco X6 Pro (Mali-G615, driver 1.3.247) show every run recompiling
-    // hundreds of pipelines at 300-464 ms as the training level loads, which
-    // is what stalls the GPU thread behind its guest waits long enough for
-    // the title to error out -- worth a player let-in even against the
-    // historical driver bug. If the driver rejects a loaded blob, CreateCache
-    // logs it and falls back to an empty cache, so the failure is soft.
     bool PersistCache()
     {
-        static const bool asked = env::Flag("PES17_PERSIST_PIPELINE_CACHE");
-        if (asked) LOGI("pipeline: persisting the pipeline cache across runs (user request) on %04X", g.deviceProperties.vendorID);
-        return !IsMali() || asked;
+        const char* value = env::Text("PES17_PERSIST_PIPELINE_CACHE");
+        return !(value && value[0] == '0');
     }
 
     void CreateCache()
@@ -695,10 +688,8 @@ namespace
         }
 
         std::vector<uint8_t> initial;
-        // Mali: skip disk-load by default to avoid cross-session driver
-        // instability, but still create an in-session cache for ISA reuse.
-        // PES17_PERSIST_PIPELINE_CACHE=1 asks for the disk blob back (see
-        // PersistCache above).
+        // PES17_PERSIST_PIPELINE_CACHE=0 keeps it to this session (see PersistCache above),
+        // which still lets pipelines that share shaders reuse each other's ISA.
         if (PersistCache())
         {
             if (const char* path = CachePath())
@@ -753,8 +744,7 @@ namespace
         }
         else
         {
-            LOGI("pipeline: Mali GPU detected -- using in-session VkPipelineCache only;"
-                 " set PES17_PERSIST_PIPELINE_CACHE=1 to keep the disk blob across runs");
+            LOGI("pipeline: the pipeline cache is not kept across runs (PES17_PERSIST_PIPELINE_CACHE=0)");
         }
 
         VkPipelineCacheCreateInfo info{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };

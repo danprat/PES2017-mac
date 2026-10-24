@@ -2,6 +2,7 @@
 // are ordinary global symbols named sub_XXXXXXXX, so a host backtrace doubles
 // as the guest call stack.
 #include "crash.h"
+#include "profiler.h"
 #include "kernel/kernel.h"
 #include "guest_memory.h"
 #include "watchpoint.h"
@@ -445,6 +446,7 @@ void crash::StopHangMonitor()
 
 void crash::RegisterThread(const char* name)
 {
+    {
     std::lock_guard g(g_threadsLock);
     t_name = g_names.emplace_back(name).c_str();
     g_threads.push_back({ pthread_self(), t_name });
@@ -452,6 +454,8 @@ void crash::RegisterThread(const char* name)
     // Fifteen characters is all it keeps. Not the main thread's: its name is
     // the process's, and `pgrep pes17` has to go on finding it.
     if (!platform::IsMainThread()) platform::SetThreadName(name);
+    }
+    profiler::Note(name);
 }
 
 const char* crash::CurrentThreadName() { return t_name; }
@@ -627,9 +631,12 @@ void crash::Install()
 
 void crash::RegisterThread(const char* name)
 {
-    std::lock_guard g(g_threadsLock);
-    t_name = g_names.emplace_back(name).c_str();
-    if (!platform::IsMainThread()) platform::SetThreadName(name);
+    {
+        std::lock_guard g(g_threadsLock);
+        t_name = g_names.emplace_back(name).c_str();
+        if (!platform::IsMainThread()) platform::SetThreadName(name);
+    }
+    profiler::Note(name);
 }
 
 const char* crash::CurrentThreadName() { return t_name; }

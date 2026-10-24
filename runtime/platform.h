@@ -26,6 +26,7 @@ namespace platform
         PrimeCore,       // Main recompiled game loop (highest frequency core)
         PerformanceCore, // GPU submit / command recorder / rendering
         WorkerCore,      // Background shader warmup / audio / file I/O
+        RenderCore,      // GPU ring consumer / presenter: off the prime core the main thread is on
         Default          // OS scheduler default
     };
 

@@ -400,3 +400,40 @@ cleared. The NDC offset now has the same half pixel (`PA_SU_VTX_CNTL` pix_center
 are background, isolated 1-pixel gap lines in the G-buffer fall from 22 to 1 in a stand block, the stands show no
 bars, and the title, team board, kits (10/10/3/2) and the match are unchanged. Every viewport-off draw (clears and
 pre-transformed quads) lost its last column and row before this; none of the others was visible.
+
+## The POCO X7 Pro (Dimensity 8400, Mali-G720): loading and the unsteady match (October 2026)
+
+Measured with a recorded macro on the phone, a stamped log stream, per-thread scheduler times, a Perfetto
+scheduler trace and `PES17_PROFILE` (below).
+
+**Fixed.**
+1. *The GPU ring consumer shared the main thread's core.* The consumer is created from the main thread, which is
+   pinned to the prime core, and inherited it. During the match load it waited 45 s of 58 in the run queue and the game sat
+   at 1-3 fps for the minute and a half after kick-off. The consumer and the presenter now go to the performance
+   cluster (`ThreadAffinityRole::RenderCore`; `PES17_PINNING=shared` restores the old placement). Same macro: the
+   stall fell to about twenty seconds, then 45-55 fps.
+2. *Pipelines were rebuilt every launch.* The on-disk VkPipelineCache was off on Mali (old driver bugs). On this driver the
+   blob loads and verifies run after run (248 KB, then 3214 KB as more pipelines are met), and prewarming 40 pipelines
+   falls from 609 ms to about 50-90 ms. It is the default now; `PES17_PERSIST_PIPELINE_CACHE=0` turns it off.
+
+**Diagnosed, not fixed: the match holds 30-50 fps.** GPU pass time is about 4.5 ms a frame and the runtime waits 0.00 ms for
+the GPU. The CPU is the limit, in a particular way:
+- The clocks are held well under the hardware maximum while it runs: in a trace the prime core averaged 1.36 GHz (3.25 maximum)
+  and never passed 1.7, the mid cluster 1.3 (3.0), the little cores 0.6. Game Mode Performance (`cmd game mode performance
+  com.pes2017.recomp`) lifted the ceiling to 2.0 GHz, no more. The cap is the system's, not the app's.
+- Sampling shows the main thread is not working at 95%, it is waiting: about half its samples are the engine's
+  yield-spin (`sub_8386CA10` -> `NtYieldExecution` -> `sched_yield`) and about 38% sleep inside the D3D fence wait
+  (`sub_823F70F8`); under 10% is game code. The render thread (routine `83863380`) sleeps in its own D3D waits
+  (`sub_823F6C98`); the ring consumer spends 40% of its time in the 50 us polling sleep of `WAIT_REG_MEM`
+  and the rest mostly in `vk::renderer::Draw` (33%) and the resolve write-back (9-17%). No thread is saturated: a frame is
+  a chain of handoffs, each a sleep and a wake on a slow core.
+- Tried, no gain: the write watch off (`PES17_NO_SHADOW=1`; an earlier claim of 25,000 faults a second was a
+  mis-parsed `/proc/<tid>/stat`: the real minor-fault rate is under 200 a second), a priority boost for the render
+  threads, and 60 fps cutscenes. Releasing the flip handshake from the blank (flip request interval 0) was much worse (13-14 fps
+  against 32).
+
+**`PES17_PROFILE=<names>`** (`runtime/profiler.cpp`, `tools/profile_report.py`): a sampling profiler for phones where
+simpleperf is refused. It signals the threads whose names contain a comma-separated substring about 500 times a second,
+records pc and return addresses, and `touch files/profile_dump` writes them to the log; the report script names the
+functions from the unstripped `build-android/libpes17.so` and the libc offsets (pull the phone's libc and symbolize).
+Set it through `files/env_override`. The first dump after a load is the load's; take a second for the match.

@@ -267,8 +267,16 @@ void platform::SetThreadAffinity(ThreadAffinityRole role)
     static CpuTopology s_topo = DiscoverCpuTopology();
     if (!s_topo.discovered) return;
 
-    // PES17_PINNING: "off" pins nothing; "wide" gives the guest's threads every core but
-    // the prime one. By default they share the performance cluster, which on a 1+3+4 part
+    // The ring consumer and the presenter are always taken off the prime core, unless
+    // PES17_PINNING=shared: they are created from the main thread, which is pinned there,
+    // and inherit it, so the consumer ran on the core the main thread spins on. On the POCO
+    // X7 Pro a match load measured the consumer waiting 45 s of 58 in the run queue, and the
+    // game at 1-3 fps for the minute and a half after kick-off; moved off, the same macro
+    // held 60 fps.
+    //
+    // PES17_PINNING: "off" pins nothing; "wide" (or its old name "split") gives the guest's
+    // threads every core but the prime one. By default the guest's threads
+    // share the performance cluster, which on a 1+3+4 part
     // is three cores for some sixty threads: on the POCO X7 Pro (Dimensity 8400, whose
     // "little" cores are 2.1 GHz A725s) the busy ones waited about as long as they ran.
     static const char* const s_pinning = [] {
@@ -276,7 +284,8 @@ void platform::SetThreadAffinity(ThreadAffinityRole role)
         return value ? value : "";
     }();
     if (std::strcmp(s_pinning, "off") == 0 || std::strcmp(s_pinning, "0") == 0) return;
-    const bool wide = std::strcmp(s_pinning, "wide") == 0;
+    const bool shared = std::strcmp(s_pinning, "shared") == 0;
+    const bool wide = std::strcmp(s_pinning, "split") == 0 || std::strcmp(s_pinning, "wide") == 0;
 
     uint32_t targetMask = 0;
     switch (role)
@@ -290,6 +299,10 @@ void platform::SetThreadAffinity(ThreadAffinityRole role)
         break;
     case ThreadAffinityRole::WorkerCore:
         targetMask = s_topo.workerMask ? s_topo.workerMask : s_topo.perfMask;
+        break;
+    case ThreadAffinityRole::RenderCore:
+        if (shared) return;
+        targetMask = s_topo.perfMask ? s_topo.perfMask : s_topo.primeMask;
         break;
     default:
         return;
