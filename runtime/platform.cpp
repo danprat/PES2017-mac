@@ -22,6 +22,7 @@
 #include <pthread.h>
 #include <sched.h>
 #include <sys/resource.h>
+#include <sys/system_properties.h>
 #include <unistd.h>
 #endif
 
@@ -261,6 +262,16 @@ namespace
     }
 }
 
+static bool IsMaliDevice()
+{
+    static const bool mali = [] {
+        char value[PROP_VALUE_MAX] = {};
+        __system_property_get("ro.hardware.vulkan", value);
+        return std::strcmp(value, "mali") == 0;
+    }();
+    return mali;
+}
+
 void platform::SetThreadAffinity(ThreadAffinityRole role)
 {
     if (role == ThreadAffinityRole::Default) return;
@@ -301,7 +312,11 @@ void platform::SetThreadAffinity(ThreadAffinityRole role)
         targetMask = s_topo.workerMask ? s_topo.workerMask : s_topo.perfMask;
         break;
     case ThreadAffinityRole::RenderCore:
+        // Only where measured: on the S20 FE (Adreno) pinning these to the performance
+        // cluster cost the match its steady 60 fps (43-53 with a wide spread), so there
+        // they inherit the main thread's mask as before. PES17_PINNING=render forces it.
         if (shared) return;
+        if (std::strcmp(s_pinning, "render") != 0 && !IsMaliDevice()) return;
         targetMask = s_topo.perfMask ? s_topo.perfMask : s_topo.primeMask;
         break;
     default:
