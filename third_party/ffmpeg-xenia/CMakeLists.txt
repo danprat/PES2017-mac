@@ -269,6 +269,13 @@ target_compile_options(ffmpeg_xma PRIVATE -w -std=gnu17 -fno-strict-aliasing -fo
 set_target_properties(ffmpeg_xma PROPERTIES POSITION_INDEPENDENT_CODE ON)
 if(NOT WIN32 AND NOT ANDROID)
     target_link_libraries(ffmpeg_xma PUBLIC pthread m)
+    if(APPLE)
+        # decode.c converts subtitle code pages through iconv. Linux answers
+        # the symbols out of libc; macOS keeps them in libiconv, which nothing
+        # below links implicitly, so the first executable to link this subset
+        # failed with "_iconv_open, symbol(s) not found".
+        target_link_libraries(ffmpeg_xma PUBLIC iconv)
+    endif()
 elseif(ANDROID)
     # bionic carries pthread and libm inside libc.
     target_link_libraries(ffmpeg_xma PUBLIC m)
