@@ -324,8 +324,9 @@ if(PES17_HAVE_PPC AND NOT WIN32 AND NOT ANDROID)
 endif()
 
 # The two tools below are for working on the renderer, on Linux.
+if(NOT ANDROID)
 option(PES17_BUILD_TOOLS "Build developer tools (translate-shader, upload-texture)" OFF)
-if(NOT ANDROID AND PES17_BUILD_TOOLS)
+if(PES17_BUILD_TOOLS)
 # ---- offline shader translation -------------------------------------------
 # The translator has to live in the runtime, because the title hands the GPU
 # microcode while it runs. Building it as a tool too gives a fast loop against

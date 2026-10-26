@@ -193,7 +193,7 @@ echo "==> Configuring CMake in $BUILD_DIR..."
 cmake -S . -B "$BUILD_DIR" \
     -G "$GENERATOR" \
     -DCMAKE_BUILD_TYPE=Release \
-    $PREFIX_PATH_ARG
+    ${PREFIX_PATH_ARG:+"$PREFIX_PATH_ARG"}
 
 echo "==> Building project..."
 cmake --build "$BUILD_DIR" -j"$JOBS"
