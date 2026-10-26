@@ -1,9 +1,9 @@
-# PES 2017 Android (Xbox 360 → ARM64 recompilation)
+# PES 2017 Recompiled (Xbox 360 → Native Recompilation)
 
-An ahead-of-time recompilation of *Pro Evolution Soccer 2017* (Xbox 360) to native ARM64 code for Android.
+An ahead-of-time recompilation of *Pro Evolution Soccer 2017* (Xbox 360) to native ARM64 & x86_64 code for **macOS** (Apple Silicon M-series & Intel) and **Android**.
 The game's PowerPC code is translated to C++ with [XenonRecomp](https://github.com/hedge-dev/XenonRecomp)
-and built with the Android NDK. A host runtime stands in for the console's kernel, GPU (Vulkan) and audio,
-and a Kotlin app installs the game files, configures the run and starts the native library.
+and built natively or with the Android NDK. A host runtime stands in for the console's kernel, GPU (Vulkan / MoltenVK Metal) and audio,
+and a launcher app installs the game files, configures settings and starts the native executable.
 
 Status: work in progress. The game boots, renders and plays a match on a Galaxy S20 FE (Snapdragon 865 /
 Adreno 650); performance is limited by heat before it is limited by code. [docs/PORTING.md](docs/PORTING.md)
@@ -54,6 +54,21 @@ the `.cpk` files.
 
 ## Build
 
+### macOS (Apple Silicon & Intel)
+Lihat panduan lengkap di [docs/MACOS.md](docs/MACOS.md).
+
+- **Opsi 1 (1-Click Finder):** Cukup dobel-klik **`Run-PES2017.command`** di Finder. Skrip akan otomatis menyiapkan dependensi, membangun, dan langsung membuka `PES 2017.app`.
+- **Opsi 2 (Download Langsung dari GitHub Actions):** Buka tab **Actions** di repositori GitHub, pilih run terbaru, dan unduh `PES-2017-macOS-AppleSilicon.zip` atau `PES-2017-macOS-Intel.zip`.
+- **Opsi 3 (Manual Terminal):**
+  ```bash
+  # 1. Install dependensi via Homebrew
+  brew install cmake ninja molten-vk sdl3 vulkan-headers python3
+
+  # 2. Build dan buat PES 2017.app
+  ./build-macos.sh --package
+  ```
+
+### Android (ARM64)
 ```bash
 GAME=../GAME ./build.sh            # recompile PPC -> C++ and build libpes17.so (arm64-v8a)
 tools/deploy.sh                    # runtime-only rebuild, package, install and launch on the connected phone
@@ -99,6 +114,7 @@ Game files go to `Android/data/com.pes2017.recomp/files/game/` (about 6.5 GB; pl
 
 | | |
 |---|---|
+| [docs/MACOS.md](docs/MACOS.md) | macOS (Apple Silicon & Intel) setup and build guide |
 | [docs/PORTING.md](docs/PORTING.md) | status, what is fixed, what blocks next |
 | [docs/performance.md](docs/performance.md) | in-match measurements on the phone |
 | [docs/RECOMP_RESEARCH.md](docs/RECOMP_RESEARCH.md) | recompiler findings and pipeline options |

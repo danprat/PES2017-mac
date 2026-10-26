@@ -15,6 +15,9 @@
 #include "../runtime/gpu/vulkan/texture_formats.h"
 #include "../runtime/gpu/vulkan/texture_cache.h"
 #include "../runtime/stutters.h"
+#include "../runtime/stream_trace.h"
+
+void stream_trace::Texture(const char*, uint32_t, uint32_t, uint32_t, uint32_t) {}
 
 #include <cstdio>
 #include <cstdlib>

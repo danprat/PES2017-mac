@@ -33,7 +33,13 @@ if(NOT TARGET Vulkan::Vulkan)
     if(WIN32)
         include("${CMAKE_CURRENT_SOURCE_DIR}/../cmake/vulkan-windows.cmake")
     else()
+        if(APPLE)
+            list(APPEND CMAKE_PREFIX_PATH "/opt/homebrew" "/usr/local" "$ENV{VULKAN_SDK}")
+        endif()
         find_package(Vulkan)
+        if(NOT Vulkan_FOUND)
+            include("${CMAKE_CURRENT_SOURCE_DIR}/../cmake/vulkan-headers.cmake")
+        endif()
     endif()
 endif()
 
@@ -131,3 +137,8 @@ add_executable(dynamic-scale-test
     "${CMAKE_CURRENT_SOURCE_DIR}/dynamic_scale_test.cpp")
 target_include_directories(dynamic-scale-test PRIVATE "${PES17_RUNTIME}")
 add_test(NAME dynamic-scale COMMAND dynamic-scale-test)
+
+# ---- guest physical memory bank aliasing (macOS / POSIX) --------------------
+add_executable(guest-memory-bank-test
+    "${CMAKE_CURRENT_SOURCE_DIR}/guest_memory_bank_test.cpp")
+add_test(NAME guest-memory-bank COMMAND guest-memory-bank-test)

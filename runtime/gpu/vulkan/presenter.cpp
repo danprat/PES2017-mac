@@ -213,18 +213,42 @@ namespace
     bool InstanceHasExtension(const char* name)
     {
         uint32_t count = 0;
-        if (vkEnumerateInstanceExtensionProperties(name, &count, nullptr) != VK_SUCCESS || !count)
+        if (vkEnumerateInstanceExtensionProperties(nullptr, &count, nullptr) != VK_SUCCESS || !count)
             return false;
         std::vector<VkExtensionProperties> offered(count);
-        if (vkEnumerateInstanceExtensionProperties(name, &count, offered.data()) != VK_SUCCESS)
+        if (vkEnumerateInstanceExtensionProperties(nullptr, &count, offered.data()) != VK_SUCCESS)
             return false;
         for (const auto& e : offered)
             if (std::strcmp(e.extensionName, name) == 0) return true;
         return false;
     }
 
+#ifndef VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME
+#define VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME "VK_KHR_portability_enumeration"
+#endif
+#ifndef VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR
+#define VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR 0x00000001
+#endif
+
     bool CreateInstance()
     {
+#ifdef __APPLE__
+        // Ensure MoltenVK ICD is discovered by the Vulkan loader if unset
+        if (!std::getenv("VK_DRIVER_FILES") && !std::getenv("VK_ICD_FILENAMES"))
+        {
+            for (const char* icd : {
+                "/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json",
+                "/usr/local/share/vulkan/icd.d/MoltenVK_icd.json"
+            })
+            {
+                if (access(icd, R_OK) == 0)
+                {
+                    setenv("VK_DRIVER_FILES", icd, 0);
+                    break;
+                }
+            }
+        }
+#endif
         std::vector<const char*> extensions;
 #ifdef PES17_ANDROID
         // Android has one window system and it is always there.
@@ -291,6 +315,11 @@ namespace
         VkInstanceCreateInfo info{ VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };
         info.pNext = validating ? &messenger : nullptr;   // instance creation's own messages
         info.pApplicationInfo = &app;
+        if (InstanceHasExtension(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME))
+        {
+            extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+            info.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+        }
         info.enabledExtensionCount = uint32_t(extensions.size());
         info.ppEnabledExtensionNames = extensions.data();
         if (!Check(vkCreateInstance(&info, nullptr, &g.instance), "vkCreateInstance")) return false;
@@ -1185,7 +1214,7 @@ namespace
         // borderless at the desktop's resolution, which SDL gives a window
         // asked for fullscreen without a mode of its own. F8 toggles it.
         g.fullscreen = env::Flag("PES17_FULLSCREEN");
-        g.window = SDL_CreateWindow("Modern Warfare 2", kWidth, kHeight,
+        g.window = SDL_CreateWindow("PES 2017", kWidth, kHeight,
                                     SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE |
                                     (g.fullscreen ? SDL_WINDOW_FULLSCREEN : 0));
         if (!g.window) { LOGW("vulkan: no window (%s)", SDL_GetError()); return false; }

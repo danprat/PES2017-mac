@@ -71,6 +71,9 @@ namespace
     // handler after something has already gone wrong.
     void PrintMapping(const void* address)
     {
+#if defined(__APPLE__)
+        (void)address;
+#else
         const int fd = ::open("/proc/self/maps", O_RDONLY);
         if (fd < 0) return;
         const uintptr_t want = uintptr_t(address);
@@ -101,6 +104,7 @@ namespace
         }
         if (!found) std::fprintf(stderr, "[E] mapped as: nothing -- the address is in no mapping\n");
         ::close(fd);
+#endif
     }
 
     void DescribeFault(int sig, siginfo_t* info, const void* addr)
@@ -196,6 +200,21 @@ namespace
         // Async-signal-safe enough: plain reads + fprintf, like the rest here.
         {
             ucontext_t* uc = static_cast<ucontext_t*>(uctx);
+#if defined(__APPLE__)
+            const unsigned long long pc = uc->uc_mcontext->__ss.__pc;
+            const unsigned long long sp = uc->uc_mcontext->__ss.__sp;
+            std::fprintf(stderr, "[E] fault host pc %016llX on thread %s\n",
+                         pc, t_name ? t_name : "?");
+            for (int r = 0; r < 29; r += 2)
+                std::fprintf(stderr, "[E]   x%-2d %016llX  x%-2d %016llX\n",
+                             r, (unsigned long long)uc->uc_mcontext->__ss.__x[r],
+                             r + 1, (unsigned long long)uc->uc_mcontext->__ss.__x[r + 1]);
+            std::fprintf(stderr, "[E]   x29 %016llX  x30 %016llX\n",
+                         (unsigned long long)uc->uc_mcontext->__ss.__fp,
+                         (unsigned long long)uc->uc_mcontext->__ss.__lr);
+            std::fprintf(stderr, "[E]   sp %016llX\n", sp);
+            std::fflush(stderr);
+#else
             const unsigned long long pc = uc->uc_mcontext.pc;
             // This library's executable range, so code addresses below get a
             // mark (same /proc/self/maps walk as PrintMapping above).
@@ -242,6 +261,7 @@ namespace
                          (unsigned long long)uc->uc_mcontext.regs[30],
                          (unsigned long long)uc->uc_mcontext.sp);
             std::fflush(stderr);
+#endif
             // The return-address chain survives even when the fault PC is
             // garbage (as here): any word pointing into this library's code
             // is a caller and resolves offline. 32-bit words in the guest

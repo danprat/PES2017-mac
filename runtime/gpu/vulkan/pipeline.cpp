@@ -273,6 +273,11 @@ bool vk::pipeline::CreateDevice(void* physicalDevice, uint32_t family,
     // its own without the driver giving up compression; naming it in an image's
     // pNext without enabling it is invalid.
     std::vector<const char*> extensions(extraExtensions, extraExtensions + extraCount);
+#ifndef VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME
+#define VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME "VK_KHR_portability_subset"
+#endif
+    if (DeviceHasExtension(physical, VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME))
+        extensions.push_back(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME);
     if (DeviceHasExtension(physical, VK_KHR_IMAGE_FORMAT_LIST_EXTENSION_NAME))
         extensions.push_back(VK_KHR_IMAGE_FORMAT_LIST_EXTENSION_NAME);
     // MSAA depth surfaces are read back through a render pass resolve. That is

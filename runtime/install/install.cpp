@@ -18,6 +18,10 @@
 #ifdef _WIN32
 #include <windows.h>
 #endif
+#ifdef __APPLE__
+#include <mach-o/dyld.h>
+#include <climits>
+#endif
 #ifdef PES17_USE_SDL
 #include <SDL3/SDL.h>
 #endif
@@ -77,9 +81,21 @@ namespace
         wchar_t path[MAX_PATH * 4];
         const DWORD length = GetModuleFileNameW(nullptr, path, DWORD(std::size(path)));
         return fs::path(std::wstring(path, length)).parent_path();
+#elif defined(__APPLE__)
+        char path[PATH_MAX] = {0};
+        uint32_t size = sizeof(path);
+        if (_NSGetExecutablePath(path, &size) == 0)
+        {
+            char real[PATH_MAX] = {0};
+            if (realpath(path, real)) return fs::path(real).parent_path();
+            return fs::path(path).parent_path();
+        }
+        return fs::current_path();
 #else
         std::error_code ec;
-        return fs::read_symlink("/proc/self/exe", ec).parent_path();
+        auto p = fs::read_symlink("/proc/self/exe", ec);
+        if (!ec && !p.empty()) return p.parent_path();
+        return fs::current_path();
 #endif
     }
 
@@ -88,7 +104,7 @@ namespace
         LOGE("%s", text.c_str());
         std::fprintf(stderr, "%s\n", text.c_str());
 #ifdef PES17_USE_SDL
-        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Modern Warfare 2", text.c_str(), nullptr);
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "PES 2017", text.c_str(), nullptr);
 #endif
 #ifdef PES17_ANDROID
         android::SetStatus(text.c_str());

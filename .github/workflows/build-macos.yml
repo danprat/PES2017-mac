@@ -1,0 +1,56 @@
+name: Build macOS App
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build macOS (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            arch: arm64
+            name: AppleSilicon
+          - os: macos-13
+            arch: x86_64
+            name: Intel
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies via Homebrew
+        run: |
+          brew update --quiet || true
+          brew install cmake ninja molten-vk sdl3 vulkan-headers
+
+      - name: Build PES 2017 and Package Application Bundle
+        run: |
+          chmod +x build-macos.sh tools/package_macos.sh Run-PES2017.command
+          ./build-macos.sh --package
+
+      - name: Create Zip Archive
+        run: |
+          zip -r -y "PES-2017-macOS-${{ matrix.name }}.zip" "PES 2017.app"
+
+      - name: Upload PES 2017.app Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PES-2017-macOS-${{ matrix.name }}
+          path: PES-2017-macOS-${{ matrix.name }}.zip
+          retention-days: 14

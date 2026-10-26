@@ -8,6 +8,9 @@
 #include <windows.h>
 #else
 #include <sys/utsname.h>
+#ifdef __APPLE__
+#include <sys/sysctl.h>
+#endif
 #endif
 #include <SDL3/SDL.h>
 
@@ -134,6 +137,11 @@ namespace
         // Windows 11 still calls itself 10 there; the build number tells them apart.
         if (std::atoi(build.c_str()) >= 22000) ReplaceAll(name, "Windows 10", "Windows 11");
         return name + " " + Registry(key, L"DisplayVersion") + " (build " + build + ")";
+#elif defined(__APPLE__)
+        std::string name = "macOS";
+        utsname kernel{};
+        if (uname(&kernel) == 0) name += std::string(", Darwin ") + kernel.release;
+        return name;
 #else
         std::string name = "Linux";
         std::ifstream release("/etc/os-release");
@@ -157,6 +165,13 @@ namespace
         std::string name;
 #ifdef _WIN32
         name = Registry(L"HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0", L"ProcessorNameString");
+#elif defined(__APPLE__)
+        char buffer[128] = {};
+        size_t len = sizeof(buffer);
+        if (sysctlbyname("machdep.cpu.brand_string", buffer, &len, nullptr, 0) == 0 && len > 0)
+            name = buffer;
+        else
+            name = "Apple Silicon";
 #else
         std::ifstream cpu("/proc/cpuinfo");
         for (std::string line; std::getline(cpu, line);)

@@ -22,7 +22,9 @@
 #include <pthread.h>
 #include <sched.h>
 #include <sys/resource.h>
+#if defined(__ANDROID__)
 #include <sys/system_properties.h>
+#endif
 #include <unistd.h>
 #endif
 
@@ -165,6 +167,31 @@ void* platform::Symbol(void* library, const char* name)
 #else
 
 void platform::Initialise() {}
+
+#if defined(__APPLE__)
+uint32_t platform::ThreadId()
+{
+    uint64_t tid = 0;
+    pthread_threadid_np(nullptr, &tid);
+    return uint32_t(tid);
+}
+bool platform::IsMainThread() { return pthread_main_np() != 0; }
+
+void platform::SetThreadName(const char* name)
+{
+    pthread_setname_np(name);
+}
+
+void platform::LowerThreadPriority()
+{
+    setpriority(PRIO_DARWIN_THREAD, 0, PRIO_DARWIN_BG);
+}
+
+void platform::IdleThreadPriority()
+{
+    LowerThreadPriority();
+}
+#else
 uint32_t platform::ThreadId() { return uint32_t(gettid()); }
 bool platform::IsMainThread() { return gettid() == getpid(); }
 
@@ -179,9 +206,14 @@ void platform::LowerThreadPriority() { setpriority(PRIO_PROCESS, static_cast<id_
 
 void platform::IdleThreadPriority()
 {
+#if defined(SCHED_IDLE)
     sched_param none{};
     if (pthread_setschedparam(pthread_self(), SCHED_IDLE, &none) != 0) LowerThreadPriority();
+#else
+    LowerThreadPriority();
+#endif
 }
+#endif
 
 namespace
 {
@@ -264,12 +296,16 @@ namespace
 
 static bool IsMaliDevice()
 {
+#if defined(__ANDROID__)
     static const bool mali = [] {
         char value[PROP_VALUE_MAX] = {};
         __system_property_get("ro.hardware.vulkan", value);
         return std::strcmp(value, "mali") == 0;
     }();
     return mali;
+#else
+    return false;
+#endif
 }
 
 void platform::SetThreadAffinity(ThreadAffinityRole role)
@@ -325,6 +361,7 @@ void platform::SetThreadAffinity(ThreadAffinityRole role)
 
     if (!targetMask) return;
 
+#if defined(__linux__)
     cpu_set_t cpuset;
     CPU_ZERO(&cpuset);
     for (int i = 0; i < 32; ++i)
@@ -333,6 +370,10 @@ void platform::SetThreadAffinity(ThreadAffinityRole role)
             CPU_SET(i, &cpuset);
     }
     sched_setaffinity(0, sizeof(cpu_set_t), &cpuset);
+#else
+    // macOS / BSD: OS scheduler dynamically balances threads across performance and efficiency cores.
+    (void)targetMask;
+#endif
 }
 
 #if defined(__ANDROID__)

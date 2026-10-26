@@ -130,7 +130,7 @@ union XDBFTitleID
 {
     struct
     {
-        be<uint16_t> u16;
+        uint16_t u16;
         char u8[0x02];
     };
 

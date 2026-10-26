@@ -41,6 +41,8 @@
   /* ARM64 */
   #if defined(_WIN32)
     #define SLIBSUF ".dll"
+  #elif defined(__APPLE__)
+    #define SLIBSUF ".dylib"
   #else
     #define SLIBSUF ".so"
   #endif
@@ -279,15 +281,29 @@
   #define HAVE_SLEEP 1
   #define HAVE_VIRTUALALLOC 1
 #else
-  /* POSIX (Linux, Android) */
+  /* POSIX (Linux, Android, macOS) */
   #define HAVE_DOS_PATHS 0
   #define HAVE_PTHREADS 1
   #define HAVE_INLINE_ASM 1
   #define HAVE_UNISTD_H 1
   #define HAVE_ARPA_INET_H 1
+#ifdef __APPLE__
+  #define HAVE_ASM_TYPES_H 0
+  #define HAVE_LINUX_PERF_EVENT_H 0
+  #define HAVE_SEM_TIMEDWAIT 0
+  #define HAVE_SCHED_GETAFFINITY 0
+  #define HAVE_MEMALIGN 0
+  #define HAVE_STRUCT_STAT_ST_MTIM_TV_NSEC 0
+  #define HAVE_STRUCT_STAT_ST_MTIMESPEC_TV_NSEC 1
+#else
   #define HAVE_ASM_TYPES_H 1
-  #define HAVE_DIRENT_H 1
   #define HAVE_LINUX_PERF_EVENT_H 1
+  #define HAVE_SEM_TIMEDWAIT 1
+  #define HAVE_SCHED_GETAFFINITY 1
+  #define HAVE_MEMALIGN 1
+  #define HAVE_STRUCT_STAT_ST_MTIM_TV_NSEC 1
+#endif
+  #define HAVE_DIRENT_H 1
   #define HAVE_POLL_H 1
   #define HAVE_SYS_PARAM_H 1
   #define HAVE_SYS_RESOURCE_H 1
@@ -295,7 +311,6 @@
   #define HAVE_SYS_TIME_H 1
   #define HAVE_SYS_UN_H 1
   #define HAVE_TERMIOS_H 1
-  #define HAVE_SEM_TIMEDWAIT 1
   #define HAVE_SYNC_VAL_COMPARE_AND_SWAP 1
 #ifdef __APPLE__
   #define HAVE_SECTION_DATA_REL_RO 0
@@ -312,13 +327,11 @@
   #define HAVE_INET_ATON 1
   #define HAVE_LOCALTIME_R 1
   #define HAVE_LSTAT 1
-  #define HAVE_MEMALIGN 1
   #define HAVE_MKSTEMP 1
   #define HAVE_MMAP 1
   #define HAVE_MPROTECT 1
   #define HAVE_NANOSLEEP 1
   #define HAVE_POSIX_MEMALIGN 1
-  #define HAVE_SCHED_GETAFFINITY 1
   #define HAVE_SETRLIMIT 1
   #define HAVE_STRERROR_R 1
   #define HAVE_SYSCONF 1
@@ -337,11 +350,15 @@
   #define HAVE_STRUCT_RUSAGE_RU_MAXRSS 1
   #define HAVE_STRUCT_SOCKADDR_IN6 1
   #define HAVE_STRUCT_SOCKADDR_STORAGE 1
-  #define HAVE_STRUCT_STAT_ST_MTIM_TV_NSEC 1
   #define CONFIG_PIC 1
   #if defined(__ANDROID__)
     #define HAVE_ARC4RANDOM 1
     #define HAVE_RSYNC_CONTIMEOUT 1
+  #elif defined(__APPLE__)
+    #define HAVE_ARC4RANDOM 1
+    #define HAVE_PTHREAD_CANCEL 1
+    #define HAVE_GLOB 1
+    #define CONFIG_ICONV 1
   #else
     /* Linux desktop */
     #define HAVE_PTHREAD_CANCEL 1

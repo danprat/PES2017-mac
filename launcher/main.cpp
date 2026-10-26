@@ -24,6 +24,9 @@
 #include <windows.h>
 #include <shellapi.h>
 #include <tlhelp32.h>
+#elif defined(__APPLE__)
+#include <libproc.h>
+#include <unistd.h>
 #endif
 #include <SDL3/SDL.h>
 #include <imgui.h>
@@ -171,6 +174,27 @@ namespace
             running = !_wcsicmp(process.szExeFile, L"pes17-sp.exe") || !_wcsicmp(process.szExeFile, L"pes17-mp.exe");
         CloseHandle(snapshot);
         return running;
+#elif defined(__APPLE__)
+        int pids[2048];
+        int bytes = proc_listpids(PROC_ALL_PIDS, 0, pids, sizeof(pids));
+        if (bytes > 0)
+        {
+            int n = bytes / static_cast<int>(sizeof(int));
+            char pathbuf[PROC_PIDPATHINFO_MAXSIZE];
+            std::error_code ec;
+            const fs::path campaign = fs::weakly_canonical(kCampaign, ec), multiplayer = fs::weakly_canonical(kMultiplayer, ec);
+            for (int i = 0; i < n; ++i)
+            {
+                if (pids[i] <= 0) continue;
+                if (proc_pidpath(pids[i], pathbuf, sizeof(pathbuf)) > 0)
+                {
+                    std::error_code ignored;
+                    const fs::path program = fs::weakly_canonical(pathbuf, ignored);
+                    if (!ignored && (program == campaign || program == multiplayer)) return true;
+                }
+            }
+        }
+        return false;
 #else
         // The two programs beside the launcher, by the file each process runs.
         std::error_code ec;

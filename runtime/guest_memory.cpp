@@ -22,7 +22,11 @@
 #  include <unistd.h>
 #  include <sys/syscall.h>
 #  include <fcntl.h>
+#  include <climits>
 #  include <string>
+#  ifndef MAP_NORESERVE
+#    define MAP_NORESERVE 0
+#  endif
 #  ifdef PES17_ANDROID
 #    include "android/android.h"
 #  endif
@@ -155,9 +159,24 @@ namespace
     // windows need is a descriptor two mappings can share, not a memfd.
     int OpenBankDescriptor()
     {
+#if defined(SYS_memfd_create)
         const int fd = int(syscall(SYS_memfd_create, "pes17-physical", 0));
         if (fd >= 0) return fd;
-#ifdef PES17_ANDROID
+#endif
+#if defined(__APPLE__)
+        const char* tmpDir = std::getenv("TMPDIR");
+        if (!tmpDir || !*tmpDir) tmpDir = "/tmp";
+        char path[PATH_MAX];
+        std::snprintf(path, sizeof(path), "%s/pes17-physical.XXXXXX", tmpDir);
+        const int file = mkstemp(path);
+        if (file >= 0)
+        {
+            // Unlink immediately: the file remains accessible via the descriptor,
+            // backed by RAM/disk buffer, and is automatically removed when closed.
+            unlink(path);
+            return file;
+        }
+#elif defined(PES17_ANDROID)
         const std::string path = android::Paths().cache + "/physical.bank";
         const int file = open(path.c_str(), O_RDWR | O_CREAT | O_TRUNC, 0600);
         if (file >= 0)
@@ -166,6 +185,14 @@ namespace
             // disk if the process dies.
             unlink(path.c_str());
             LOGW("memfd_create refused; the physical bank is an unlinked cache file");
+            return file;
+        }
+#else
+        char path[] = "/tmp/pes17-physical.XXXXXX";
+        const int file = mkstemp(path);
+        if (file >= 0)
+        {
+            unlink(path);
             return file;
         }
 #endif
