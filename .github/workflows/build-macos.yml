@@ -3,9 +3,15 @@ name: Build macOS App
 on:
   push:
     branches: [ main ]
+    tags: [ 'v*' ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
+
+# The tag-triggered build publishes its zip straight to a GitHub Release, so
+# building the tag is also creating it.
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -17,13 +23,13 @@ jobs:
         include:
           # macos-14 is deprecated and macos-13's Intel image is retired --
           # jobs pointed at it queued for an hour and never started. macos-15
-          # carries both chips: arm64 native, x64 as macos-15-large.
+          # is the current arm64 image. The Intel sibling (macos-15-large) is
+          # a larger runner the account's spending limit has to answer for,
+          # so the CI carries only the chip that actually starts;
+          # build-macos.sh still builds x86_64 natively on a Mac Intel.
           - os: macos-15
             arch: arm64
             name: AppleSilicon
-          - os: macos-15-large
-            arch: x86_64
-            name: Intel
 
     steps:
       - name: Checkout repository
@@ -57,3 +63,14 @@ jobs:
           name: PES-2017-macOS-${{ matrix.name }}
           path: PES-2017-macOS-${{ matrix.name }}.zip
           retention-days: 14
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            --repo "${{ github.repository }}" \
+            --title "PES 2017 for macOS ${{ github.ref_name }}" \
+            --notes "Standalone PES 2017.app (${{ matrix.arch }}). Double-click PES2017 in the app to run it; see docs/MACOS.md for the full setup." \
+            "PES-2017-macOS-${{ matrix.name }}.zip"
