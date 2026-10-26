@@ -279,9 +279,30 @@ elseif(ANDROID)
     set(Vulkan_LIBRARY "loaded at run time")
 else()
     if(APPLE)
-        list(APPEND CMAKE_PREFIX_PATH "/opt/homebrew" "/usr/local" "$ENV{VULKAN_SDK}")
+        list(APPEND CMAKE_PREFIX_PATH "/opt/homebrew" "/usr/local" "$ENV{VULKAN_SDK}" "/opt/homebrew/opt/vulkan-loader" "/opt/homebrew/opt/molten-vk")
     endif()
     find_package(Vulkan)
+    if(APPLE AND (NOT Vulkan_FOUND OR NOT Vulkan_LIBRARY OR Vulkan_LIBRARY MATCHES "headers only"))
+        find_library(VULKAN_DYLIB NAMES vulkan MoltenVK PATHS
+            /opt/homebrew/lib
+            /usr/local/lib
+            /opt/homebrew/opt/vulkan-loader/lib
+            /opt/homebrew/opt/molten-vk/lib
+            "$ENV{VULKAN_SDK}/lib")
+        if(VULKAN_DYLIB)
+            set(Vulkan_FOUND TRUE)
+            set(Vulkan_LIBRARY "${VULKAN_DYLIB}")
+            set(Vulkan_LIBRARIES "${VULKAN_DYLIB}")
+            if(TARGET Vulkan::Vulkan)
+                set_target_properties(Vulkan::Vulkan PROPERTIES
+                    INTERFACE_LINK_LIBRARIES "${VULKAN_DYLIB}")
+            else()
+                add_library(Vulkan::Vulkan UNKNOWN IMPORTED)
+                set_target_properties(Vulkan::Vulkan PROPERTIES
+                    IMPORTED_LOCATION "${VULKAN_DYLIB}")
+            endif()
+        endif()
+    endif()
     if(NOT Vulkan_FOUND)
         include(cmake/vulkan-headers.cmake)
     endif()
@@ -303,7 +324,8 @@ if(PES17_HAVE_PPC AND NOT WIN32 AND NOT ANDROID)
 endif()
 
 # The two tools below are for working on the renderer, on Linux.
-if(NOT ANDROID)
+option(PES17_BUILD_TOOLS "Build developer tools (translate-shader, upload-texture)" OFF)
+if(NOT ANDROID AND PES17_BUILD_TOOLS)
 # ---- offline shader translation -------------------------------------------
 # The translator has to live in the runtime, because the title hands the GPU
 # microcode while it runs. Building it as a tool too gives a fast loop against
@@ -319,7 +341,7 @@ add_executable(translate-shader
 target_include_directories(translate-shader PRIVATE "${CMAKE_SOURCE_DIR}/runtime")
 # --compile puts a translated module in front of the real driver, which is a
 # stronger check than spirv-val: it is the compiler that would run the shader.
-if(Vulkan_FOUND)
+if(Vulkan_FOUND AND Vulkan_LIBRARIES AND NOT Vulkan_LIBRARY MATCHES "headers only")
     target_link_libraries(translate-shader PRIVATE Vulkan::Vulkan)
     target_compile_definitions(translate-shader PRIVATE PES17_HAVE_VULKAN=1)
 endif()
@@ -340,9 +362,10 @@ add_executable(upload-texture
     "${CMAKE_SOURCE_DIR}/runtime/gpu/vulkan/shader_translator.cpp"
     "${CMAKE_SOURCE_DIR}/runtime/gpu/vulkan/spirv.cpp")
 target_include_directories(upload-texture PRIVATE "${CMAKE_SOURCE_DIR}/runtime")
-if(Vulkan_FOUND)
+if(Vulkan_FOUND AND Vulkan_LIBRARIES AND NOT Vulkan_LIBRARY MATCHES "headers only")
     target_link_libraries(upload-texture PRIVATE Vulkan::Vulkan)
     target_compile_definitions(upload-texture PRIVATE PES17_HAVE_VULKAN=1)
+endif()
 endif()
 
 # ---- the software decoder's speed ------------------------------------------

@@ -37,7 +37,7 @@ jobs:
       - name: Install dependencies via Homebrew
         run: |
           brew update --quiet || true
-          brew install cmake ninja molten-vk sdl3 vulkan-headers
+          brew install cmake ninja molten-vk sdl3 vulkan-headers vulkan-loader
 
       - name: Build PES 2017 and Package Application Bundle
         run: |

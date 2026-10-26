@@ -24,7 +24,7 @@ Gunakan [Homebrew](https://brew.sh) untuk menginstal pustaka yang dibutuhkan:
 xcode-select --install
 
 # 2. Install dependensi via Homebrew
-brew install cmake ninja molten-vk sdl3 vulkan-headers python3
+brew install cmake ninja molten-vk sdl3 vulkan-headers vulkan-loader python3
 ```
 
 > [!NOTE]

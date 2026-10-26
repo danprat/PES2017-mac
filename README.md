@@ -62,7 +62,7 @@ Lihat panduan lengkap di [docs/MACOS.md](docs/MACOS.md).
 - **Opsi 3 (Manual Terminal):**
   ```bash
   # 1. Install dependensi via Homebrew
-  brew install cmake ninja molten-vk sdl3 vulkan-headers python3
+  brew install cmake ninja molten-vk sdl3 vulkan-headers vulkan-loader python3
 
   # 2. Build dan buat PES 2017.app
   ./build-macos.sh --package

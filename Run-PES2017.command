@@ -46,8 +46,8 @@ if ! command -v brew >/dev/null 2>&1; then
 fi
 
 # 2. Install dependencies via Homebrew
-echo "==> Ensuring required libraries are installed (cmake, ninja, molten-vk, sdl3, vulkan-headers)..."
-brew install cmake ninja molten-vk sdl3 vulkan-headers python3 2>/dev/null || true
+echo "==> Ensuring required libraries are installed (cmake, ninja, molten-vk, sdl3, vulkan-headers, vulkan-loader)..."
+brew install cmake ninja molten-vk sdl3 vulkan-headers vulkan-loader python3 2>/dev/null || true
 
 # 3. Build and package
 echo "==> Building PES 2017 and creating PES 2017.app..."

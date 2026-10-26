@@ -2,7 +2,7 @@
 # PES 2017 (Xbox 360) -> native macOS (Apple Silicon arm64 & Intel x86_64) build script.
 #
 # Prerequisites (install via Homebrew: https://brew.sh):
-#   brew install cmake ninja molten-vk sdl3 vulkan-headers
+#   brew install cmake ninja molten-vk sdl3 vulkan-headers vulkan-loader
 #
 # Optional environment variables:
 #   GAME=<path>         Path to extracted Xbox 360 game folder containing default.xex (default: ./pes or ../GAME)
@@ -77,6 +77,7 @@ if [ -n "$BREW_PREFIX" ]; then
     [ -d "$BREW_PREFIX/opt/molten-vk" ] && CMAKE_PREFIX_DIRS+=("$BREW_PREFIX/opt/molten-vk")
     [ -d "$BREW_PREFIX/opt/sdl3" ] && CMAKE_PREFIX_DIRS+=("$BREW_PREFIX/opt/sdl3")
     [ -d "$BREW_PREFIX/opt/vulkan-headers" ] && CMAKE_PREFIX_DIRS+=("$BREW_PREFIX/opt/vulkan-headers")
+    [ -d "$BREW_PREFIX/opt/vulkan-loader" ] && CMAKE_PREFIX_DIRS+=("$BREW_PREFIX/opt/vulkan-loader")
 fi
 
 if [ -n "${VULKAN_SDK:-}" ] && [ -d "$VULKAN_SDK" ]; then
